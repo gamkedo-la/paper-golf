@@ -6,12 +6,11 @@
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "TutorialTrackingSubsystem.generated.h"
 
-// TODO: Refactor to UI module
 /**
  * 
  */
 UCLASS()
-class PAPERGOLF_API UTutorialTrackingSubsystem : public UGameInstanceSubsystem
+class PGUI_API UTutorialTrackingSubsystem : public UGameInstanceSubsystem
 {
 	GENERATED_BODY()
 
