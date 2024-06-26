@@ -85,7 +85,7 @@ cpp_naming_style.swidget_style.required_prefix             = S
 cpp_naming_style.swidget_style.required_suffix             =
 cpp_naming_style.swidget_style.word_separator              =
 
-cpp_naming_style.boolean_style.capitalization              = pascal_case
+cpp_naming_style.boolean_style.capitalization              = camel_case
 cpp_naming_style.boolean_style.required_prefix             = b
 cpp_naming_style.boolean_style.required_suffix             =
 cpp_naming_style.boolean_style.word_separator              =
