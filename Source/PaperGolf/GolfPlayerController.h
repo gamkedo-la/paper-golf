@@ -45,34 +45,23 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void OnScored();
 
-
-// TODO: These are protected for blueprint to C++ refactor intermediate step
-protected:
-	UFUNCTION(BlueprintCallable)
-	void AddToShotHistory(APaperGolfPawn* PaperGolfPawn);
-
-	UFUNCTION(BlueprintCallable)
-	void SnapToGround();
-
-	void BeginPlay() override;
-
-	UFUNCTION(BlueprintPure)
-	bool IsFlickedAtRest() const;
-
 	UFUNCTION(BlueprintPure)
 	bool IsReadyForShot() const;
 
-	UFUNCTION(BlueprintCallable)
-	void DrawFlickLocation();
-
-	UFUNCTION(BlueprintCallable)
-	void ProcessFlickZInput(float FlickZInput);
+protected:
+	void BeginPlay() override;
 
 	UFUNCTION(BlueprintCallable)
 	void InitFocusableActors();
 
 	UFUNCTION(BlueprintCallable)
-	void ResetFlickZ();
+	void SnapToGround();
+
+	UFUNCTION(BlueprintCallable)
+	void ProcessFlickZInput(float FlickZInput);
+
+	UFUNCTION(BlueprintCallable)
+	void ProcessShootInput();
 
 	UFUNCTION(BlueprintCallable)
 	void AddPaperGolfPawnRelativeRotation(const FRotator& DeltaRotation);
@@ -83,27 +72,30 @@ protected:
 	UFUNCTION(BlueprintCallable)
 	void HandleFallThroughFloor();
 
-	UFUNCTION(BlueprintCallable)
-	void ProcessShootInput();
-
-	UFUNCTION(BlueprintCallable)
-	void AddStroke();
-
-	UFUNCTION(BlueprintCallable)
-	void NextHole();
-
 	// TODO: May want to move this to game mode
 	UFUNCTION(BlueprintCallable)
 	void HandleOutOfBounds();
 
-	UFUNCTION(BlueprintCallable)
+private:
+	void AddToShotHistory(APaperGolfPawn* PaperGolfPawn);
+
+	bool IsFlickedAtRest() const;
+
+	void DrawFlickLocation();
+
+	void ResetFlickZ();
+
+	void AddStroke();
+
+	void NextHole();
+
 	void ResetShotAfterOutOfBounds();
 
 private:
 	APaperGolfPawn* GetPaperGolfPawn();
 	const APaperGolfPawn* GetPaperGolfPawn() const;
 
-	bool HasLOSToFocus(const FVector& Position, const AActor* FocusActor) const; \
+	bool HasLOSToFocus(const FVector& Position, const AActor* FocusActor) const;
 
 	void SetPositionTo(const FVector& Position);
 

@@ -67,16 +67,12 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void PostInitializeComponents() override;
 
-	// TODO: Many of these are protected and exposed to blueprints for blueprint refactoring
-	UFUNCTION(BlueprintPure)
+
+private:
+
 	float GetFlickMaxForce() const;
-
-	UFUNCTION(BlueprintCallable)
 	void SetCameraForFlick();
-
-	UFUNCTION(BlueprintCallable)
 	void ResetCameraForShotSetup();
-
 
 private:
 
