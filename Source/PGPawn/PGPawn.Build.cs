@@ -2,9 +2,9 @@
 
 using UnrealBuildTool;
 
-public class PGAI : ModuleRules
+public class PGPawn : ModuleRules
 {
-	public PGAI(ReadOnlyTargetRules Target) : base(Target)
+	public PGPawn(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
@@ -31,13 +31,11 @@ public class PGAI : ModuleRules
 		// Private dependencies do not create transitive header dependencies.
 		var modulePrivateDependencyModuleNames = new string[]
 		{
+			"PGCore",
 		};
 
 		var enginePrivateDependencyModuleNames = new string[] 
 		{
-			"PGCore",
-			"PGPawn",
-			"PGGameplay",
 		};
 
 		PrivateDependencyModuleNames.AddRange(enginePrivateDependencyModuleNames);

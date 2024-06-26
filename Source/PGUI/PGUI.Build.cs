@@ -33,6 +33,7 @@ public class PGUI : ModuleRules
 		var modulePrivateDependencyModuleNames = new string[]
 		{
 			"PGCore",
+			"PGPawn",
 		};
 
 		var enginePrivateDependencyModuleNames = new string[] 

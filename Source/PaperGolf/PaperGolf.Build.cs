@@ -23,6 +23,7 @@ public class PaperGolf : ModuleRules
             "PGPlayer",
             "PGAI",
             "PGUI",
+            "PGPawn",
         });
 
         CppStandard = CppStandardVersion.Cpp20;

@@ -31,6 +31,8 @@ public class PGGameplay : ModuleRules
 		// Private dependencies do not create transitive header dependencies.
 		var modulePrivateDependencyModuleNames = new string[]
 		{
+			"PGCore",
+			"PGPawn",
 		};
 
 		var enginePrivateDependencyModuleNames = new string[] 
