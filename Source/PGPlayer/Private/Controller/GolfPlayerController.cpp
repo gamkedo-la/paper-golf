@@ -5,7 +5,7 @@
 
 #include "Pawn/PaperGolfPawn.h"
 
-#include "Library/PaperGolfUtilities.h"
+#include "Library/PaperGolfPawnUtilities.h"
 
 #include "Kismet/GameplayStatics.h"
 
@@ -269,7 +269,7 @@ void AGolfPlayerController::DrawFlickLocation()
 		return;
 	}
 
-	UPaperGolfUtilities::DrawPoint(GetWorld(), PaperGolfPawn->GetFlickLocation(FlickZ, 1.f, 1.f), FlickReticuleColor);
+	UPaperGolfPawnUtilities::DrawPoint(GetWorld(), PaperGolfPawn->GetFlickLocation(FlickZ, 1.f, 1.f), FlickReticuleColor);
 }
 
 void AGolfPlayerController::ProcessFlickZInput(float FlickZInput)
@@ -328,7 +328,7 @@ void AGolfPlayerController::AddPaperGolfPawnRelativeRotation(const FRotator& Del
 
 	auto RotationToApply = DeltaRotation * (RotationRate * GetWorld()->GetDeltaSeconds());
 
-	UPaperGolfUtilities::ClampDeltaRotation(RotationMax, RotationToApply, TotalRotation);
+	UPaperGolfPawnUtilities::ClampDeltaRotation(RotationMax, RotationToApply, TotalRotation);
 
 	if (FMath::IsNearlyZero(RotationToApply.Yaw))
 	{

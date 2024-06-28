@@ -1,7 +1,7 @@
 // Copyright Game Salutes. All Rights Reserved.
 
 
-#include "Library/PaperGolfUtilities.h"
+#include "Library/PaperGolfPawnUtilities.h"
 
 #include "Components/PrimitiveComponent.h"
 
@@ -10,7 +10,7 @@
 
 #include <array>
 
-#include UE_INLINE_GENERATED_CPP_BY_NAME(PaperGolfUtilities)
+#include UE_INLINE_GENERATED_CPP_BY_NAME(PaperGolfPawnUtilities)
 
 namespace
 {
@@ -47,7 +47,7 @@ namespace
 	}
 }
 
-void UPaperGolfUtilities::ClampDeltaRotation(const FRotator& MaxRotationExtent, FRotator& DeltaRotation, FRotator& TotalRotation)
+void UPaperGolfPawnUtilities::ClampDeltaRotation(const FRotator& MaxRotationExtent, FRotator& DeltaRotation, FRotator& TotalRotation)
 {
 	const auto MaxRotatorAngles = ToConstRotatorArray(MaxRotationExtent);
 
@@ -74,7 +74,7 @@ void UPaperGolfUtilities::ClampDeltaRotation(const FRotator& MaxRotationExtent, 
 	}
 }
 
-void UPaperGolfUtilities::ResetPhysicsState(UPrimitiveComponent* PhysicsComponent)
+void UPaperGolfPawnUtilities::ResetPhysicsState(UPrimitiveComponent* PhysicsComponent)
 {
 	if (!PhysicsComponent)
 	{
@@ -101,7 +101,7 @@ void UPaperGolfUtilities::ResetPhysicsState(UPrimitiveComponent* PhysicsComponen
 	//}
 }
 
-void UPaperGolfUtilities::DrawPoint(const UObject* WorldContextObject, const FVector& Position, const FLinearColor& Color, float PointSize)
+void UPaperGolfPawnUtilities::DrawPoint(const UObject* WorldContextObject, const FVector& Position, const FLinearColor& Color, float PointSize)
 {
 	UWorld* World = WorldContextObject ? WorldContextObject->GetWorld() : nullptr;
 	if (!World)

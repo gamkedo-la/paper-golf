@@ -15,7 +15,7 @@
 
 #include "Build/BuildUtilities.h"
 
-#include "Library/PaperGolfUtilities.h"
+#include "Library/PaperGolfPawnUtilities.h"
 
 #include "VisualLogger/VisualLogger.h"
 #include "PGPawnLogging.h"
@@ -183,7 +183,7 @@ void APaperGolfPawn::SetUpForNextShot()
 {
 	check(_PaperGolfMesh);
 
-	UPaperGolfUtilities::ResetPhysicsState(_PaperGolfMesh);
+	UPaperGolfPawnUtilities::ResetPhysicsState(_PaperGolfMesh);
 }
 
 void APaperGolfPawn::Flick(float LocalZOffset, float PowerFraction, float Accuracy)

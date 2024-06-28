@@ -4,13 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
-#include "PaperGolfUtilities.generated.h"
+#include "PaperGolfPawnUtilities.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class PGPAWN_API UPaperGolfUtilities : public UBlueprintFunctionLibrary
+class PGPAWN_API UPaperGolfPawnUtilities : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 
