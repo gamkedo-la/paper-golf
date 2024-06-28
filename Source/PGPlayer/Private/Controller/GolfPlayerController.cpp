@@ -269,7 +269,7 @@ void AGolfPlayerController::DrawFlickLocation()
 		return;
 	}
 
-	UPaperGolfPawnUtilities::DrawPoint(GetWorld(), PaperGolfPawn->GetFlickLocation(FlickZ, 1.f, 1.f), FlickReticuleColor);
+	UPaperGolfPawnUtilities::DrawPoint(GetWorld(), PaperGolfPawn->GetFlickLocation(FlickZ), FlickReticuleColor);
 }
 
 void AGolfPlayerController::ProcessFlickZInput(float FlickZInput)
@@ -279,7 +279,33 @@ void AGolfPlayerController::ProcessFlickZInput(float FlickZInput)
 		return;
 	}
 
-	FlickZ += FlickZInput;
+	const auto PaperGolfPawn = GetPaperGolfPawn();
+	if (!PaperGolfPawn)
+	{
+		return;
+	}
+
+	const auto PreviousFlickZ = FlickZ;
+	const auto FlickZInputSign = FMath::Sign(FlickZInput);
+
+	for (int32 i = 0; i <= FlickZNotUpdatedMaxRetries; ++i)
+	{
+		FlickZ = PaperGolfPawn->ClampFlickZ(PreviousFlickZ, FlickZInput);
+		const bool bUpdated = !FMath::IsNearlyEqual(FlickZ, PreviousFlickZ);
+
+		UE_VLOG_UELOG(this, LogPGPlayer, VeryVerbose,
+			TEXT("%s: ProcessFlickZInput - Iter=%d; FlickZInput=%f; ClampedFlickZInput=%f; NewFlickZ=%f; PreviousFlickZ=%f; Updated=%s"),
+			*GetName(), i,
+			FlickZInput, FlickZ - PreviousFlickZ, FlickZ, PreviousFlickZ, LoggingUtils::GetBoolString(bUpdated));
+
+		// Retry if not updated with a larger offset
+		if (bUpdated)
+		{
+			break;
+		}
+
+		FlickZInput += FlickZInputSign * PaperGolfPawn->GetFlickOffsetZTraceSize();
+	}
 
 	DrawFlickLocation();
 }

@@ -42,7 +42,7 @@ public:
 	FVector GetFlickDirection() const;
 
 	UFUNCTION(BlueprintPure)
-	FVector GetFlickLocation(float LocationZ, float Accuracy, float Power) const;
+	FVector GetFlickLocation(float LocationZ, float Accuracy = 1.0f, float Power = 1.0f) const;
 
 	UFUNCTION(BlueprintPure)
 	FVector GetFlickForce(float Accuracy, float Power) const;
@@ -61,6 +61,11 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void Flick(float LocalZOffset, float PowerFraction, float Accuracy);
+
+	UFUNCTION(BlueprintCallable)
+	float ClampFlickZ(float OriginalZOffset, float DeltaZ) const;
+
+	float GetFlickOffsetZTraceSize() const;
 
 protected:
 	virtual void Tick(float DeltaTime) override;
@@ -137,6 +142,9 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty", meta=(ClampMin="0.0"))
 	float LocationAccuracyMultiplier{ 2.0f };
 
+	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty", meta = (ClampMin = "1.0"))
+	float FlickOffsetZTraceSize{ 5.0f };
+
 	// TODO: move component set up to C++
 private:
 	UPROPERTY(Transient)
@@ -171,6 +179,11 @@ FORCEINLINE FVector APaperGolfPawn::GetAngularVelocity() const
 	check(_PaperGolfMesh);
 
 	return _PaperGolfMesh->GetPhysicsAngularVelocityInRadians();
+}
+
+FORCEINLINE float APaperGolfPawn::GetFlickOffsetZTraceSize() const
+{
+	return FlickOffsetZTraceSize;
 }
 
 #pragma endregion Inline Definitions

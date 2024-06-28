@@ -22,12 +22,9 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PaperGolfPawn)
 
-// Sets default values
 APaperGolfPawn::APaperGolfPawn()
 {
- 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
-
 }
 
 void APaperGolfPawn::DebugDrawCenterOfMass(float DrawTime)
@@ -200,6 +197,116 @@ void APaperGolfPawn::Flick(float LocalZOffset, float PowerFraction, float Accura
 	);
 
 	_PaperGolfMesh->SetEnableGravity(true);
+}
+
+float APaperGolfPawn::ClampFlickZ(float OriginalZOffset, float DeltaZ) const
+{
+	// TODO: Do a sweep test from OriginalZOffset + DeltaZ back to OriginalZOfset with GetFlickLocation
+	// If there is no intersection then return OriginalZOffset; otherwise return the impact point
+	auto World = GetWorld();
+
+	const auto ProposedZOffset = OriginalZOffset + DeltaZ;
+
+	if (!ensure(World))
+	{
+		return ProposedZOffset;
+	}
+
+	FHitResult HitResult;
+
+	// Usually we want to trace from the proposed location to the original location 
+	// but if DeltaZ < 0 then we want to trace from the original location to the new location 
+	const auto& StartLocation = GetFlickLocation(ProposedZOffset);
+	const auto& EndLocation = GetFlickLocation(OriginalZOffset);
+
+	FCollisionObjectQueryParams QueryObjectParams;
+	QueryObjectParams.AddObjectTypesToQuery(ECollisionChannel::ECC_Pawn);
+
+	FCollisionQueryParams Params;
+	Params.bReturnFaceIndex = false;
+	Params.bReturnPhysicalMaterial = false;
+
+	const auto& FlickReferenceRotation = _FlickReference->GetComponentTransform().GetRotation();
+
+	if (!World->SweepSingleByObjectType(
+		HitResult,
+		StartLocation,
+		EndLocation,
+		FlickReferenceRotation,
+		QueryObjectParams,
+		FCollisionShape::MakeSphere(FlickOffsetZTraceSize),
+		Params
+	))
+	{
+		UE_VLOG_LOCATION(this,
+			LogPGPawn,
+			Log,
+			EndLocation,
+			FlickOffsetZTraceSize,
+			FColor::Orange,
+			TEXT("ZTraceS")
+		);
+
+		UE_VLOG_LOCATION(this,
+			LogPGPawn,
+			Log,
+			StartLocation,
+			FlickOffsetZTraceSize,
+			FColor::Orange,
+			TEXT("ZTraceE")
+		);
+
+		UE_VLOG_UELOG(this, LogPGPawn, Log,
+			TEXT("%s: ClampFlickZ - Intersection FALSE between %s and %s with Rot=%s; OriginalZOffset=%f; DeltaZ=%f -> Returning %f"),
+			*GetName(), *StartLocation.ToCompactString(), *EndLocation.ToCompactString(),
+			*FlickReferenceRotation.ToString(), OriginalZOffset, DeltaZ, OriginalZOffset
+		);
+
+		return OriginalZOffset;
+	}
+
+	const auto& IntersectionPoint = HitResult.ImpactPoint;
+
+	// Need to translate IntersectionPoint back to an offsetZ
+	const auto& LocalIntersectionPoint = _FlickReference->GetComponentTransform().InverseTransformPosition(IntersectionPoint);
+
+	UE_VLOG_LOCATION(this,
+		LogPGPawn,
+		VeryVerbose,
+		EndLocation,
+		FlickOffsetZTraceSize,
+		FColor::Blue,
+		TEXT("ZTraceS")
+	);
+
+	UE_VLOG_LOCATION(this,
+		LogPGPawn,
+		VeryVerbose,
+		StartLocation,
+		FlickOffsetZTraceSize,
+		FColor::Blue,
+		TEXT("ZTraceE")
+	);
+
+	UE_VLOG_LOCATION(this,
+		LogPGPawn,
+		VeryVerbose,
+		IntersectionPoint,
+		FlickOffsetZTraceSize,
+		FColor::Green,
+		TEXT("ZTraceI")
+	);
+
+	const auto NewZOffset = LocalIntersectionPoint.Z;
+
+	UE_VLOG_UELOG(this, LogPGPawn, Verbose,
+		TEXT("%s: ClampFlickZ - Intersection TRUE between %s and %s at %s with Rot=%s; LocalIntersectionPoint=%s; OriginalZOffset=%f; DeltaZ=%f -> Returning %f"),
+		*GetName(), *EndLocation.ToCompactString(), *StartLocation.ToCompactString(), *IntersectionPoint.ToCompactString(),
+		*FlickReferenceRotation.Rotator().ToCompactString(), *LocalIntersectionPoint.ToCompactString(),
+		OriginalZOffset, DeltaZ, NewZOffset
+	);
+
+	return NewZOffset;
 }
 
 void APaperGolfPawn::Tick(float DeltaTime)

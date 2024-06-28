@@ -162,6 +162,9 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Setup")
 	float FallThroughFloorCorrectionTestZ{ 1000.0f };
 
+	UPROPERTY(EditDefaultsOnly, Category = "Setup")
+	int32 FlickZNotUpdatedMaxRetries{ 2 };
+
 	bool bInputEnabled{ true };
 };
 
