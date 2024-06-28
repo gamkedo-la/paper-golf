@@ -48,6 +48,12 @@ public:
 	UFUNCTION(BlueprintPure)
 	bool IsReadyForShot() const;
 
+	UFUNCTION(BlueprintCallable, Category = "Input")
+	void SetInputEnabled(bool bEnabled);
+
+	UFUNCTION(BlueprintPure, Category = "Input")
+	bool IsInputEnabled() const;
+
 protected:
 	void BeginPlay() override;
 
@@ -155,6 +161,8 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Setup")
 	float FallThroughFloorCorrectionTestZ{ 1000.0f };
+
+	bool bInputEnabled{ true };
 };
 
 #pragma region Inline Definitions
@@ -167,6 +175,16 @@ FORCEINLINE bool operator== (const FShotHistory& First, const FShotHistory& Seco
 FORCEINLINE bool AGolfPlayerController::IsReadyForShot() const
 {
 	return bCanFlick;
+}
+
+FORCEINLINE void AGolfPlayerController::SetInputEnabled(bool bEnabled)
+{
+	bInputEnabled = bEnabled;
+}
+
+FORCEINLINE bool AGolfPlayerController::IsInputEnabled() const
+{
+	return bInputEnabled;
 }
 
 #pragma endregion Inline Definitions

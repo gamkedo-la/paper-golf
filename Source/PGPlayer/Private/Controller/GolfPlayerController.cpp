@@ -509,6 +509,9 @@ void AGolfPlayerController::NextHole()
 	}
 
 	FTimerHandle Handle;
+	// FIXME: This only works for standalone game!
+	// Need to wait for all players to finish and then do a server travel to next hole
+	// Uworld::ServerTravel with restart level or use console command
 	World->GetTimerManager().SetTimer(Handle, this, &ThisClass::RestartLevel, NextHoleDelay);
 }
 
