@@ -9,6 +9,8 @@
 
 #include "Kismet/GameplayStatics.h"
 
+#include "GameFramework/SpectatorPawn.h"
+
 #include "PGPlayerLogging.h"
 #include "Logging/LoggingUtils.h"
 #include "VisualLogger/VisualLogger.h"
@@ -639,6 +641,7 @@ APaperGolfPawn* AGolfPlayerController::GetPaperGolfPawn()
 
 	if (!ensureMsgf(PaperGolfPawn, TEXT("%s: GetPaperGolfPawn - %s is not a APaperGolfPawn"), *GetName(), *LoggingUtils::GetName(GetPawn())))
 	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s: GetPaperGolfPawn - %s is not a APaperGolfPawn"), *GetName(), *LoggingUtils::GetName(GetPawn()));
 		return nullptr;
 	}
 
@@ -745,7 +748,7 @@ EShotType AGolfPlayerController::GetShotType() const
 		return ShotType;
 	}
 
-	const auto PaperGolfPawn = Cast<APaperGolfPawn>(GetPawn());
+	const auto PaperGolfPawn = GetPaperGolfPawn();
 	if (!PaperGolfPawn)
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: GetShotType - Pawn not defined. Returning Default"), *GetName());
@@ -753,6 +756,32 @@ EShotType AGolfPlayerController::GetShotType() const
 	}
 
 	return PaperGolfPawn->IsCloseShot() ? EShotType::Close : EShotType::Full;
+}
+
+void AGolfPlayerController::OnPossess(APawn* InPawn)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnPossess - InPawn=%s"), *GetName(), *LoggingUtils::GetName(InPawn));
+
+	Super::OnPossess(InPawn);
+
+	// The player pawn will be first paper golf pawn possessed so set if not already set
+	if (IsValid(PlayerPawn))
+	{
+		return;
+	}
+
+	if (auto PaperGolfPawn = Cast<APaperGolfPawn>(InPawn); PaperGolfPawn)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: OnPossess - Set PlayerPawn=%s"), *GetName(), *LoggingUtils::GetName(InPawn));
+		PlayerPawn = PaperGolfPawn;
+	}
+}
+
+void AGolfPlayerController::OnUnPossess()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnUnPossess"), *GetName());
+
+	Super::OnUnPossess();
 }
 
 void AGolfPlayerController::ToggleShotType()
@@ -781,3 +810,112 @@ void AGolfPlayerController::SetShotType(EShotType InShotType)
 
 	PaperGolfPawn->SetCloseShot(ShotType == EShotType::Close);
 }
+
+#pragma region Turn and spectator logic
+
+void AGolfPlayerController::ActivateTurn()
+{
+	// TODO: Unhide the player and possess the player paper golf pawn
+	// This can only be called on server
+	if (!ensureAlwaysMsgf(HasAuthority(), TEXT("%s: ActivateTurn - Called on client!"), *GetName()))
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s: ActivateTurn - Called on client!"), *GetName());
+		return;
+	}
+
+	if(!ensureAlwaysMsgf(PlayerPawn, TEXT("%s: ActivateTurn - PlayerPawn is NULL"), *GetName()))
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s: ActivateTurn - PlayerPawn is NULL"), *GetName());
+		return;
+	}
+
+	Possess(PlayerPawn);
+}
+
+void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn)
+{
+	// This can only be called on server
+	if(!ensureAlwaysMsgf(HasAuthority(), TEXT("%s: Spectate - InPawn=%s called on client!"), *GetName(), *LoggingUtils::GetName(InPawn)))
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s: Spectate - InPawn=%s called on client!"), *GetName(), *LoggingUtils::GetName(InPawn));
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: Spectate - InPawn=%s"), *GetName(), *LoggingUtils::GetName(InPawn));
+
+	// TODO: Hide the player pawn and UI and switch to spectate the input player pawn
+	// Need to account for possibly destroying the player pawn after scoring so the player pawn could be null
+	// Should track the possessed paper golf pawn as need to switch back to it when activating the turn
+
+	// Allow the spectator pawn to take over the controls; otherwise, some of the bindings will be disabled
+	DisableInput(this);
+
+	AddSpectatorPawn(InPawn);
+}
+
+void AGolfPlayerController::AddSpectatorPawn(APawn* PawnToSpectate)
+{
+	if (!HasAuthority())
+	{
+		// Can only change state to spectator on the server side
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: Changing state to spectator"), *GetName());
+
+	ChangeState(NAME_Spectating);
+	ClientGotoState(NAME_Spectating);
+	SetCameraToViewPawn(PawnToSpectate);
+}
+
+void AGolfPlayerController::SetCameraToViewPawn(APawn* InPawn)
+{
+	if (!IsValid(InPawn))
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: SetCameraToViewPawn: NULL - skipping directly to spectator controls"),
+			*GetName()
+		);
+
+		SetCameraOwnedBySpectatorPawn(nullptr);
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: SetCameraToViewPawn: Tracking player pawn %s"),
+		*GetName(),
+		*InPawn->GetName()
+	);
+
+	// TODO: Consider using SetViewTargetWithBlend
+	// Whatever the InPawn player is seeing, we will also see
+	check(InPawn);
+	SetViewTarget(InPawn);
+
+	GetWorldTimerManager().SetTimer(SpectatorCameraDelayTimer,
+		FTimerDelegate::CreateWeakLambda(this, [this, SpectatorPawn = MakeWeakObjectPtr(InPawn)]()
+		{
+			SetCameraOwnedBySpectatorPawn(SpectatorPawn.Get());
+		}), SpectatorCameraControlsDelay, false);
+}
+
+// TODO: Don't think this does anything as AutoManageActiveCameraTarget needs to be true
+void AGolfPlayerController::SetCameraOwnedBySpectatorPawn(APawn* InPawn)
+{
+	auto MySpectatorPawn = GetSpectatorPawn();
+
+	if (!MySpectatorPawn)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: SetCameraOwnedBySpectatorPawn: InPawn=%s Spectator Pawn is NULL"),
+			*GetName(), *LoggingUtils::GetName(InPawn));
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: Managing camera target to InPawn=%s with SpectatorPawn=%s"),
+		*GetName(),
+		*LoggingUtils::GetName(InPawn),
+		*LoggingUtils::GetName(MySpectatorPawn)
+	);
+
+	AutoManageActiveCameraTarget(InPawn);
+}
+
+#pragma endregion Turn and spectator logic

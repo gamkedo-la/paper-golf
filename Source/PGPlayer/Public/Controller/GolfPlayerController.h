@@ -55,6 +55,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Input")
 	bool IsInputEnabled() const;
 
+	void ActivateTurn();
+
+	void Spectate(APaperGolfPawn* Pawn);
+
 protected:
 	void BeginPlay() override;
 
@@ -78,6 +82,9 @@ protected:
 
 	UFUNCTION(BlueprintPure)
 	EShotType GetShotType() const;
+
+	virtual void OnPossess(APawn* InPawn) override;
+	virtual void OnUnPossess() override;
 
 private:
 	void AddToShotHistory(APaperGolfPawn* PaperGolfPawn);
@@ -115,6 +122,10 @@ private:
 
 	void CheckAndSetupNextShot();
 	void SetPaperGolfPawnAimFocus();
+
+	void AddSpectatorPawn(APawn* PawnToSpectate);
+	void SetCameraToViewPawn(APawn* InPawn);
+	void SetCameraOwnedBySpectatorPawn(APawn* InPawn);
 
 private:
 	APaperGolfPawn* GetPaperGolfPawn();
@@ -191,6 +202,15 @@ private:
 	EShotType ShotType{ EShotType::Default };
 
 	FTimerHandle NextShotTimerHandle{};
+
+	FTimerHandle SpectatorCameraDelayTimer{};
+
+	// TODO: Do we want to allow the player to change the camera controls when spectating?
+	UPROPERTY(Category = "Camera | Spectator", EditDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	float SpectatorCameraControlsDelay{ 3.0f };
+
+	UPROPERTY(Transient)
+	TObjectPtr<APaperGolfPawn> PlayerPawn{};
 };
 
 #pragma region Inline Definitions
