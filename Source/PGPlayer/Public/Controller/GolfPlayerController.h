@@ -44,13 +44,7 @@ public:
 	void ResetShot();
 
 	UFUNCTION(BlueprintCallable)
-	void SetPaperGolfPawnAimFocus();
-
-	UFUNCTION(BlueprintCallable)
 	void DetermineIfCloseShot();
-
-	UFUNCTION(BlueprintCallable)
-	void OnScored();
 
 	UFUNCTION(BlueprintPure)
 	bool IsReadyForShot() const;
@@ -65,9 +59,6 @@ protected:
 	void BeginPlay() override;
 
 	UFUNCTION(BlueprintCallable)
-	void InitFocusableActors();
-
-	UFUNCTION(BlueprintCallable)
 	void SnapToGround();
 
 	UFUNCTION(BlueprintCallable)
@@ -78,16 +69,6 @@ protected:
 
 	UFUNCTION(BlueprintCallable)
 	void AddPaperGolfPawnRelativeRotation(const FRotator& DeltaRotation);
-
-	UFUNCTION(BlueprintCallable)
-	void CheckAndSetupNextShot();
-
-	UFUNCTION(BlueprintCallable)
-	void HandleFallThroughFloor();
-
-	// TODO: May want to move this to game mode
-	UFUNCTION(BlueprintCallable)
-	void HandleOutOfBounds();
 
 	UFUNCTION(BlueprintCallable)
 	void SetShotType(EShotType InShotType);
@@ -111,7 +92,29 @@ private:
 
 	void NextHole();
 
+	void Init();
+	void DeferredInit();
+
+	void InitFocusableActors();
+
 	void ResetShotAfterOutOfBounds();
+	void RegisterTimers();
+	void RegisterGolfSubsystemEvents();
+
+	UFUNCTION()
+	void OnOutOfBounds(APaperGolfPawn* InPaperGolfPawn);
+
+	UFUNCTION()
+	void OnFellThroughFloor(APaperGolfPawn* InPaperGolfPawn);
+
+	UFUNCTION()
+	void OnScored(APaperGolfPawn* InPaperGolfPawn);
+
+	void HandleFallThroughFloor();
+	void HandleOutOfBounds();
+
+	void CheckAndSetupNextShot();
+	void SetPaperGolfPawnAimFocus();
 
 private:
 	APaperGolfPawn* GetPaperGolfPawn();
@@ -121,9 +124,12 @@ private:
 
 	void SetPositionTo(const FVector& Position);
 
+	void CheckForNextShot();
+
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	TArray<FShotHistory> ShotHistory{};
+	
 
 private:
 
@@ -183,6 +189,8 @@ private:
 
 	bool bInputEnabled{ true };
 	EShotType ShotType{ EShotType::Default };
+
+	FTimerHandle NextShotTimerHandle{};
 };
 
 #pragma region Inline Definitions

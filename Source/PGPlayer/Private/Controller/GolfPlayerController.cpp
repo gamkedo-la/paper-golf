@@ -18,6 +18,8 @@
 
 #include "State/GolfPlayerState.h"
 
+#include "Subsystems/GolfEventsSubsystem.h"
+
 #include <limits>
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GolfPlayerController)
@@ -189,8 +191,18 @@ void AGolfPlayerController::DetermineIfCloseShot()
 	PaperGolfPawn->SetCloseShot(bCloseShot);
 }
 
-void AGolfPlayerController::OnScored()
+void AGolfPlayerController::OnScored(APaperGolfPawn* InPaperGolfPawn)
 {
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s-%s: OnScored: InPaperGolfPawn=%s"),
+		*GetName(), *LoggingUtils::GetName(GetPawn()), *LoggingUtils::GetName(InPaperGolfPawn));
+
+	auto PaperGolfPawn = GetPaperGolfPawn();
+
+	if (PaperGolfPawn != InPaperGolfPawn)
+	{
+		return;
+	}
+
 	bScored = true;
 	bCanFlick = false;
 
@@ -460,6 +472,16 @@ void AGolfPlayerController::SetPositionTo(const FVector& Position)
 	CheckAndSetupNextShot();
 }
 
+void AGolfPlayerController::CheckForNextShot()
+{
+	if (bScored)
+	{
+		return;
+	}
+
+	CheckAndSetupNextShot();
+}
+
 void AGolfPlayerController::ProcessShootInput()
 {
 	// function should only be called on local controllers
@@ -632,7 +654,88 @@ void AGolfPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
+	Init();
+}
+
+void AGolfPlayerController::Init()
+{
 	bCanFlick = true;
+
+	RegisterGolfSubsystemEvents();
+	RegisterTimers();
+
+	if (auto World = GetWorld(); ensure(World))
+	{
+		FTimerHandle InitTimerHandle;
+		World->GetTimerManager().SetTimer(InitTimerHandle, this, &ThisClass::DeferredInit, 0.2f);
+	}
+}
+
+void AGolfPlayerController::DeferredInit()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DeferredInit"), *GetName());
+
+	SnapToGround();
+	InitFocusableActors();
+	SetPaperGolfPawnAimFocus();
+}
+
+void AGolfPlayerController::RegisterTimers()
+{
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return;
+	}
+
+	World->GetTimerManager().SetTimer(NextShotTimerHandle, this, &ThisClass::CheckForNextShot, RestCheckTickRate, true);
+}
+
+void AGolfPlayerController::RegisterGolfSubsystemEvents()
+{
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return;
+	}
+
+	auto GolfSubsystem = World->GetSubsystem<UGolfEventsSubsystem>();
+	if (!ensure(GolfSubsystem))
+	{
+		return;
+	}
+
+	GolfSubsystem->OnPaperGolfPawnOutBounds.AddDynamic(this, &ThisClass::OnOutOfBounds);
+	GolfSubsystem->OnPaperGolfPawnOutBounds.AddDynamic(this, &ThisClass::OnFellThroughFloor);
+	GolfSubsystem->OnPaperGolfPawnScored.AddDynamic(this, &ThisClass::OnScored);
+}
+
+void AGolfPlayerController::OnOutOfBounds(APaperGolfPawn* InPaperGolfPawn)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnOutOfBounds: InPaperGolfPawn=%s"), *GetName(), *LoggingUtils::GetName(InPaperGolfPawn));
+
+	auto PaperGolfPawn = GetPaperGolfPawn();
+
+	if (PaperGolfPawn != InPaperGolfPawn)
+	{
+		return;
+	}
+
+	HandleOutOfBounds();
+}
+
+void AGolfPlayerController::OnFellThroughFloor(APaperGolfPawn* InPaperGolfPawn)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnFellThroughFloor: InPaperGolfPawn=%s"), *GetName(), *LoggingUtils::GetName(InPaperGolfPawn));
+
+	auto PaperGolfPawn = GetPaperGolfPawn();
+
+	if (PaperGolfPawn != InPaperGolfPawn)
+	{
+		return;
+	}
+
+	HandleFallThroughFloor();
 }
 
 EShotType AGolfPlayerController::GetShotType() const
