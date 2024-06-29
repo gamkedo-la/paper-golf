@@ -88,6 +88,8 @@ void AGolfPlayerController::ResetRotation()
 
 void AGolfPlayerController::ResetShot()
 {
+	ShotType = EShotType::Default;
+
 	ResetRotation();
 	ResetFlickZ();
 }
@@ -631,4 +633,48 @@ void AGolfPlayerController::BeginPlay()
 	Super::BeginPlay();
 
 	bCanFlick = true;
+}
+
+EShotType AGolfPlayerController::GetShotType() const
+{
+	if (ShotType != EShotType::Default)
+	{
+		return ShotType;
+	}
+
+	const auto PaperGolfPawn = Cast<APaperGolfPawn>(GetPawn());
+	if (!PaperGolfPawn)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: GetShotType - Pawn not defined. Returning Default"), *GetName());
+		return EShotType::Default;
+	}
+
+	return PaperGolfPawn->IsCloseShot() ? EShotType::Close : EShotType::Full;
+}
+
+void AGolfPlayerController::ToggleShotType()
+{
+	switch (GetShotType())
+	{
+		case EShotType::Close:
+			return SetShotType(EShotType::Full);
+		default:
+			return SetShotType(EShotType::Close);
+	}
+}
+
+void AGolfPlayerController::SetShotType(EShotType InShotType)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SetShotType: %s"), *GetName(), *LoggingUtils::GetName(InShotType));
+
+	const auto PaperGolfPawn = Cast<APaperGolfPawn>(GetPawn());
+	if (!PaperGolfPawn)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: SetShotType: %s - Pawn not defined - Ignoring"), *GetName(), *LoggingUtils::GetName(InShotType));
+		return;
+	}
+
+	ShotType = InShotType;
+
+	PaperGolfPawn->SetCloseShot(ShotType == EShotType::Close);
 }

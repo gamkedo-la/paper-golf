@@ -20,6 +20,13 @@ struct FShotHistory
 
 bool operator== (const FShotHistory& First, const FShotHistory& Second);
 
+UENUM(BlueprintType)
+enum class EShotType : uint8
+{
+	Default,
+	Full,
+	Close
+};
 
 /**
  * 
@@ -81,6 +88,15 @@ protected:
 	// TODO: May want to move this to game mode
 	UFUNCTION(BlueprintCallable)
 	void HandleOutOfBounds();
+
+	UFUNCTION(BlueprintCallable)
+	void SetShotType(EShotType InShotType);
+
+	UFUNCTION(BlueprintCallable)
+	void ToggleShotType();
+
+	UFUNCTION(BlueprintPure)
+	EShotType GetShotType() const;
 
 private:
 	void AddToShotHistory(APaperGolfPawn* PaperGolfPawn);
@@ -166,6 +182,7 @@ private:
 	int32 FlickZNotUpdatedMaxRetries{ 2 };
 
 	bool bInputEnabled{ true };
+	EShotType ShotType{ EShotType::Default };
 };
 
 #pragma region Inline Definitions
