@@ -56,8 +56,12 @@ public:
 	bool IsInputEnabled() const;
 
 	void ActivateTurn();
+	void Spectate(APaperGolfPawn* InPawn);
 
-	void Spectate(APaperGolfPawn* Pawn);
+	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const override;
+
+	APaperGolfPawn* GetPaperGolfPawn();
+	const APaperGolfPawn* GetPaperGolfPawn() const;
 
 protected:
 	void BeginPlay() override;
@@ -105,7 +109,10 @@ private:
 	void InitFocusableActors();
 
 	void ResetShotAfterOutOfBounds();
-	void RegisterTimers();
+
+	void RegisterShotFinishedTimer();
+	void UnregisterShotFinishedTimer();
+
 	void RegisterGolfSubsystemEvents();
 
 	UFUNCTION()
@@ -120,22 +127,30 @@ private:
 	void HandleFallThroughFloor();
 	void HandleOutOfBounds();
 
-	void CheckAndSetupNextShot();
+	bool IsReadyForNextShot() const;
+	void SetupNextShot();
+
 	void SetPaperGolfPawnAimFocus();
 
 	void AddSpectatorPawn(APawn* PawnToSpectate);
 	void SetCameraToViewPawn(APawn* InPawn);
 	void SetCameraOwnedBySpectatorPawn(APawn* InPawn);
 
-private:
-	APaperGolfPawn* GetPaperGolfPawn();
-	const APaperGolfPawn* GetPaperGolfPawn() const;
-
 	bool HasLOSToFocus(const FVector& Position, const AActor* FocusActor) const;
 
+	// TODO: This will be used on server to set the authoritative position on the client
 	void SetPositionTo(const FVector& Position);
 
+	UFUNCTION(Client, Reliable)
+	void ClientSetPositionTo(const FVector_NetQuantize& Position);
+
 	void CheckForNextShot();
+
+	UFUNCTION(Client, Reliable)
+	void ClientActivateTurn();
+
+	UFUNCTION(Client, Reliable)
+	void ClientSpectate(APaperGolfPawn* InPawn);
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
@@ -211,6 +226,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<APaperGolfPawn> PlayerPawn{};
+
+	//UPROPERTY(ReplicatedUsing = OnRep_ShotFinishedLocation)
+	//FVector_NetQuantize ShotFinishedLocation{};
 };
 
 #pragma region Inline Definitions

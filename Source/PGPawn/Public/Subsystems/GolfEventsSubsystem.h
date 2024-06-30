@@ -12,6 +12,7 @@ class APaperGolfPawn;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPaperGolfPawnOutOfBounds, APaperGolfPawn*, PaperGolfPawn);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPaperGolfPawnClippedThroughWorld, APaperGolfPawn*, PaperGolfPawn);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPaperGolfPawnScored, APaperGolfPawn*, PaperGolfPawn);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPaperGolfShotFinished, APaperGolfPawn*, PaperGolfPawn);
 
 /**
  * 
@@ -30,4 +31,7 @@ public:
 
 	UPROPERTY(Category = "Notification", Transient, BlueprintAssignable)
 	FOnPaperGolfPawnOutOfBounds OnPaperGolfPawnScored;
+
+	UPROPERTY(Category = "Notification", Transient, BlueprintAssignable)
+	FOnPaperGolfShotFinished OnPaperGolfShotFinished;
 };

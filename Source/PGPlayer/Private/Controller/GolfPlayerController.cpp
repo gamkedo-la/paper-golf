@@ -23,6 +23,7 @@
 #include "Subsystems/GolfEventsSubsystem.h"
 
 #include <limits>
+#include "Net/UnrealNetwork.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GolfPlayerController)
 
@@ -380,26 +381,34 @@ void AGolfPlayerController::AddPaperGolfPawnRelativeRotation(const FRotator& Del
 	{
 		PaperGolfPawn->AddActorWorldRotation(RotationToApply);
 	}
-
 }
 
-// TODO: Will need to disable once score but that might be handled by transitioning game mode, etc
-void AGolfPlayerController::CheckAndSetupNextShot()
+bool AGolfPlayerController::IsReadyForNextShot() const
 {
 	if (!IsFlickedAtRest())
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, VeryVerbose,
-			TEXT("%s: CheckAndSetupNextShot - Skip - Not at rest"),
+			TEXT("%s: IsReadyForNextShot - Skip - Not at rest"),
 			*GetName());
-		return;
+		return false;
 	}
 
 	if (bOutOfBounds)
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, VeryVerbose,
-			TEXT("%s: CheckAndSetupNextShot - Skip - Out of Bounds"),
+			TEXT("%s: IsReadyForNextShot - Skip - Out of Bounds"),
 			*GetName());
-		return;
+		return false;
+	}
+
+	return true;
+}
+
+void AGolfPlayerController::SetupNextShot()
+{
+	if(!ensureMsgf(IsReadyForNextShot(), TEXT("%s-%s: SetupNextShot - Not ready for next shot"), *GetName(), *LoggingUtils::GetName(GetPawn())))
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s-%s: SetupNextShot - Not ready for next shot"), *GetName(), *LoggingUtils::GetName(GetPawn()));
 	}
 
 	auto PaperGolfPawn = GetPaperGolfPawn();
@@ -471,17 +480,71 @@ void AGolfPlayerController::SetPositionTo(const FVector& Position)
 		TeleportFlagToEnum(true)
 	);
 
-	CheckAndSetupNextShot();
+	SetupNextShot();
+}
+
+void AGolfPlayerController::ClientSetPositionTo_Implementation(const FVector_NetQuantize& Position)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log,
+		TEXT("%s: ClientSetPositionTo - Position=%s"),
+		*GetName(), *Position.ToCompactString());
+
+	// Disable any timers so we don't overwrite the position
+	UnregisterShotFinishedTimer();
+
+	SetPositionTo(Position);
 }
 
 void AGolfPlayerController::CheckForNextShot()
 {
 	if (bScored)
 	{
+		UnregisterShotFinishedTimer();
 		return;
 	}
 
-	CheckAndSetupNextShot();
+	if (!IsReadyForNextShot())
+	{
+		return;
+	}
+
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return;
+	}
+
+	auto PaperGolfPawn = GetPaperGolfPawn();
+	if (!PaperGolfPawn)
+	{
+		return;
+	}
+
+	UnregisterShotFinishedTimer();
+
+	// invoke a client reliable function to say the next shot is ready unless the server is the client
+	if (HasAuthority() && !IsLocalPlayerController())
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log,
+			TEXT("%s-%s: CheckForNextShot - Setting final authoritative position for pawn: %s"),
+			*GetName(), *PaperGolfPawn->GetName(), *PaperGolfPawn->GetActorLocation().ToCompactString());
+
+		ClientSetPositionTo(PaperGolfPawn->GetActorLocation());
+	}
+
+
+	if (auto GolfEventSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventSubsystem))
+	{
+		// This will call a function on server from game mode to set up next turn - we use above RPC to make sure 
+		GolfEventSubsystem->OnPaperGolfShotFinished.Broadcast(PaperGolfPawn);
+	}
+
+
+	// FIXME: Remove this once figure out why the game mode is not activating the next player -> Which should happen OnPaperGolfShotFinished listener in GolfTurnBasedDirectorComponent
+	//EnableInput(this);
+	//SetupNextShot();
+	//RegisterShotFinishedTimer();
+	// End FIXME:
 }
 
 void AGolfPlayerController::ProcessShootInput()
@@ -658,6 +721,9 @@ void AGolfPlayerController::BeginPlay()
 	Super::BeginPlay();
 
 	Init();
+
+	// FIXME: Remove this once figure out why the game mode is not activating the next player -> Which should happen OnPaperGolfShotFinished listener in GolfTurnBasedDirectorComponent
+	ActivateTurn();
 }
 
 void AGolfPlayerController::Init()
@@ -665,7 +731,6 @@ void AGolfPlayerController::Init()
 	bCanFlick = true;
 
 	RegisterGolfSubsystemEvents();
-	RegisterTimers();
 
 	if (auto World = GetWorld(); ensure(World))
 	{
@@ -683,7 +748,7 @@ void AGolfPlayerController::DeferredInit()
 	SetPaperGolfPawnAimFocus();
 }
 
-void AGolfPlayerController::RegisterTimers()
+void AGolfPlayerController::RegisterShotFinishedTimer()
 {
 	auto World = GetWorld();
 	if (!ensure(World))
@@ -692,6 +757,17 @@ void AGolfPlayerController::RegisterTimers()
 	}
 
 	World->GetTimerManager().SetTimer(NextShotTimerHandle, this, &ThisClass::CheckForNextShot, RestCheckTickRate, true);
+}
+
+void AGolfPlayerController::UnregisterShotFinishedTimer()
+{
+	auto World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	World->GetTimerManager().ClearTimer(NextShotTimerHandle);
 }
 
 void AGolfPlayerController::RegisterGolfSubsystemEvents()
@@ -709,7 +785,7 @@ void AGolfPlayerController::RegisterGolfSubsystemEvents()
 	}
 
 	GolfSubsystem->OnPaperGolfPawnOutBounds.AddDynamic(this, &ThisClass::OnOutOfBounds);
-	GolfSubsystem->OnPaperGolfPawnOutBounds.AddDynamic(this, &ThisClass::OnFellThroughFloor);
+	GolfSubsystem->OnPaperGolfPawnClippedThroughWorld.AddDynamic(this, &ThisClass::OnFellThroughFloor);
 	GolfSubsystem->OnPaperGolfPawnScored.AddDynamic(this, &ThisClass::OnScored);
 }
 
@@ -830,6 +906,19 @@ void AGolfPlayerController::ActivateTurn()
 	}
 
 	Possess(PlayerPawn);
+
+	ClientActivateTurn();
+}
+
+void AGolfPlayerController::ClientActivateTurn_Implementation()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientActivateTurn"), *GetName());
+
+	// TODO: Do we need to wait for Possess to replicate?
+	EnableInput(this);
+
+	SetupNextShot();
+	RegisterShotFinishedTimer();
 }
 
 void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn)
@@ -848,9 +937,26 @@ void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn)
 	// Should track the possessed paper golf pawn as need to switch back to it when activating the turn
 
 	// Allow the spectator pawn to take over the controls; otherwise, some of the bindings will be disabled
-	DisableInput(this);
+	ClientSpectate(InPawn);
 
 	AddSpectatorPawn(InPawn);
+}
+
+void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientSpectate - %s"), *GetName(), *LoggingUtils::GetName(InPawn));
+
+	// TODO: Do we need to wait for Spectate to propagate?
+	// Allow the spectator pawn to take over the controls; otherwise, some of the bindings will be disabled
+
+	DisableInput(this);
+}
+
+void AGolfPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	//DOREPLIFETIME_CONDITION(AGolfPlayerController, ShotFinishedLocation, COND_OwnerOnly);
 }
 
 void AGolfPlayerController::AddSpectatorPawn(APawn* PawnToSpectate)
