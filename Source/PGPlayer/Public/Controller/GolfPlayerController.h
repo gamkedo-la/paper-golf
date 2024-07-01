@@ -160,7 +160,7 @@ protected:
 private:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
-	bool bCanFlick{ true };
+	bool bCanFlick{ };
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
 	FRotator RotationMax{ 75.0, 180.0, 90.0 };

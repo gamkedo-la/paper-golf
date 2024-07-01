@@ -3,14 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/GameStateBase.h"
+#include "GameFramework/GameState.h"
 #include "PaperGolfGameStateBase.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class PGPAWN_API APaperGolfGameStateBase : public AGameStateBase
+class PGPAWN_API APaperGolfGameStateBase : public AGameState
 {
 	GENERATED_BODY()
 	

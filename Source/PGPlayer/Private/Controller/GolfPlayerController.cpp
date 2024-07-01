@@ -406,6 +406,8 @@ bool AGolfPlayerController::IsReadyForNextShot() const
 
 void AGolfPlayerController::SetupNextShot()
 {
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SetupNextShot"), *GetName());
+
 	if(!ensureMsgf(IsReadyForNextShot(), TEXT("%s-%s: SetupNextShot - Not ready for next shot"), *GetName(), *LoggingUtils::GetName(GetPawn())))
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s-%s: SetupNextShot - Not ready for next shot"), *GetName(), *LoggingUtils::GetName(GetPawn()));
@@ -538,13 +540,6 @@ void AGolfPlayerController::CheckForNextShot()
 		// This will call a function on server from game mode to set up next turn - we use above RPC to make sure 
 		GolfEventSubsystem->OnPaperGolfShotFinished.Broadcast(PaperGolfPawn);
 	}
-
-
-	// FIXME: Remove this once figure out why the game mode is not activating the next player -> Which should happen OnPaperGolfShotFinished listener in GolfTurnBasedDirectorComponent
-	//EnableInput(this);
-	//SetupNextShot();
-	//RegisterShotFinishedTimer();
-	// End FIXME:
 }
 
 void AGolfPlayerController::ProcessShootInput()
@@ -721,14 +716,12 @@ void AGolfPlayerController::BeginPlay()
 	Super::BeginPlay();
 
 	Init();
-
-	// FIXME: Remove this once figure out why the game mode is not activating the next player -> Which should happen OnPaperGolfShotFinished listener in GolfTurnBasedDirectorComponent
-	ActivateTurn();
 }
 
 void AGolfPlayerController::Init()
 {
-	bCanFlick = true;
+	// turn is activated manually so we set this to false initially
+	bCanFlick = false;
 
 	RegisterGolfSubsystemEvents();
 
@@ -855,7 +848,7 @@ void AGolfPlayerController::OnPossess(APawn* InPawn)
 
 void AGolfPlayerController::OnUnPossess()
 {
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnUnPossess"), *GetName());
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnUnPossess - ExistingPawn=%s"), *GetName(), *LoggingUtils::GetName(GetPawn()));
 
 	Super::OnUnPossess();
 }

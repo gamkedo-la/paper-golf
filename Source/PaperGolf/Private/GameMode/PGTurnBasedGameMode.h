@@ -23,6 +23,9 @@ public:
 
 protected:
 	virtual void OnPostLogin(AController* NewPlayer) override;
+
+	virtual void OnMatchStateSet() override;
+
 private:
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly)
 	TObjectPtr<UGolfTurnBasedDirectorComponent> TurnBasedDirectorComponent{};

@@ -9,6 +9,9 @@
 #include "VisualLogger/VisualLogger.h"
 #include "PaperGolfLogging.h"
 
+#include UE_INLINE_GENERATED_CPP_BY_NAME(PGTurnBasedGameMode)
+
+
 APGTurnBasedGameMode::APGTurnBasedGameMode()
 {
 	TurnBasedDirectorComponent = CreateDefaultSubobject<UGolfTurnBasedDirectorComponent>(TEXT("TurnBasedDirector"));
@@ -34,9 +37,18 @@ void APGTurnBasedGameMode::OnPostLogin(AController* NewPlayer)
 	check(TurnBasedDirectorComponent);
 
 	TurnBasedDirectorComponent->AddPlayer(NewPlayer);
+}
 
-	// FIXME: Determine better criteria for number of players before starting the match
-	// Also need to handle multiple holes
+void APGTurnBasedGameMode::OnMatchStateSet()
+{
+	Super::OnMatchStateSet();
 
-	TurnBasedDirectorComponent->StartHole();
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnMatchStateSet - MatchState=%s"), *GetName(), *MatchState.ToString());
+
+	if(MatchState == MatchState::InProgress)
+	{
+		check(TurnBasedDirectorComponent);
+
+		TurnBasedDirectorComponent->StartHole();
+	}
 }

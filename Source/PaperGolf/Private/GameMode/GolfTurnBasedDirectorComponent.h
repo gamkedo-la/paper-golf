@@ -6,7 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "GolfTurnBasedDirectorComponent.generated.h"
 
-class AGameModeBase;
+class APaperGolfGameModeBase;
 class AGolfPlayerController;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -26,6 +26,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void RemovePlayer(AController* Player);
 
+	virtual void InitializeComponent() override;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -40,9 +42,13 @@ private:
 	int32 DetermineClosestPlayerToHole() const;
 	int32 DetermineNextPlayer() const;
 
+	void ActivatePlayer(AGolfPlayerController* Player);
+	// TODO: Will need a variant that takes an AI controller or better yet use an interface implemented by both
+
 private:
+	// TODO: Use APGTurnBasedGameMode if need the functionality of it.  Keeping it to the base class for now for maximum reuse
 	UPROPERTY(Transient)
-	class AGameModeBase* GameMode{};
+	APaperGolfGameModeBase* GameMode{};
 
 	// FIXME: Should use an interface for this as want to also support AI players
 	UPROPERTY(Transient)
