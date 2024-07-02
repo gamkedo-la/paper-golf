@@ -24,7 +24,12 @@ void APaperGolfGameModeBase::InitGame(const FString& MapName, const FString& Opt
 	Super::InitGame(MapName, Options, ErrorMessage);
 
 	// TODO: Override desired number of players
-	DesiredNumberOfPlayers = DefaultDesiredNumberOfPlayers;
+	if (!SetDesiredNumberOfPlayersFromPIESettings())
+	{
+		DesiredNumberOfPlayers = DefaultDesiredNumberOfPlayers;
+	}
+
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitGame - DesiredNumberOfPlayers=%d"), *GetName(), DesiredNumberOfPlayers);
 }
 
 void APaperGolfGameModeBase::InitGameState()
@@ -97,6 +102,7 @@ AActor* APaperGolfGameModeBase::ChoosePlayerStart_Implementation(AController* Pl
 	// FindPlayerStart("Amateur") which returns an AActor* that we can pass to RestartPlayer(AController*, AActor*) so it uses that player start
 	return Super::ChoosePlayerStart_Implementation(Player);
 }
+
 
 bool APaperGolfGameModeBase::ShouldSpawnAtStartSpot(AController* Player)
 {
@@ -173,3 +179,30 @@ void APaperGolfGameModeBase::AbortMatch()
 
 	Super::AbortMatch();
 }
+
+bool APaperGolfGameModeBase::SetDesiredNumberOfPlayersFromPIESettings()
+{
+#if WITH_EDITOR
+
+	if (!GIsEditor)
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: SetDesiredNumberOfPlayersFromPIESettings: Not running in editor - returning false"), *GetName());
+
+		return false;
+	}
+	// Get the default Play settings
+	ULevelEditorPlaySettings* PlayInSettings = Cast<ULevelEditorPlaySettings>(ULevelEditorPlaySettings::StaticClass()->GetDefaultObject());
+
+	// Retrieve the number of clients (players) from the settings
+	PlayInSettings->GetPlayNumberOfClients(DesiredNumberOfPlayers);
+
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: SetDesiredNumberOfPlayersFromPIESettings: DesiredNumberOfPlayers=%d"), *GetName(),
+		DesiredNumberOfPlayers);
+
+	return true;
+
+#else
+	return false;
+#endif
+}
+

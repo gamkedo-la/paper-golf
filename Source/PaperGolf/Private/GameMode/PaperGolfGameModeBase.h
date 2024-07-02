@@ -68,6 +68,9 @@ protected:
 	// End Player start selection functions
 
 private:
+	bool SetDesiredNumberOfPlayersFromPIESettings();
+
+private:
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	int32 DefaultDesiredNumberOfPlayers{ 1 };
 

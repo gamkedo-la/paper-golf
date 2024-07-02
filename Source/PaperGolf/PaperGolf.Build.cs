@@ -27,5 +27,13 @@ public class PaperGolf : ModuleRules
         });
 
         CppStandard = CppStandardVersion.Cpp20;
+
+        // Editor build
+        if (Target.Type == TargetRules.TargetType.Editor)
+        {
+            PrivateDependencyModuleNames.AddRange(new string[] {
+                "UnrealEd",
+            });
+        }
     }
 }
