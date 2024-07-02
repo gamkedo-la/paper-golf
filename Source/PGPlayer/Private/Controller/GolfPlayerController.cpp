@@ -736,9 +736,7 @@ void AGolfPlayerController::DeferredInit()
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DeferredInit"), *GetName());
 
-	SnapToGround();
 	InitFocusableActors();
-	SetPaperGolfPawnAimFocus();
 }
 
 void AGolfPlayerController::RegisterShotFinishedTimer()

@@ -88,27 +88,33 @@ void APaperGolfGameModeBase::BeginPlay()
 
 APawn* APaperGolfGameModeBase::SpawnDefaultPawnAtTransform_Implementation(AController* NewPlayer, const FTransform& SpawnTransform)
 {
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: SpawnDefaultPawnAtTransform_Implementation - NewPlayer=%s"), *GetName(), *LoggingUtils::GetName(NewPlayer));
+	const auto Pawn = Super::SpawnDefaultPawnAtTransform_Implementation(NewPlayer, SpawnTransform);
 
-	return Super::SpawnDefaultPawnAtTransform_Implementation(NewPlayer, SpawnTransform);
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: SpawnDefaultPawnAtTransform_Implementation - NewPlayer=%s; Pawn=%s"),
+		*GetName(), *LoggingUtils::GetName(NewPlayer), *LoggingUtils::GetName(Pawn));
+	
+	return Pawn;
 }
 
 AActor* APaperGolfGameModeBase::ChoosePlayerStart_Implementation(AController* Player)
 {
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: ChoosePlayerStart_Implementation - Player=%s"), *GetName(), *LoggingUtils::GetName(Player));
-
 	// Unless we implement difficulties with different player starts, we can just use the single player start location
 	// If we wanted to do the latter, we may not even need to override this as can just use tag names like "Amateur, Pro, Expert" and then use
 	// FindPlayerStart("Amateur") which returns an AActor* that we can pass to RestartPlayer(AController*, AActor*) so it uses that player start
-	return Super::ChoosePlayerStart_Implementation(Player);
-}
+	const auto Actor = Super::ChoosePlayerStart_Implementation(Player);
 
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: ChoosePlayerStart_Implementation - Player=%s; PlayerStart=%s"),
+		*GetName(), *LoggingUtils::GetName(Player), *LoggingUtils::GetName(Actor));
+}
 
 bool APaperGolfGameModeBase::ShouldSpawnAtStartSpot(AController* Player)
 {
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: ShouldSpawnAtStartSpot - Player=%s"), *GetName(), *LoggingUtils::GetName(Player));
+	const bool bResult = Super::ShouldSpawnAtStartSpot(Player);
 
-	return Super::ShouldSpawnAtStartSpot(Player);
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: ShouldSpawnAtStartSpot - Player=%s; ShouldSpawn=%s"),
+		*GetName(), *LoggingUtils::GetName(Player), LoggingUtils::GetBoolString(bResult));
+
+	return bResult;
 }
 
 void APaperGolfGameModeBase::HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer)
@@ -120,9 +126,12 @@ void APaperGolfGameModeBase::HandleStartingNewPlayer_Implementation(APlayerContr
 
 bool APaperGolfGameModeBase::UpdatePlayerStartSpot(AController* Player, const FString& Portal, FString& OutErrorMessage)
 {
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: UpdatePlayerStartSpot - Player=%s, Portal=%s"), *GetName(), *LoggingUtils::GetName(Player), *Portal);
+	const auto bResult = Super::UpdatePlayerStartSpot(Player, Portal, OutErrorMessage);
 
-	return Super::UpdatePlayerStartSpot(Player, Portal, OutErrorMessage);
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: UpdatePlayerStartSpot - Player=%s, Portal=%s; OutErrorMessage=%s; Result=%s"),
+		*GetName(), *LoggingUtils::GetName(Player), *Portal, *OutErrorMessage, LoggingUtils::GetBoolString(bResult));
+
+	return bResult;
 }
 
 void APaperGolfGameModeBase::GenericPlayerInitialization(AController* NewPlayer)

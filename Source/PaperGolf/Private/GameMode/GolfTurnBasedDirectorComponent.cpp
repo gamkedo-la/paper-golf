@@ -132,6 +132,7 @@ void UGolfTurnBasedDirectorComponent::ActivateNextPlayer()
 		if (i != ActivePlayerIndex)
 		{
 			// TODO: It's possible that the pawn won't be set yet
+			// This is actually happening because the pawn is not set yet
 			Players[i]->Spectate(NextPlayer->GetPaperGolfPawn());
 		}
 	}
