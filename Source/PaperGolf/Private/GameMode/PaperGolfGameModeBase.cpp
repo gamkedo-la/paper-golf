@@ -79,11 +79,33 @@ void APaperGolfGameModeBase::OnMatchStateSet()
 	// TODO: If we start players as spectators, we can use RestartPlayer(AController*) to spawn them in one at a time - or maybe call it when starting the hole on each player
 }
 
+void APaperGolfGameModeBase::HandleMatchHasStarted()
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: HandleMatchHasStarted"), *GetName());
+
+	Super::HandleMatchHasStarted();
+}
+
 void APaperGolfGameModeBase::BeginPlay()
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: BeginPlay"), *GetName());
 
 	Super::BeginPlay();
+}
+
+void APaperGolfGameModeBase::NotifyHoleAboutToStart()
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: NotifyHoleAboutToStart"), *GetName());
+
+	bAllowPlayerSpawn = true;
+}
+
+bool APaperGolfGameModeBase::PlayerCanRestart_Implementation(APlayerController* Player)
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: PlayerCanRestart_Implementation: Player=%s -> %s"), 
+		*GetName(), *LoggingUtils::GetName(Player), LoggingUtils::GetBoolString(bAllowPlayerSpawn));
+
+	return bAllowPlayerSpawn;
 }
 
 APawn* APaperGolfGameModeBase::SpawnDefaultPawnAtTransform_Implementation(AController* NewPlayer, const FTransform& SpawnTransform)
@@ -105,6 +127,8 @@ AActor* APaperGolfGameModeBase::ChoosePlayerStart_Implementation(AController* Pl
 
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: ChoosePlayerStart_Implementation - Player=%s; PlayerStart=%s"),
 		*GetName(), *LoggingUtils::GetName(Player), *LoggingUtils::GetName(Actor));
+
+	return Actor;
 }
 
 bool APaperGolfGameModeBase::ShouldSpawnAtStartSpot(AController* Player)

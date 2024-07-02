@@ -265,6 +265,9 @@ bool AGolfPlayerController::IsFlickedAtRest() const
 {
 	if (bCanFlick)
 	{
+		UE_VLOG_UELOG(this, LogPGPlayer, VeryVerbose, TEXT("%s: IsFlickedAtRest - FALSE - bCanFlick is TRUE"),
+			*GetName());
+
 		return false;
 	}
 
@@ -272,10 +275,18 @@ bool AGolfPlayerController::IsFlickedAtRest() const
 
 	if (!PaperGolfPawn)
 	{
+		UE_VLOG_UELOG(this, LogPGPlayer, VeryVerbose, TEXT("%s: IsFlickedAtRest - FALSE - PaperGolfPawn is NULL"),
+			*GetName());
+
 		return false;
 	}
 
-	return PaperGolfPawn->IsAtRest();
+	const auto bPaperGolfAtRest = PaperGolfPawn->IsAtRest();
+
+	UE_VLOG_UELOG(this, LogPGPlayer, VeryVerbose, TEXT("%s: IsFlickedAtRest - %s - Result of PaperGolfPawn::IsAtRest"),
+		*GetName(), LoggingUtils::GetBoolString(bPaperGolfAtRest));
+
+	return bPaperGolfAtRest;
 }
 
 void AGolfPlayerController::DrawFlickLocation()
@@ -524,6 +535,8 @@ void AGolfPlayerController::CheckForNextShot()
 
 	UnregisterShotFinishedTimer();
 
+	bTurnActivated = false;
+
 	// invoke a client reliable function to say the next shot is ready unless the server is the client
 	if (HasAuthority() && !IsLocalPlayerController())
 	{
@@ -596,6 +609,21 @@ void AGolfPlayerController::ProcessShootInput()
 	AddStroke();
 
 	bCanFlick = false;
+	ServerSetCanFlick(bCanFlick);
+}
+
+void AGolfPlayerController::ServerSetCanFlick_Implementation(bool bInCanFlick)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log,
+		TEXT("%s: ServerSetCanFlick_Implementation - bInCanFlick=%s"),
+		*GetName(), LoggingUtils::GetBoolString(bInCanFlick));
+
+	if (IsLocalController())
+	{
+		return;
+	}
+
+	bCanFlick = bInCanFlick;
 }
 
 void AGolfPlayerController::AddStroke()
@@ -830,18 +858,6 @@ void AGolfPlayerController::OnPossess(APawn* InPawn)
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnPossess - InPawn=%s"), *GetName(), *LoggingUtils::GetName(InPawn));
 
 	Super::OnPossess(InPawn);
-
-	// The player pawn will be first paper golf pawn possessed so set if not already set
-	if (IsValid(PlayerPawn))
-	{
-		return;
-	}
-
-	if (auto PaperGolfPawn = Cast<APaperGolfPawn>(InPawn); PaperGolfPawn)
-	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: OnPossess - Set PlayerPawn=%s"), *GetName(), *LoggingUtils::GetName(InPawn));
-		PlayerPawn = PaperGolfPawn;
-	}
 }
 
 void AGolfPlayerController::OnUnPossess()
@@ -849,6 +865,25 @@ void AGolfPlayerController::OnUnPossess()
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnUnPossess - ExistingPawn=%s"), *GetName(), *LoggingUtils::GetName(GetPawn()));
 
 	Super::OnUnPossess();
+}
+
+void AGolfPlayerController::SetPawn(APawn* InPawn)
+{
+	// Note that this is also called on server from game mode when RestartPlayer is called
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SetPawn - InPawn=%s"), *GetName(), *LoggingUtils::GetName(InPawn));
+
+	Super::SetPawn(InPawn);
+
+	const auto PaperGolfPawn = Cast<APaperGolfPawn>(InPawn); PaperGolfPawn;
+
+	// The player pawn will be first paper golf pawn possessed so set if not already set
+	if (!IsValid(PlayerPawn) && IsValid(PaperGolfPawn))
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: SetPawn - PlayerPawn=%s"), *GetName(), *LoggingUtils::GetName(InPawn));
+		PlayerPawn = PaperGolfPawn;
+	}
+
+	DoActivateTurn();
 }
 
 void AGolfPlayerController::ToggleShotType()
@@ -896,20 +931,59 @@ void AGolfPlayerController::ActivateTurn()
 		return;
 	}
 
-	Possess(PlayerPawn);
-
-	ClientActivateTurn();
+	if (GetPawn() != PlayerPawn)
+	{
+		Possess(PlayerPawn);
+		// Turn activation will happen on SetPawn after possession has replicated
+	}
+	else
+	{
+		// Already possessed so activate the turn directly through this client RPC or call the function directly if running a dedicated server
+		if(IsNetMode(NM_DedicatedServer))
+		{
+			DoActivateTurn();
+		}
+		else
+		{
+			ClientActivateTurn();
+		}
+	}
 }
 
 void AGolfPlayerController::ClientActivateTurn_Implementation()
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientActivateTurn"), *GetName());
 
-	// TODO: Do we need to wait for Possess to replicate?
+	DoActivateTurn();
+}
+
+void AGolfPlayerController::DoActivateTurn()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DoActivateTurn"), *GetName());
+
+	if (bTurnActivated)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DoActivateTurn - Turn already activated"), *GetName());
+		return;
+	}
+
+	const auto PaperGolfPawn = Cast<APaperGolfPawn>(GetPawn());
+
+	// Activate the turn if switching from spectator to player
+	// Doing this here as this function is called when replication of the pawn possession completes
+	if (!PaperGolfPawn)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DoActivateTurn - Skipping turn activation as Pawn=%s is not APaperGolfPawn"),
+			*GetName(), *LoggingUtils::GetName(GetPawn()));
+		return;
+	}
+
 	EnableInput(this);
 
 	SetupNextShot();
 	RegisterShotFinishedTimer();
+
+	bTurnActivated = true;
 }
 
 void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn)

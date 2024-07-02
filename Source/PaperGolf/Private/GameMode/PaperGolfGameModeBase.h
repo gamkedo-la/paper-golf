@@ -36,6 +36,9 @@ public:
 	/** called before startmatch */
 	virtual void HandleMatchIsWaitingToStart() override;
 
+	/** Called when match starts */
+	virtual void HandleMatchHasStarted() override;
+
 	void SetDesiredNumberOfPlayers(int32 InDesiredNumberOfPlayers);
 
 	// Begin Player start selection functions
@@ -49,6 +52,11 @@ public:
 protected:
 	virtual void OnMatchStateSet() override;
 	virtual void BeginPlay() override;
+
+	/*
+	* Called by derived classes to notify when the hole is about to start
+	*/
+	void NotifyHoleAboutToStart();
 
 	// TODO: See MustSpectate_Implementation in AGameMode for an idea of how to start players as spectators - possibly default implementation is fine as we can
 	// Set spectating on player state as it expects
@@ -67,6 +75,7 @@ protected:
 	// The default implementation looks fine for our purposes as we will be sure to choose the right player start
 	// End Player start selection functions
 
+	virtual bool PlayerCanRestart_Implementation(APlayerController* Player) override;
 private:
 	bool SetDesiredNumberOfPlayersFromPIESettings();
 
@@ -75,6 +84,8 @@ private:
 	int32 DefaultDesiredNumberOfPlayers{ 1 };
 
 	int32 DesiredNumberOfPlayers{};
+
+	bool bAllowPlayerSpawn{};
 };
 
 #pragma region Inline Definitions

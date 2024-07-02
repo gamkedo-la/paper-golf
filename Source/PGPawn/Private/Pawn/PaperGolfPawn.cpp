@@ -185,9 +185,20 @@ void APaperGolfPawn::SetUpForNextShot()
 
 void APaperGolfPawn::Flick(float LocalZOffset, float PowerFraction, float Accuracy)
 {
-	check(_PaperGolfMesh);
-
 	SetCameraForFlick();
+
+	DoFlick(LocalZOffset, PowerFraction, Accuracy);
+	ServerFlick(LocalZOffset, PowerFraction, Accuracy);
+}
+
+void APaperGolfPawn::DoFlick(float LocalZOffset, float PowerFraction, float Accuracy)
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log,
+		TEXT("%s: DoFlick - LocalZOffset=%f; PowerFraction=%f; Accuracy=%f"),
+		*GetName(), LocalZOffset, PowerFraction, Accuracy
+	);
+
+	check(_PaperGolfMesh);
 
 	// Turn off physics at first so can move the actor
 	_PaperGolfMesh->SetSimulatePhysics(true);
@@ -197,6 +208,21 @@ void APaperGolfPawn::Flick(float LocalZOffset, float PowerFraction, float Accura
 	);
 
 	_PaperGolfMesh->SetEnableGravity(true);
+}
+
+void APaperGolfPawn::ServerFlick_Implementation(float LocalZOffset, float PowerFraction, float Accuracy)
+{
+	if (IsLocallyControlled())
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogPGPawn, Log,
+		TEXT("%s: ServerFlick_Implementation - LocalZOffset=%f; PowerFraction=%f; Accuracy=%f"),
+		*GetName(), LocalZOffset, PowerFraction, Accuracy
+	);
+
+	DoFlick(LocalZOffset, PowerFraction, Accuracy);
 }
 
 float APaperGolfPawn::ClampFlickZ(float OriginalZOffset, float DeltaZ) const

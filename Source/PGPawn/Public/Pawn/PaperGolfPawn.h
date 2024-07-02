@@ -72,6 +72,10 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void PostInitializeComponents() override;
 
+	UFUNCTION(Server, Reliable)
+	void ServerFlick(float LocalZOffset, float PowerFraction, float Accuracy);
+
+	void DoFlick(float LocalZOffset, float PowerFraction, float Accuracy);
 
 private:
 

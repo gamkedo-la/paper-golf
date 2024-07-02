@@ -90,6 +90,9 @@ protected:
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnUnPossess() override;
 
+	// Called on both clients and server via a rep notify
+	virtual void SetPawn(APawn* InPawn) override;
+
 private:
 	void AddToShotHistory(APaperGolfPawn* PaperGolfPawn);
 
@@ -152,6 +155,12 @@ private:
 	UFUNCTION(Client, Reliable)
 	void ClientSpectate(APaperGolfPawn* InPawn);
 
+	void DoActivateTurn();
+
+	// TODO: This is a hack
+	UFUNCTION(Server, Reliable)
+	void ServerSetCanFlick(bool bFlick);
+
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	TArray<FShotHistory> ShotHistory{};
@@ -161,6 +170,8 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
 	bool bCanFlick{ };
+
+	bool bTurnActivated{};
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
 	FRotator RotationMax{ 75.0, 180.0, 90.0 };
