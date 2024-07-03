@@ -73,6 +73,8 @@ public:
 	UFUNCTION(BlueprintPure)
 	bool HasScored() const;
 
+	void MarkScored();
+
 protected:
 	void BeginPlay() override;
 
@@ -117,8 +119,6 @@ private:
 
 	void AddStroke();
 
-	void NextHole();
-
 	void Init();
 	void DeferredInit();
 
@@ -136,9 +136,6 @@ private:
 
 	UFUNCTION()
 	void OnFellThroughFloor(APaperGolfPawn* InPaperGolfPawn);
-
-	UFUNCTION()
-	void OnScored(APaperGolfPawn* InPaperGolfPawn);
 
 	void HandleFallThroughFloor();
 	void HandleOutOfBounds();
@@ -172,6 +169,9 @@ private:
 
 	UFUNCTION(Server, Reliable)
 	void ServerProcessShootInput();
+
+	UFUNCTION(Client, Reliable)
+	void ClientMarkScored();
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
@@ -209,9 +209,6 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
 	bool bScored{};
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
-	float NextHoleDelay{ 3.0f };
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
 	bool bOutOfBounds{};
@@ -283,6 +280,12 @@ FORCEINLINE bool AGolfPlayerController::IsInputEnabled() const
 FORCEINLINE bool AGolfPlayerController::HasScored() const
 {
 	return bScored;
+}
+
+FORCEINLINE void AGolfPlayerController::MarkScored()
+{
+	bScored = true;
+	ClientMarkScored();
 }
 
 #pragma endregion Inline Definitions

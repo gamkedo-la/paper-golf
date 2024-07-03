@@ -194,17 +194,12 @@ void AGolfPlayerController::DetermineIfCloseShot()
 	PaperGolfPawn->SetCloseShot(bCloseShot);
 }
 
-void AGolfPlayerController::OnScored(APaperGolfPawn* InPaperGolfPawn)
+void AGolfPlayerController::ClientMarkScored_Implementation()
 {
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s-%s: OnScored: InPaperGolfPawn=%s"),
-		*GetName(), *LoggingUtils::GetName(GetPawn()), *LoggingUtils::GetName(InPaperGolfPawn));
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s-%s: ClientMarkScored_Implementation"),
+		*GetName(), *LoggingUtils::GetName(GetPawn()));
 
 	auto PaperGolfPawn = GetPaperGolfPawn();
-
-	if (PaperGolfPawn != InPaperGolfPawn)
-	{
-		return;
-	}
 
 	bScored = true;
 	bCanFlick = false;
@@ -226,8 +221,6 @@ void AGolfPlayerController::OnScored(APaperGolfPawn* InPaperGolfPawn)
 			HUD->DisplayMessageWidget(EMessageWidgetType::HoleFinished);
 		}
 	}
-
-	NextHole();
 }
 
 bool AGolfPlayerController::HasLOSToFocus(const FVector& Position, const AActor* FocusActor) const
@@ -632,22 +625,6 @@ void AGolfPlayerController::AddStroke()
 	GolfPlayerState->AddShot();
 }
 
-void AGolfPlayerController::NextHole()
-{
-	// TODO: Adjust once have multiple holes and a way to transition between them
-	auto World = GetWorld();
-	if (!ensure(World))
-	{
-		return;
-	}
-
-	FTimerHandle Handle;
-	// FIXME: This only works for standalone game!
-	// Need to wait for all players to finish and then do a server travel to next hole
-	// Uworld::ServerTravel with restart level or use console command
-	World->GetTimerManager().SetTimer(Handle, this, &ThisClass::RestartLevel, NextHoleDelay);
-}
-
 void AGolfPlayerController::HandleOutOfBounds()
 {
 	if (bOutOfBounds)
@@ -802,7 +779,6 @@ void AGolfPlayerController::RegisterGolfSubsystemEvents()
 
 	GolfSubsystem->OnPaperGolfPawnOutBounds.AddDynamic(this, &ThisClass::OnOutOfBounds);
 	GolfSubsystem->OnPaperGolfPawnClippedThroughWorld.AddDynamic(this, &ThisClass::OnFellThroughFloor);
-	GolfSubsystem->OnPaperGolfPawnScored.AddDynamic(this, &ThisClass::OnScored);
 }
 
 void AGolfPlayerController::OnOutOfBounds(APaperGolfPawn* InPaperGolfPawn)

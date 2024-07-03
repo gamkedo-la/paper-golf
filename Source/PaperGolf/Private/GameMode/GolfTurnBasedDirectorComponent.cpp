@@ -18,6 +18,8 @@
 
 #include "Controller/GolfPlayerController.h"
 
+#include "Pawn/PaperGolfPawn.h"
+
 #include "State/GolfPlayerState.h"
 
 UGolfTurnBasedDirectorComponent::UGolfTurnBasedDirectorComponent()
@@ -105,17 +107,49 @@ void UGolfTurnBasedDirectorComponent::RegisterEventHandlers()
 	if(auto GolfEventSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); GolfEventSubsystem)
 	{
 		GolfEventSubsystem->OnPaperGolfShotFinished.AddDynamic(this, &UGolfTurnBasedDirectorComponent::OnPaperGolfShotFinished);
+		GolfEventSubsystem->OnPaperGolfPawnScored.AddDynamic(this, &UGolfTurnBasedDirectorComponent::OnPaperGolfPlayerScored);
 	}
 }
 
 void UGolfTurnBasedDirectorComponent::OnPaperGolfShotFinished(APaperGolfPawn* PaperGolfPawn)
 {
-	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: OnPaperGolfShotFinished"), *GetName());
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: OnPaperGolfShotFinished: PaperGolfPawn=%s"), *GetName(), *LoggingUtils::GetName(PaperGolfPawn));
 
+	DoNextTurn();
+}
+
+void UGolfTurnBasedDirectorComponent::OnPaperGolfPlayerScored(APaperGolfPawn* PaperGolfPawn)
+{
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: OnPaperGolfPlayerScored: PaperGolfPawn=%s"), *GetName(), *LoggingUtils::GetName(PaperGolfPawn));
+
+	check(PaperGolfPawn);
+
+	if (auto GolfPlayerController = Cast<AGolfPlayerController>(PaperGolfPawn->GetController()); ensure(GolfPlayerController))
+	{
+		GolfPlayerController->MarkScored();
+	}
+	else
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: OnPaperGolfShotFinished - PaperGolfPawn=%s - Controller=%s is not a AGolfPlayerController"),
+			*GetName(), *LoggingUtils::GetName(PaperGolfPawn), *LoggingUtils::GetName(PaperGolfPawn->GetController()));
+	}
+
+	DoNextTurn();
+}
+
+void UGolfTurnBasedDirectorComponent::DoNextTurn()
+{
 	ActivePlayerIndex = DetermineNextPlayer();
 
-	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: OnPaperGolfShotFinished - Next player index=%d"), *GetName(), ActivePlayerIndex);
+	if (ActivePlayerIndex == INDEX_NONE)
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: DoNextTurn - Hole Complete"), *GetName());
+		NextHole();
 
+		return;
+	}
+
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: DoNextTurn - Next player index=%d"), *GetName(), ActivePlayerIndex);
 	ActivateNextPlayer();
 }
 
@@ -187,10 +221,9 @@ int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 
 	// TODO: Use DetermineClosestPlayerToHole if all players have gone at least once
 
-	int32 InitialNextPlayerIndex = ActivePlayerIndex + 1;
-	for (int32 i = 0, Len = Players.Num(); i < Len; ++i)
+	for (int32 i = 0, InitialNextPlayerIndex = ActivePlayerIndex + 1, Len = Players.Num(); i < Len; ++i)
 	{
-		auto Index = (InitialNextPlayerIndex + i) % Len;
+		const auto Index = (InitialNextPlayerIndex + i) % Len;
 
 		auto Player = Players[Index];
 		// TODO: May want to make this more generic in case they hit the shot limit for instance and we implement that feature
@@ -200,7 +233,29 @@ int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 		}
 	}
 
-	// TODO: Really should allow the assertion to be triggered once the hole finishes asd this should never be called anymore or return invalid index and handle that upstream
-	// as no player left and then end the hole with a server travel
-	return InitialNextPlayerIndex % Players.Num();
+	return INDEX_NONE;
+}
+
+// TODO: This belongs in a separate component or should instead fire an event that is picked up by the game mode or another component on the game mode
+void UGolfTurnBasedDirectorComponent::NextHole()
+{
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Display, TEXT("%s: NextHole"), *GetName());
+
+	// TODO: Adjust once have multiple holes and a way to transition between them
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return;
+	}
+
+	auto Delegate = FTimerDelegate::CreateWeakLambda(this, [this]()
+	{
+		if (auto World = GetWorld(); ensure(World))
+		{
+			World->ServerTravel("?Restart");
+		}
+	});
+
+	FTimerHandle Handle;
+	World->GetTimerManager().SetTimer(Handle, Delegate, NextHoleDelay, false);
 }

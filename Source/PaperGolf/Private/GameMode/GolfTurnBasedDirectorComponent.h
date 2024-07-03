@@ -37,6 +37,11 @@ private:
 	UFUNCTION()
 	void OnPaperGolfShotFinished(APaperGolfPawn* PaperGolfPawn);
 
+	UFUNCTION()
+	void OnPaperGolfPlayerScored(APaperGolfPawn* PaperGolfPawn);
+
+	void DoNextTurn();
+
 	void ActivateNextPlayer();
 
 	int32 DetermineClosestPlayerToHole() const;
@@ -44,6 +49,8 @@ private:
 
 	void ActivatePlayer(AGolfPlayerController* Player);
 	// TODO: Will need a variant that takes an AI controller or better yet use an interface implemented by both
+
+	void NextHole();
 
 private:
 	// TODO: Use APGTurnBasedGameMode if need the functionality of it.  Keeping it to the base class for now for maximum reuse
@@ -55,4 +62,7 @@ private:
 	TArray<AGolfPlayerController*> Players{};
 
 	int32 ActivePlayerIndex{};
+
+	UPROPERTY(EditDefaultsOnly)
+	float NextHoleDelay{ 3.0f };
 };
