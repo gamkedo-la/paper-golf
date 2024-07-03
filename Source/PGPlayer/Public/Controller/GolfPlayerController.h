@@ -39,6 +39,7 @@ class PGPLAYER_API AGolfPlayerController : public APlayerController, public IVis
 	GENERATED_BODY()
 
 public:
+	AGolfPlayerController();
 
 #if ENABLE_VISUAL_LOG
 	virtual void GrabDebugSnapshot(FVisualLogEntry* Snapshot) const override;
@@ -170,8 +171,8 @@ private:
 	UFUNCTION(Server, Reliable)
 	void ServerProcessShootInput();
 
-	UFUNCTION(Client, Reliable)
-	void ClientMarkScored();
+	UFUNCTION()
+	void OnRep_Scored();
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
@@ -207,7 +208,7 @@ private:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
 	FLinearColor FlickReticuleColor{ };
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(ReplicatedUsing = OnRep_Scored, EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
 	bool bScored{};
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
@@ -285,7 +286,6 @@ FORCEINLINE bool AGolfPlayerController::HasScored() const
 FORCEINLINE void AGolfPlayerController::MarkScored()
 {
 	bScored = true;
-	ClientMarkScored();
 }
 
 #pragma endregion Inline Definitions

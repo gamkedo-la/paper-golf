@@ -10,17 +10,11 @@
 
 void URealtimeTimerSubsystem::Tick(float DeltaTime)
 {
-	UE_LOG(LogPGCore, VeryVerbose, TEXT("%s: Tick=%fs"), *GetName(), DeltaTime);
-
 	Super::Tick(DeltaTime);
 
 	if (RealTimeTimerDelegate.IsBound())
 	{
 		TickDelegates(DeltaTime);
-	}
-	else
-	{
-		UE_LOG(LogPGCore, VeryVerbose, TEXT("%s: Tick=%fs - Skipping as no delegates bound"), *GetName(), DeltaTime);
 	}
 }
 

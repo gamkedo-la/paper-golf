@@ -27,6 +27,11 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GolfPlayerController)
 
+AGolfPlayerController::AGolfPlayerController()
+{
+	bReplicates = true;
+}
+
 void AGolfPlayerController::AddToShotHistory(APaperGolfPawn* PaperGolfPawn)
 {
 	if (!PaperGolfPawn)
@@ -194,14 +199,19 @@ void AGolfPlayerController::DetermineIfCloseShot()
 	PaperGolfPawn->SetCloseShot(bCloseShot);
 }
 
-void AGolfPlayerController::ClientMarkScored_Implementation()
+void AGolfPlayerController::OnRep_Scored()
 {
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s-%s: ClientMarkScored_Implementation"),
-		*GetName(), *LoggingUtils::GetName(GetPawn()));
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s-%s: OnRep_Scored - %s"),
+		*GetName(), *LoggingUtils::GetName(GetPawn()), LoggingUtils::GetBoolString(bScored));
+
+	// Nothing to do if scored is false
+	if (!bScored)
+	{
+		return;
+	}
 
 	auto PaperGolfPawn = GetPaperGolfPawn();
 
-	bScored = true;
 	bCanFlick = false;
 
 	auto GolfPlayerState = GetPlayerState<AGolfPlayerState>();
@@ -210,7 +220,9 @@ void AGolfPlayerController::ClientMarkScored_Implementation()
 		return;
 	}
 
-	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s-%s: OnScored: NumStrokes=%d"),
+	// GetShots may not necessary be accurate if the Shots variable replication happens after the score replication;
+	// however, it is only for logging purposes
+	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s-%s: OnRep_Scored: NumStrokes=%d"),
 		*GetName(), *LoggingUtils::GetName(GetPawn()), GolfPlayerState->GetShots());
 
 	if (IsLocalController())
@@ -467,6 +479,11 @@ void AGolfPlayerController::HandleFallThroughFloor()
 	const auto& Position = PaperGolfPawn->GetActorLocation() + FVector::UpVector * FallThroughFloorCorrectionTestZ;
 
 	SetPositionTo(Position);
+
+	if (HasAuthority() && !IsLocalController())
+	{
+		ClientSetPositionTo(Position);
+	}
 }
 
 void AGolfPlayerController::SetPositionTo(const FVector& Position)
@@ -689,7 +706,13 @@ void AGolfPlayerController::ResetShotAfterOutOfBounds()
 	if(ensureMsgf(!ShotHistory.IsEmpty(), TEXT("%s-%s: ResetShotAfterOutOfBounds - ShotHistory is empty"),
 		*GetName(), *PaperGolfPawn->GetName()))
 	{
-		SetPositionTo(ShotHistory.Last().Position);
+		const auto& ResetPosition = ShotHistory.Last().Position;
+		SetPositionTo(ResetPosition);
+
+		if (HasAuthority() && !IsLocalController())
+		{
+			ClientSetPositionTo(ResetPosition);
+		}
 	}
 }
 
@@ -998,6 +1021,7 @@ void AGolfPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	//DOREPLIFETIME_CONDITION(AGolfPlayerController, ShotFinishedLocation, COND_OwnerOnly);
+	DOREPLIFETIME(AGolfPlayerController, bScored);
 }
 
 void AGolfPlayerController::AddSpectatorPawn(APawn* PawnToSpectate)
@@ -1070,6 +1094,7 @@ void AGolfPlayerController::SetCameraOwnedBySpectatorPawn(APawn* InPawn)
 #pragma region Visual Logger
 
 #if ENABLE_VISUAL_LOG
+
 void AGolfPlayerController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 {
 	auto World = GetWorld();
@@ -1118,10 +1143,10 @@ void AGolfPlayerController::InitDebugDraw()
 {
 	// Ensure that state logged regularly so we see the updates in the visual logger
 
-	FTimerDelegate DebugDrawDelegate = FTimerDelegate::CreateLambda([this]()
-		{
-			UE_VLOG(this, LogPGPlayer, Log, TEXT("Get Player State"));
-		});
+	FTimerDelegate DebugDrawDelegate = FTimerDelegate::CreateWeakLambda(this, [this]()
+	{
+		UE_VLOG(this, LogPGPlayer, Log, TEXT("Get Player State"));
+	});
 
 	GetWorldTimerManager().SetTimer(VisualLoggerTimer, DebugDrawDelegate, 0.05f, true);
 }

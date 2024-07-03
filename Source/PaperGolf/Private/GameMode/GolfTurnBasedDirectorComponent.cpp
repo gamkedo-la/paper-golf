@@ -6,6 +6,7 @@
 #include "GameMode/PaperGolfGameModeBase.h"
 
 #include "Logging/LoggingUtils.h"
+#include "Utils/ArrayUtils.h"
 #include "VisualLogger/VisualLogger.h"
 #include "PaperGolfLogging.h"
 
@@ -30,7 +31,7 @@ UGolfTurnBasedDirectorComponent::UGolfTurnBasedDirectorComponent()
 
 void UGolfTurnBasedDirectorComponent::StartHole()
 {
-	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: StartHole with %d players"), *GetName(), Players.Num());
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: StartHole with %d player%s: %s"), *GetName(), Players.Num(), LoggingUtils::Pluralize(Players.Num()), *PG::ToStringObjectElements(Players));
 
 	// TODO: Order should be based on previous hole's finish
 
@@ -155,6 +156,8 @@ void UGolfTurnBasedDirectorComponent::DoNextTurn()
 
 void UGolfTurnBasedDirectorComponent::ActivateNextPlayer()
 {
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: ActivateNextPlayer - ActivePlayerIndex=%d"), *GetName(), ActivePlayerIndex);
+
 	checkf(ActivePlayerIndex >= 0 && ActivePlayerIndex < Players.Num(), TEXT("%s: ActivateNextPlayer - ActivePlayerIndex=%d is out of range"), *GetName(), ActivePlayerIndex);
 	auto NextPlayer = Players[ActivePlayerIndex];
 
