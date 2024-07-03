@@ -493,6 +493,8 @@ void AGolfPlayerController::SetPositionTo(const FVector& Position)
 		TeleportFlagToEnum(true)
 	);
 
+	UE_VLOG_LOCATION(this, LogPGPlayer, Log, Position, 20.0f, FColor::Red, TEXT("SetPositionTo"));
+
 	SetupNextShot();
 }
 
@@ -605,25 +607,18 @@ void AGolfPlayerController::ProcessShootInput()
 	const auto Accuracy = GolfWidget->GetMeterAccuracy();
 
 	PaperGolfPawn->Flick(FlickZ, Power, Accuracy);
-
-	AddStroke();
-
 	bCanFlick = false;
-	ServerSetCanFlick(bCanFlick);
+
+	ServerProcessShootInput();
 }
 
-void AGolfPlayerController::ServerSetCanFlick_Implementation(bool bInCanFlick)
+void AGolfPlayerController::ServerProcessShootInput_Implementation()
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log,
-		TEXT("%s: ServerSetCanFlick_Implementation - bInCanFlick=%s"),
-		*GetName(), LoggingUtils::GetBoolString(bInCanFlick));
+		TEXT("%s: ServerProcessShootInput"), *GetName());
 
-	if (IsLocalController())
-	{
-		return;
-	}
-
-	bCanFlick = bInCanFlick;
+	AddStroke();
+	bCanFlick = false;
 }
 
 void AGolfPlayerController::AddStroke()
@@ -885,7 +880,10 @@ void AGolfPlayerController::SetPawn(APawn* InPawn)
 		PlayerPawn = PaperGolfPawn;
 	}
 
-	DoActivateTurn();
+	if (IsValid(PaperGolfPawn))
+	{
+		DoActivateTurn();
+	}
 }
 
 void AGolfPlayerController::ToggleShotType()
@@ -963,6 +961,10 @@ void AGolfPlayerController::DoActivateTurn()
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DoActivateTurn"), *GetName());
 
+	// Ensure that input is always activated and timer is always registered
+	EnableInput(this);
+	RegisterShotFinishedTimer();
+
 	if (bTurnActivated)
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DoActivateTurn - Turn already activated"), *GetName());
@@ -980,11 +982,7 @@ void AGolfPlayerController::DoActivateTurn()
 		return;
 	}
 
-	EnableInput(this);
-
 	SetupNextShot();
-	RegisterShotFinishedTimer();
-
 	bTurnActivated = true;
 }
 
@@ -1109,7 +1107,8 @@ void AGolfPlayerController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 
 	Category.Add(TEXT("TurnActivated"), LoggingUtils::GetBoolString(bTurnActivated));
 	Category.Add(TEXT("CanFlick"), LoggingUtils::GetBoolString(bCanFlick));
-	Category.Add(TEXT("InputEnabled"), LoggingUtils::GetBoolString(bInputEnabled));
+	Category.Add(TEXT("GolfInputEnabled"), LoggingUtils::GetBoolString(bInputEnabled));
+	Category.Add(TEXT("ControllerInputEnabled"), LoggingUtils::GetBoolString(InputEnabled()));
 	Category.Add(TEXT("OutOfBounds"), LoggingUtils::GetBoolString(bOutOfBounds));
 	Category.Add(TEXT("Scored"), LoggingUtils::GetBoolString(bScored));
 	Category.Add(TEXT("TotalRotation"), TotalRotation.ToCompactString());
@@ -1117,6 +1116,26 @@ void AGolfPlayerController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 	Category.Add(TEXT("ShotType"), LoggingUtils::GetName(ShotType));
 
 	Snapshot->Status.Add(Category);
+
+	// TODO: Consider moving logic to PlayerState itself
+	if (auto GolfPlayerState = GetPlayerState<AGolfPlayerState>(); GolfPlayerState)
+	{
+		FVisualLogStatusCategory PlayerStateCategory;
+		PlayerStateCategory.Category = FString::Printf(TEXT("PlayerState"));
+
+		PlayerStateCategory.Add(TEXT("Shots"), FString::Printf(TEXT("%d"), GolfPlayerState->GetShots()));
+
+		Snapshot->Status.Last().AddChild(PlayerStateCategory);
+	}
+
+	// Only server seems to log the pawn - so grab a snapshot explicitly if locally controlled so we can compare to the server state
+	if (!HasAuthority())
+	{
+		if (auto PaperGolfPawn = Cast<APaperGolfPawn>(GetPawn()))
+		{
+			PaperGolfPawn->GrabDebugSnapshot(Snapshot);
+		}
+	}
 }
 
 void AGolfPlayerController::InitDebugDraw()

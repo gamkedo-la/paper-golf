@@ -107,6 +107,8 @@ private:
 	TArray<FState> States;
 	int32 StateIndex{};
 
+	// TODO: Remove some of these from blueprint access
+
 	/*
 	* Number of samples for checking if stuck in perpetual motion sampled at the tick rate.
 	*/

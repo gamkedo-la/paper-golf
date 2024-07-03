@@ -70,6 +70,9 @@ public:
 	APaperGolfPawn* GetPaperGolfPawn();
 	const APaperGolfPawn* GetPaperGolfPawn() const;
 
+	UFUNCTION(BlueprintPure)
+	bool HasScored() const;
+
 protected:
 	void BeginPlay() override;
 
@@ -167,9 +170,8 @@ private:
 
 	void DoActivateTurn();
 
-	// TODO: This is a hack
 	UFUNCTION(Server, Reliable)
-	void ServerSetCanFlick(bool bFlick);
+	void ServerProcessShootInput();
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
@@ -181,6 +183,7 @@ private:
 	FTimerHandle VisualLoggerTimer{};
 #endif
 
+	// TODO: Remove some of these from blueprint access
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
 	bool bCanFlick{ };
 
@@ -275,6 +278,11 @@ FORCEINLINE void AGolfPlayerController::SetInputEnabled(bool bEnabled)
 FORCEINLINE bool AGolfPlayerController::IsInputEnabled() const
 {
 	return bInputEnabled;
+}
+
+FORCEINLINE bool AGolfPlayerController::HasScored() const
+{
+	return bScored;
 }
 
 #pragma endregion Inline Definitions

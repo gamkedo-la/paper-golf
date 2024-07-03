@@ -19,6 +19,7 @@
 
 #include "VisualLogger/VisualLogger.h"
 #include "Logging/LoggingUtils.h"
+#include "Utils/CollisionUtils.h"
 
 #include "Utils/VisualLoggerUtils.h"
 #include "PGPawnLogging.h"
@@ -75,8 +76,6 @@ void APaperGolfPawn::SnapToGround()
 {
 	ResetRotation();
 
-	// TODO: Create ground trace channel
-
 	auto World = GetWorld();
 	
 	if (!ensure(World))
@@ -91,10 +90,19 @@ void APaperGolfPawn::SnapToGround()
 
 	FHitResult HitResult;
 	
+	const auto& Bounds = _PaperGolfMesh ? PG::CollisionUtils::GetAABB(*_PaperGolfMesh) : PG::CollisionUtils::GetAABB(*this);
+	const auto& ActorUpVector = GetActorUpVector();
+
+	const auto StartLocation = TraceStart + Bounds.GetExtent().Z * ActorUpVector;
+	const auto EndLocation = TraceStart - 2000 * ActorUpVector;
+
+	UE_VLOG_SEGMENT_THICK(this, LogPGPawn, Log, StartLocation, EndLocation, FColor::Yellow, 10.0, TEXT("GroundTrace"));
+
+	// TODO: Create ground trace channel
 	if (!World->LineTraceSingleByChannel(
 		HitResult,
-		TraceStart,
-		TraceStart - 2000 * GetActorUpVector(),
+		StartLocation,
+		EndLocation,
 		ECollisionChannel::ECC_Visibility,
 		QueryParams))
 	{
@@ -108,7 +116,18 @@ void APaperGolfPawn::SnapToGround()
 		return;
 	}
 
-	SetActorLocation(HitResult.Location);
+	const auto& Location = HitResult.Location;
+
+	SetActorLocation(Location);
+
+	UE_VLOG_LOCATION(this,
+		LogPGPawn,
+		Log,
+		Location,
+		20.0,
+		FColor::Green,
+		TEXT("SnapToGround")
+	);
 }
 
 void APaperGolfPawn::ResetRotation()

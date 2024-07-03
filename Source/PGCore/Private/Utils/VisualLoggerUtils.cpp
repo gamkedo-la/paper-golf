@@ -8,7 +8,7 @@
 #include "Utils/CollisionUtils.h"
 #include "VisualLogger/VisualLogger.h"
 
-void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, UStaticMeshComponent& Component)
+void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, const UStaticMeshComponent& Component)
 {
 	const auto Mesh = Component.GetStaticMesh();
 	if (!IsValid(Mesh) || !Mesh->GetBodySetup())

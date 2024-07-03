@@ -186,5 +186,21 @@ int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 	// Every player needs to have gone at least once before using closest to hole.  If a player finishes the hole, they are removed from the list
 
 	// TODO: Use DetermineClosestPlayerToHole if all players have gone at least once
-	return (ActivePlayerIndex + 1) % Players.Num();
+
+	int32 InitialNextPlayerIndex = ActivePlayerIndex + 1;
+	for (int32 i = 0, Len = Players.Num(); i < Len; ++i)
+	{
+		auto Index = (InitialNextPlayerIndex + i) % Len;
+
+		auto Player = Players[Index];
+		// TODO: May want to make this more generic in case they hit the shot limit for instance and we implement that feature
+		if (!Player->HasScored())
+		{
+			return Index;
+		}
+	}
+
+	// TODO: Really should allow the assertion to be triggered once the hole finishes asd this should never be called anymore or return invalid index and handle that upstream
+	// as no player left and then end the hole with a server travel
+	return InitialNextPlayerIndex % Players.Num();
 }

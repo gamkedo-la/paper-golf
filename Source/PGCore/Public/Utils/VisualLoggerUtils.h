@@ -10,8 +10,8 @@ class UStaticMeshComponent;
 namespace PG::VisualLoggerUtils
 {
 	#if ENABLE_VISUAL_LOG
-		PGCORE_API void DrawStaticMeshComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, UStaticMeshComponent& Component);
+		PGCORE_API void DrawStaticMeshComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, const UStaticMeshComponent& Component);
 	#else
-		inline void DrawStaticMeshComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, UStaticMeshComponent& Component) {}
+		inline void DrawStaticMeshComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, const UStaticMeshComponent& Component) {}
 	#endif 
 }
