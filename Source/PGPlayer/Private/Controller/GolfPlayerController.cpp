@@ -758,6 +758,8 @@ void AGolfPlayerController::Init()
 		FTimerHandle InitTimerHandle;
 		World->GetTimerManager().SetTimer(InitTimerHandle, this, &ThisClass::DeferredInit, 0.2f);
 	}
+
+	InitDebugDraw();
 }
 
 void AGolfPlayerController::DeferredInit()
@@ -1090,3 +1092,49 @@ void AGolfPlayerController::SetCameraOwnedBySpectatorPawn(APawn* InPawn)
 }
 
 #pragma endregion Turn and spectator logic
+
+#pragma region Visual Logger
+
+#if ENABLE_VISUAL_LOG
+void AGolfPlayerController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
+{
+	auto World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	FVisualLogStatusCategory Category;
+	Category.Category = FString::Printf(TEXT("GolfPlayerController (%s)"), *GetName());
+
+	Category.Add(TEXT("TurnActivated"), LoggingUtils::GetBoolString(bTurnActivated));
+	Category.Add(TEXT("CanFlick"), LoggingUtils::GetBoolString(bCanFlick));
+	Category.Add(TEXT("InputEnabled"), LoggingUtils::GetBoolString(bInputEnabled));
+	Category.Add(TEXT("OutOfBounds"), LoggingUtils::GetBoolString(bOutOfBounds));
+	Category.Add(TEXT("Scored"), LoggingUtils::GetBoolString(bScored));
+	Category.Add(TEXT("TotalRotation"), TotalRotation.ToCompactString());
+	Category.Add(TEXT("FlickZ"), FString::Printf(TEXT("%.2f"), FlickZ));
+	Category.Add(TEXT("ShotType"), LoggingUtils::GetName(ShotType));
+
+	Snapshot->Status.Add(Category);
+}
+
+void AGolfPlayerController::InitDebugDraw()
+{
+	// Ensure that state logged regularly so we see the updates in the visual logger
+
+	FTimerDelegate DebugDrawDelegate = FTimerDelegate::CreateLambda([this]()
+		{
+			UE_VLOG(this, LogPGPlayer, Log, TEXT("Get Player State"));
+		});
+
+	GetWorldTimerManager().SetTimer(VisualLoggerTimer, DebugDrawDelegate, 0.05f, true);
+}
+
+#else
+
+void AGolfPlayerController::InitDebugDraw() {}
+
+#endif
+
+#pragma endregion Visual Logger

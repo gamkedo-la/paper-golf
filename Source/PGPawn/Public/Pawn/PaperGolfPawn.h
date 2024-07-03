@@ -4,18 +4,24 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
+#include "VisualLogger/VisualLoggerDebugSnapshotInterface.h"
+
 #include "PaperGolfPawn.generated.h"
 
 class USpringArmComponent;
 class UCameraComponent;
 
 UCLASS(Abstract)
-class PGPAWN_API APaperGolfPawn : public APawn
+class PGPAWN_API APaperGolfPawn : public APawn, public IVisualLoggerDebugSnapshotInterface
 {
 	GENERATED_BODY()
 
 public:
 	APaperGolfPawn();
+
+#if ENABLE_VISUAL_LOG
+	virtual void GrabDebugSnapshot(FVisualLogEntry* Snapshot) const override;
+#endif
 
 	UFUNCTION(BlueprintCallable, meta = (DevelopmentOnly))
 	void DebugDrawCenterOfMass(float DrawTime = 0.0f);
@@ -78,6 +84,10 @@ protected:
 	void DoFlick(float LocalZOffset, float PowerFraction, float Accuracy);
 
 private:
+
+#if ENABLE_VISUAL_LOG
+	void DrawPawn(FVisualLogEntry* Snapshot) const;
+#endif
 
 	float GetFlickMaxForce() const;
 	void SetCameraForFlick();

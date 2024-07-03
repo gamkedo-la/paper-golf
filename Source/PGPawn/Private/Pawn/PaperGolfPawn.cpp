@@ -18,7 +18,11 @@
 #include "Library/PaperGolfPawnUtilities.h"
 
 #include "VisualLogger/VisualLogger.h"
+#include "Logging/LoggingUtils.h"
+
+#include "Utils/VisualLoggerUtils.h"
 #include "PGPawnLogging.h"
+
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PaperGolfPawn)
 
@@ -445,3 +449,43 @@ APaperGolfPawn::FState::FState(const APaperGolfPawn& Pawn) :
 {
 
 }
+
+#pragma region Visual Logger
+
+#if ENABLE_VISUAL_LOG
+
+void APaperGolfPawn::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
+{
+	auto World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	FVisualLogStatusCategory Category;
+	Category.Category = FString::Printf(TEXT("PaperGolfPawn (%s)"), *GetName());
+
+	Category.Add(TEXT("FocusActor"), *LoggingUtils::GetName(FocusActor));
+	Category.Add(TEXT("CloseShot"), LoggingUtils::GetBoolString(bCloseShot));
+	Category.Add(TEXT("InPerpetualMotion"), LoggingUtils::GetBoolString(IsStuckInPerpetualMotion()));
+	Category.Add(TEXT("FlickLocation"), FlickLocation.ToCompactString());
+	Category.Add(TEXT("Location"), GetActorLocation().ToCompactString());
+	Category.Add(TEXT("Rotation"), GetActorRotation().ToCompactString());
+
+	DrawPawn(Snapshot);
+
+	Snapshot->Status.Add(Category);
+}
+
+void APaperGolfPawn::DrawPawn(FVisualLogEntry* Snapshot) const
+{
+	if(!IsValid(_PaperGolfMesh))
+	{
+		return;
+	}
+
+	PG::VisualLoggerUtils::DrawStaticMeshComponent(*Snapshot, LogPGPawn.GetCategoryName(), *_PaperGolfMesh);
+}
+
+#endif
+#pragma endregion Visual Logger

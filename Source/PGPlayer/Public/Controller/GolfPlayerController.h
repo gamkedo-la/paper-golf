@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "VisualLogger/VisualLoggerDebugSnapshotInterface.h"
+
 #include "GolfPlayerController.generated.h"
 
 class APaperGolfPawn;
@@ -32,11 +34,16 @@ enum class EShotType : uint8
  * 
  */
 UCLASS()
-class PGPLAYER_API AGolfPlayerController : public APlayerController
+class PGPLAYER_API AGolfPlayerController : public APlayerController, public IVisualLoggerDebugSnapshotInterface
 {
 	GENERATED_BODY()
 
 public:
+
+#if ENABLE_VISUAL_LOG
+	virtual void GrabDebugSnapshot(FVisualLogEntry* Snapshot) const override;
+#endif
+
 	UFUNCTION(BlueprintCallable)
 	void ResetRotation();
 
@@ -94,6 +101,9 @@ protected:
 	virtual void SetPawn(APawn* InPawn) override;
 
 private:
+
+	void InitDebugDraw();
+
 	void AddToShotHistory(APaperGolfPawn* PaperGolfPawn);
 
 	bool IsFlickedAtRest() const;
@@ -167,6 +177,9 @@ protected:
 	
 
 private:
+#if ENABLE_VISUAL_LOG
+	FTimerHandle VisualLoggerTimer{};
+#endif
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
 	bool bCanFlick{ };
