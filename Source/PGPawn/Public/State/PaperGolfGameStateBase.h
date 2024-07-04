@@ -18,9 +18,9 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const override;
 
 	UFUNCTION(BlueprintPure)
-	int32 GetCurrentHole() const { return CurrentHole; }
+	int32 GetCurrentHoleNumber() const { return CurrentHoleNumber; }
 
-	void SetCurrentHole(int32 Hole) { CurrentHole = Hole; }
+	void SetCurrentHoleNumber(int32 Hole) { CurrentHoleNumber = Hole; }
 
 private:
 
@@ -33,6 +33,6 @@ private:
 	// In either case the CurrentHole would be accessed from here from other actors in the game
 	// The player start associated with a particular hole number on the map could be identified via an actor tag
 	UPROPERTY(Replicated)
-	int32 CurrentHole{ 1 };
+	int32 CurrentHoleNumber{ 1 };
 	
 };

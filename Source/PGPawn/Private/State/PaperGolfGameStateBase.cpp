@@ -10,5 +10,5 @@ void APaperGolfGameStateBase::GetLifetimeReplicatedProps(TArray<FLifetimePropert
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(APaperGolfGameStateBase, CurrentHole);
+	DOREPLIFETIME(APaperGolfGameStateBase, CurrentHoleNumber);
 }

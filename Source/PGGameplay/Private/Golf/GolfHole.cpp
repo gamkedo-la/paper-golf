@@ -63,7 +63,7 @@ AGolfHole* AGolfHole::GetCurrentHole(const UObject* WorldContextObject)
 
 	check(GameState);
 
-	const auto CurrentHoleNumber = GameState->GetCurrentHole();
+	const auto CurrentHoleNumber = GameState->GetCurrentHoleNumber();
 	AGolfHole* MatchedGolfHole{};
 
 	for (auto GolfHole : GolfHoles)
