@@ -955,14 +955,12 @@ void AGolfPlayerController::ActivateTurn()
 	}
 	else
 	{
-		// Already possessed so activate the turn directly through this client RPC or call the function directly if running a dedicated server
-		if(IsNetMode(NM_DedicatedServer))
+		ClientActivateTurn();
+
+		// Make sure that we execute on the server if this isn't a listen server client
+		if (!IsLocalController())
 		{
 			DoActivateTurn();
-		}
-		else
-		{
-			ClientActivateTurn();
 		}
 	}
 }
@@ -1133,6 +1131,8 @@ void AGolfPlayerController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 	Category.Add(TEXT("TotalRotation"), TotalRotation.ToCompactString());
 	Category.Add(TEXT("FlickZ"), FString::Printf(TEXT("%.2f"), FlickZ));
 	Category.Add(TEXT("ShotType"), LoggingUtils::GetName(ShotType));
+	Category.Add(TEXT("NextShotTimer"), LoggingUtils::GetBoolString(NextShotTimerHandle.IsValid()));
+	Category.Add(TEXT("SpectatorCameraDelayTimer"), LoggingUtils::GetBoolString(SpectatorCameraDelayTimer.IsValid()));
 
 	Snapshot->Status.Add(Category);
 
