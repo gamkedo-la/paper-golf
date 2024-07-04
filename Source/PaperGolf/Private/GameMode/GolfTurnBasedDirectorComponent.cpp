@@ -249,12 +249,23 @@ void UGolfTurnBasedDirectorComponent::ActivatePlayer(AGolfPlayerController* Play
 
 int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 {
-	checkf(CurrentHole, TEXT("%s: DetermineClosestPlayerToHole - CurrentHole is NULL"), *GetName());
+	checkf(CurrentHole, TEXT("%s: DetermineNextPlayer - CurrentHole is NULL"), *GetName());
 
 	TOptional<FGolfPlayerOrderState> NextPlayer;
 
+	struct FIncrementer
+	{
+		FIncrementer(int32& i) :i(i) {}
+		~FIncrementer() { ++i;  }
+
+		int32& i;
+	};
+
 	for (int32 i = 0; auto Player : Players)
 	{
+		// Ensure that i is incremented in all code paths
+		FIncrementer _(i);
+
 		if (Player->HasScored())
 		{
 			// Exclude finished players
@@ -299,8 +310,6 @@ int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 		{
 			NextPlayer = CurrentPlayerState;
 		}
-
-		++i;
 	}
 
 	return NextPlayer ? NextPlayer->Index : INDEX_NONE;
