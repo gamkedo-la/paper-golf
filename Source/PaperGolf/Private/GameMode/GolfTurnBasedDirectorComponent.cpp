@@ -23,6 +23,23 @@
 
 #include "State/GolfPlayerState.h"
 
+#include "Golf/GolfHole.h"
+
+#include <utility>
+
+#include <limits>
+
+namespace
+{
+	struct FGolfPlayerOrderState
+	{
+		int32 Index{};
+		int32 Shots{};
+		float DistanceToHole{};
+
+		bool operator < (const FGolfPlayerOrderState& Other) const;
+	};
+}
 UGolfTurnBasedDirectorComponent::UGolfTurnBasedDirectorComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
@@ -38,6 +55,13 @@ void UGolfTurnBasedDirectorComponent::StartHole()
 	if (!ensureMsgf(!Players.IsEmpty(), TEXT("%s: StartHole - No players"), *GetName()))
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: StartHole - No players"), *GetName());
+		return;
+	}
+
+	CurrentHole = AGolfHole::GetCurrentHole(this);
+	if(!ensureMsgf(CurrentHole, TEXT("%s: StartHole - CurrentHole is NULL"), *GetName()))
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: StartHole - CurrentHole is NULL"), *GetName());
 		return;
 	}
 
@@ -212,31 +236,63 @@ void UGolfTurnBasedDirectorComponent::ActivatePlayer(AGolfPlayerController* Play
 	Player->ActivateTurn();
 }
 
-int32 UGolfTurnBasedDirectorComponent::DetermineClosestPlayerToHole() const
-{
-	// TODO: Determine player closest to hole
-	return (ActivePlayerIndex + 1) % Players.Num();
-}
-
 int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 {
-	// Every player needs to have gone at least once before using closest to hole.  If a player finishes the hole, they are removed from the list
+	checkf(CurrentHole, TEXT("%s: DetermineClosestPlayerToHole - CurrentHole is NULL"), *GetName());
 
-	// TODO: Use DetermineClosestPlayerToHole if all players have gone at least once
+	TOptional<FGolfPlayerOrderState> NextPlayer;
 
-	for (int32 i = 0, InitialNextPlayerIndex = ActivePlayerIndex + 1, Len = Players.Num(); i < Len; ++i)
+	for (int32 i = 0; auto Player : Players)
 	{
-		const auto Index = (InitialNextPlayerIndex + i) % Len;
-
-		auto Player = Players[Index];
-		// TODO: May want to make this more generic in case they hit the shot limit for instance and we implement that feature
-		if (!Player->HasScored())
+		if (Player->HasScored())
 		{
-			return Index;
+			// Exclude finished players
+			continue;
 		}
+
+		const auto PlayerState = Player->GetPlayerState<const AGolfPlayerState>();
+		if (!ensureMsgf(PlayerState, TEXT("%s: DetermineClosestPlayerToHole - Player=%s; PlayerState=%s is not AGolfPlayerState"),
+			*GetName(), *LoggingUtils::GetName(Player), *LoggingUtils::GetName(Player->GetPlayerState<APlayerState>())))
+		{
+			continue;
+		}
+
+		if (PlayerState->GetShots() == 0)
+		{
+			// Everyone needs to go once first
+			NextPlayer =
+			{
+				.Index = i,
+				.Shots = 0,
+				.DistanceToHole = std::numeric_limits<float>::max()
+			};
+			break;
+		}
+
+		const auto Pawn = Player->GetPaperGolfPawn();
+		if (!Pawn)
+		{
+			continue;
+		}
+
+		const auto DistanceToHole = CurrentHole->GetSquaredDistanceTo(Pawn);
+
+		FGolfPlayerOrderState CurrentPlayerState
+		{
+			.Index = i,
+			.Shots = PlayerState->GetShots(),
+			.DistanceToHole = DistanceToHole
+		};
+
+		if(!NextPlayer || CurrentPlayerState < *NextPlayer)
+		{
+			NextPlayer = CurrentPlayerState;
+		}
+
+		++i;
 	}
 
-	return INDEX_NONE;
+	return NextPlayer ? NextPlayer->Index : INDEX_NONE;
 }
 
 // TODO: This belongs in a separate component or should instead fire an event that is picked up by the game mode or another component on the game mode
@@ -261,4 +317,17 @@ void UGolfTurnBasedDirectorComponent::NextHole()
 
 	FTimerHandle Handle;
 	World->GetTimerManager().SetTimer(Handle, Delegate, NextHoleDelay, false);
+}
+
+namespace
+{
+	bool FGolfPlayerOrderState::operator<(const FGolfPlayerOrderState& Other) const
+	{
+		if (DistanceToHole > Other.DistanceToHole)
+		{
+			return true;
+		}
+
+		return std::tie(Shots, Index) < std::tie(Other.Shots, Other.Index);
+	}
 }

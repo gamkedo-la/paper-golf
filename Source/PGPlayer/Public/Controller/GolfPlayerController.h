@@ -180,6 +180,9 @@ private:
 	UFUNCTION(BlueprintPure)
 	bool CanFlick() const;
 
+	UFUNCTION(BlueprintPure)
+	AGolfHole* GetGolfHole() const;
+
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	TArray<FShotHistory> ShotHistory{};
@@ -190,45 +193,42 @@ private:
 	FTimerHandle VisualLoggerTimer{};
 #endif
 
-	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	FRotator RotationMax{ 75.0, 180.0, 90.0 };
 
-	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	FRotator TotalRotation{ EForceInit::ForceInitToZero };
 
-	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	float RotationRate{ 100.0f };
 
-	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	UPROPERTY(EditDefaultsOnly, Category = "Timer")
 	float RestCheckTickRate{ 0.5f };
 
 	float FlickZ{ };
 
-	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	FLinearColor FlickReticuleColor{ };
 
-	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	UPROPERTY(EditDefaultsOnly, Category = "Timer")
 	float OutOfBoundsDelayTime{ 3.0f };
 
-	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	float CloseShotThreshold{ 1000.0f };
 
-	UPROPERTY(EditDefaultsOnly, Category = "Setup")
+	UPROPERTY(EditDefaultsOnly, Category = "Focus")
 	TSubclassOf<UInterface> FocusableActorClass{};
 
-	UPROPERTY(EditDefaultsOnly, Category = "Setup")
-	TSubclassOf<AGolfHole> GolfHoleClass{};
-
-	UPROPERTY(transient)
+	UPROPERTY(Transient)
 	TArray<AActor*> FocusableActors{};
 
 	UPROPERTY(Transient)
-	TObjectPtr<AActor> DefaultFocus{};
+	TObjectPtr<AGolfHole> GolfHole{};
 
-	UPROPERTY(EditDefaultsOnly, Category = "Setup")
+	UPROPERTY(EditDefaultsOnly, Category = "Correction")
 	float FallThroughFloorCorrectionTestZ{ 1000.0f };
 
-	UPROPERTY(EditDefaultsOnly, Category = "Setup")
+	UPROPERTY(EditDefaultsOnly, Category = "Correction")
 	int32 FlickZNotUpdatedMaxRetries{ 2 };
 
 	EShotType ShotType{ EShotType::Default };
@@ -284,6 +284,11 @@ FORCEINLINE bool AGolfPlayerController::HasScored() const
 FORCEINLINE bool AGolfPlayerController::CanFlick() const
 {
 	return bCanFlick;
+}
+
+FORCEINLINE AGolfHole* AGolfPlayerController::GetGolfHole() const
+{
+	return nullptr;
 }
 
 #pragma endregion Inline Definitions

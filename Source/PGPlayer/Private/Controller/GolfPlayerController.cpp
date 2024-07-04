@@ -121,23 +121,23 @@ void AGolfPlayerController::SetPaperGolfPawnAimFocus()
 		return;
 	}
 
-	if (!DefaultFocus)
+	if (!GolfHole)
 	{
 		return;
 	}
 
 	const auto& Position = PaperGolfPawn->GetActorLocation();
 
-	AActor* BestFocus{ DefaultFocus };
+	AActor* BestFocus{ GolfHole };
 
-	if (HasLOSToFocus(Position, DefaultFocus))
+	if (HasLOSToFocus(Position, GolfHole))
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s-%s: SetPaperGolfPawnAimFocus: LOS to DefaultFocus; Setting to %s"),
-			*GetName(), *PaperGolfPawn->GetName(), *LoggingUtils::GetName(DefaultFocus));
+			*GetName(), *PaperGolfPawn->GetName(), *LoggingUtils::GetName(GolfHole));
 	}
 	else
 	{
-		const auto ToHole = DefaultFocus->GetActorLocation() - Position;
+		const auto ToHole = GolfHole->GetActorLocation() - Position;
 
 		// Find closest
 		float MinDist{ std::numeric_limits<float>::max() };
@@ -188,12 +188,12 @@ void AGolfPlayerController::DetermineIfCloseShot()
 		return;
 	}
 
-	if (!DefaultFocus)
+	if (!GolfHole)
 	{
 		return;
 	}
 
-	const auto ShotDistance = PaperGolfPawn->GetDistanceTo(DefaultFocus);
+	const auto ShotDistance = PaperGolfPawn->GetDistanceTo(GolfHole);
 	const bool bCloseShot = ShotDistance < CloseShotThreshold;
 
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s-%s: DetermineIfCloseShot: %s - Distance=%fm"),
@@ -383,12 +383,9 @@ void AGolfPlayerController::InitFocusableActors()
 		}
 	}
 
-	if (ensureMsgf(GolfHoleClass, TEXT("%s: InitFocusableActors - GolfHoleClass not set"), *GetName()))
-	{
-		DefaultFocus = UGameplayStatics::GetActorOfClass(GetWorld(), GolfHoleClass);
-		ensureMsgf(DefaultFocus, TEXT("%s: InitFocusableActors - No instance of %s in world for default focus. No aim targeting will occur."), *GetName(),
-			*GolfHoleClass->GetName());
-	}
+	GolfHole = AGolfHole::GetCurrentHole(this);
+	ensureMsgf(GolfHole, TEXT("%s: InitFocusableActors - No relevant AGolfHole in world for hole focus. No aim targeting will occur."),
+		*GetName());
 }
 
 void AGolfPlayerController::ResetFlickZ()
@@ -738,6 +735,11 @@ void AGolfPlayerController::ResetShotAfterOutOfBounds()
 
 APaperGolfPawn* AGolfPlayerController::GetPaperGolfPawn()
 {
+	if (IsValid(PlayerPawn))
+	{
+		return PlayerPawn;
+	}
+
 	const auto PaperGolfPawn = Cast<APaperGolfPawn>(GetPawn());
 
 	if (!ensureMsgf(PaperGolfPawn, TEXT("%s: GetPaperGolfPawn - %s is not a APaperGolfPawn"), *GetName(), *LoggingUtils::GetName(GetPawn())))

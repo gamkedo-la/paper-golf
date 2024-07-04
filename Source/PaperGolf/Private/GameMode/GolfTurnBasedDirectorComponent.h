@@ -8,6 +8,7 @@
 
 class APaperGolfGameModeBase;
 class AGolfPlayerController;
+class AGolfHole;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class UGolfTurnBasedDirectorComponent : public UActorComponent
@@ -44,7 +45,6 @@ private:
 
 	void ActivateNextPlayer();
 
-	int32 DetermineClosestPlayerToHole() const;
 	int32 DetermineNextPlayer() const;
 
 	void ActivatePlayer(AGolfPlayerController* Player);
@@ -60,6 +60,9 @@ private:
 	// FIXME: Should use an interface for this as want to also support AI players
 	UPROPERTY(Transient)
 	TArray<AGolfPlayerController*> Players{};
+
+	UPROPERTY(Transient)
+	TObjectPtr<AGolfHole> CurrentHole{};
 
 	int32 ActivePlayerIndex{};
 

@@ -7,6 +7,7 @@
 #include "GolfHole.generated.h"
 
 class APaperGolfPawn;
+class APaperGolfGameStateBase;
 
 UCLASS()
 class PGGAMEPLAY_API AGolfHole : public AActor
@@ -15,6 +16,12 @@ class PGGAMEPLAY_API AGolfHole : public AActor
 	
 public:	
 	AGolfHole();
+
+	UFUNCTION(BlueprintPure, Category = "Hole", meta = (DefaultToSelf = "WorldContextObject"))
+	static AGolfHole* GetCurrentHole(const UObject* WorldContextObject);
+
+	UFUNCTION(BlueprintPure)
+	int32 GetHoleNumber() const;
 
 protected:
 	UFUNCTION(BlueprintCallable)
@@ -37,4 +44,18 @@ private:
 	FTimerHandle CheckScoredTimerHandle{};
 
 	TWeakObjectPtr<APaperGolfPawn> OverlappingPaperGolfPawn{};
+
+	UPROPERTY(EditAnywhere, Category = "Config")
+	int32 HoleNumber{};
 };
+
+#pragma region Inline Definitions
+
+FORCEINLINE int32 AGolfHole::GetHoleNumber() const
+{
+	ensureAlwaysMsgf(HoleNumber > 0, TEXT("%s: HoleNumber is not set"), *GetName());
+
+	return HoleNumber;
+}
+
+#pragma endregion Inline Definitions

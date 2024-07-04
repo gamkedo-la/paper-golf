@@ -5,15 +5,90 @@
 
 #include "Pawn/PaperGolfPawn.h"
 
+#include "State/PaperGolfGameStateBase.h"
+
 #include "Subsystems/GolfEventsSubsystem.h"
+
+#include "Kismet/GameplayStatics.h"
 
 #include "VisualLogger/VisualLogger.h"
 #include "Logging/LoggingUtils.h"
+#include "Utils/ArrayUtils.h"
 #include "PGGameplayLogging.h"
 
 AGolfHole::AGolfHole()
 {
 	PrimaryActorTick.bCanEverTick = false;
+}
+
+AGolfHole* AGolfHole::GetCurrentHole(const UObject* WorldContextObject)
+{
+	if(!ensureAlwaysMsgf(WorldContextObject, TEXT("GetCurrentHole: WorldContextObject is null")))
+	{
+		return nullptr;
+	}
+
+	auto World = WorldContextObject->GetWorld();
+	if (!ensureAlways(World))
+	{
+		return nullptr;
+	}
+
+	auto GameState = World->GetGameState<APaperGolfGameStateBase>();
+	if(!ensureAlwaysMsgf(GameState, TEXT("GetCurrentHole: WorldContextObject=%s; GameState=%s is not APaperGolfGameStateBase"),
+		*LoggingUtils::GetName(WorldContextObject), *LoggingUtils::GetName(World->GetGameState())))
+	{
+		UE_VLOG_UELOG(WorldContextObject, LogPGGameplay, Error, TEXT("%s: GetCurrentHole: GameState=%s is not APaperGolfGameStateBase"),
+			*LoggingUtils::GetName(WorldContextObject), *LoggingUtils::GetName(World->GetGameState()));
+		return nullptr;
+	}
+
+	TArray<AActor*> Actors;
+	UGameplayStatics::GetAllActorsOfClass(World, AGolfHole::StaticClass(), Actors);
+
+	TArray<AGolfHole*> GolfHoles;
+	GolfHoles.Reserve(Actors.Num());
+
+	for(auto Actor : Actors)
+	{
+		auto GolfHole = Cast<AGolfHole>(Actor);
+		if(GolfHole)
+		{
+			GolfHoles.Add(GolfHole);
+		}
+	}
+
+	UE_VLOG_UELOG(WorldContextObject, LogPGGameplay, Log, TEXT("%s: GetCurrentHole: Found %d golf hole%s: %s"),
+		*LoggingUtils::GetName(WorldContextObject), GolfHoles.Num(), LoggingUtils::Pluralize(GolfHoles.Num()), *PG::ToStringObjectElements(GolfHoles));
+
+	check(GameState);
+
+	const auto CurrentHoleNumber = GameState->GetCurrentHole();
+	AGolfHole* MatchedGolfHole{};
+
+	for (auto GolfHole : GolfHoles)
+	{
+		if(GolfHole->GetHoleNumber() == CurrentHoleNumber)
+		{
+			if (!MatchedGolfHole)
+			{
+				MatchedGolfHole = GolfHole;
+			}
+			else
+			{
+				UE_VLOG_UELOG(WorldContextObject, LogPGGameplay, Error, TEXT("%s: GetCurrentHole: Found multiple golf holes for hole number %d: %s and %s"),
+					*LoggingUtils::GetName(WorldContextObject), CurrentHoleNumber, *MatchedGolfHole->GetName(), *GolfHole->GetName());
+			}
+		}
+	}
+	
+	if(!ensureAlwaysMsgf(MatchedGolfHole, TEXT("GetCurrentHole: No golf hole found for hole number %d"), CurrentHoleNumber))
+	{
+		UE_VLOG_UELOG(WorldContextObject, LogPGGameplay, Error, TEXT("%s: GetCurrentHole: No golf hole found for hole number %d"),
+			*LoggingUtils::GetName(WorldContextObject), CurrentHoleNumber);
+	}
+
+	return MatchedGolfHole;
 }
 
 void AGolfHole::SetCollider(UPrimitiveComponent* Collider)
