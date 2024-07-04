@@ -22,6 +22,7 @@
 #include "Pawn/PaperGolfPawn.h"
 
 #include "State/GolfPlayerState.h"
+#include "State/PaperGolfGameStateBase.h"
 
 #include "Golf/GolfHole.h"
 
@@ -113,6 +114,13 @@ void UGolfTurnBasedDirectorComponent::BeginPlay()
 	if (!ensureMsgf(GameMode, TEXT("%s: Owner=%s is not APaperGolfGameModeBase game mode"), *GetName(), *LoggingUtils::GetName(GetOwner())))
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: Owner=%s is not a game mode"), *GetName(), *LoggingUtils::GetName(GetOwner()));
+		return;
+	}
+
+	GameState = Cast<APaperGolfGameStateBase>(GameMode->GameState);
+	if (!ensureMsgf(GameState, TEXT("%s: GameState=%s is not APaperGolfGameStateBase"), *GetName(), *LoggingUtils::GetName(GameMode->GameState)))
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: GameState=%s is not APaperGolfGameStateBase"), *GetName(), *LoggingUtils::GetName(GameMode->GameState));
 		return;
 	}
 
@@ -219,6 +227,9 @@ void UGolfTurnBasedDirectorComponent::ActivatePlayer(AGolfPlayerController* Play
 		return;
 	}
 
+	check(GameState);
+	GameState->SetActivePlayer(PlayerState);
+
 	if (PlayerState->GetShots() == 0)
 	{
 		if(!ensureMsgf(GameMode, TEXT("%s: ActivatePlayer - GameMode is NULL"), *GetName()))
@@ -299,6 +310,9 @@ int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 void UGolfTurnBasedDirectorComponent::NextHole()
 {
 	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Display, TEXT("%s: NextHole"), *GetName());
+
+	check(GameState);
+	GameState->SetActivePlayer(nullptr);
 
 	// TODO: Adjust once have multiple holes and a way to transition between them
 	auto World = GetWorld();

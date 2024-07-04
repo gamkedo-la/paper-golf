@@ -23,8 +23,16 @@ public:
 	UFUNCTION(BlueprintPure)
 	int32 GetShots() const { return Shots; }
 
+	UFUNCTION(BlueprintCallable)
+	void SetReadyForShot(bool bReady) { bReadyForShot = bReady; }
+
+	UFUNCTION(BlueprintPure)
+	bool IsReadyForShot() const { return bReadyForShot; }
+
 private:
 	UPROPERTY(Replicated)
 	int32 Shots{};
-	
+
+	UPROPERTY(Replicated)
+	bool bReadyForShot{};
 };

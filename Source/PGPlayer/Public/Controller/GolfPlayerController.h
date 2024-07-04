@@ -77,6 +77,9 @@ public:
 
 	void MarkScored();
 
+	UFUNCTION(BlueprintPure)
+	bool IsActivePlayer() const;
+
 protected:
 	void BeginPlay() override;
 
@@ -143,7 +146,7 @@ private:
 	void HandleOutOfBounds();
 
 	bool IsReadyForNextShot() const;
-	void SetupNextShot();
+	void SetupNextShot(bool bSetCanFlick);
 
 	void SetPaperGolfPawnAimFocus();
 
@@ -289,6 +292,11 @@ FORCEINLINE bool AGolfPlayerController::CanFlick() const
 FORCEINLINE AGolfHole* AGolfPlayerController::GetGolfHole() const
 {
 	return nullptr;
+}
+
+FORCEINLINE bool AGolfPlayerController::IsActivePlayer() const
+{
+	return bTurnActivated;
 }
 
 #pragma endregion Inline Definitions

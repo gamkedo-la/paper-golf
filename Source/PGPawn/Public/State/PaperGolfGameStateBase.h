@@ -6,6 +6,8 @@
 #include "GameFramework/GameState.h"
 #include "PaperGolfGameStateBase.generated.h"
 
+class AGolfPlayerState;
+
 /**
  * 
  */
@@ -22,6 +24,11 @@ public:
 
 	void SetCurrentHoleNumber(int32 Hole) { CurrentHoleNumber = Hole; }
 
+	UFUNCTION(BlueprintPure)
+	AGolfPlayerState* GetActivePlayer() const { return ActivePlayer; }
+
+	void SetActivePlayer(AGolfPlayerState* Player) { ActivePlayer = Player; }
+
 private:
 
 	// TODO: Note that game state does not persist across server travel
@@ -34,5 +41,7 @@ private:
 	// The player start associated with a particular hole number on the map could be identified via an actor tag
 	UPROPERTY(Replicated)
 	int32 CurrentHoleNumber{ 1 };
-	
+
+	UPROPERTY(Transient, Replicated)
+	TObjectPtr<AGolfPlayerState> ActivePlayer{};
 };

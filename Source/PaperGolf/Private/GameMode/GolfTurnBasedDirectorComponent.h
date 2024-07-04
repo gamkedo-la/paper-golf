@@ -7,6 +7,7 @@
 #include "GolfTurnBasedDirectorComponent.generated.h"
 
 class APaperGolfGameModeBase;
+class APaperGolfGameStateBase;
 class AGolfPlayerController;
 class AGolfHole;
 
@@ -55,7 +56,10 @@ private:
 private:
 	// TODO: Use APGTurnBasedGameMode if need the functionality of it.  Keeping it to the base class for now for maximum reuse
 	UPROPERTY(Transient)
-	APaperGolfGameModeBase* GameMode{};
+	TObjectPtr<APaperGolfGameModeBase> GameMode{};
+
+	UPROPERTY(Transient)
+	TObjectPtr<APaperGolfGameStateBase> GameState{};
 
 	// FIXME: Should use an interface for this as want to also support AI players
 	UPROPERTY(Transient)

@@ -12,4 +12,5 @@ void AGolfPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AGolfPlayerState, Shots);
+	DOREPLIFETIME(AGolfPlayerState, bReadyForShot);
 }

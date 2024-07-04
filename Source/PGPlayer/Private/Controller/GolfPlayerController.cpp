@@ -240,6 +240,11 @@ void AGolfPlayerController::OnScored()
 		return;
 	}
 
+	if (HasAuthority())
+	{
+		GolfPlayerState->SetReadyForShot(false);
+	}
+
 	// GetShots may not necessary be accurate if the Shots variable replication happens after the score replication;
 	// however, it is only for logging purposes
 	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s-%s: OnRep_Scored: NumStrokes=%d"),
@@ -437,9 +442,9 @@ bool AGolfPlayerController::IsReadyForNextShot() const
 	return true;
 }
 
-void AGolfPlayerController::SetupNextShot()
+void AGolfPlayerController::SetupNextShot(bool bSetCanFlick)
 {
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SetupNextShot"), *GetName());
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SetupNextShot: bSetCanFlick=%s"), *GetName(), LoggingUtils::GetBoolString(bSetCanFlick));
 
 	if(!ensureMsgf(IsReadyForNextShot(), TEXT("%s-%s: SetupNextShot - Not ready for next shot"), *GetName(), *LoggingUtils::GetName(GetPawn())))
 	{
@@ -474,7 +479,15 @@ void AGolfPlayerController::SetupNextShot()
 		}
 	}
 
-	bCanFlick = true;
+	if (bSetCanFlick)
+	{
+		// TODO: Rectify these dual variables
+		bCanFlick = true;
+		if (auto GolfPlayerState = GetPlayerState<AGolfPlayerState>(); HasAuthority() && ensure(GolfPlayerState))
+		{
+			GolfPlayerState->SetReadyForShot(true);
+		}
+	}
 }
 
 void AGolfPlayerController::HandleFallThroughFloor()
@@ -522,7 +535,7 @@ void AGolfPlayerController::SetPositionTo(const FVector& Position)
 
 	UE_VLOG_LOCATION(this, LogPGPlayer, Log, Position, 20.0f, FColor::Red, TEXT("SetPositionTo"));
 
-	SetupNextShot();
+	SetupNextShot(false);
 }
 
 void AGolfPlayerController::ClientSetPositionTo_Implementation(const FVector_NetQuantize& Position)
@@ -531,6 +544,7 @@ void AGolfPlayerController::ClientSetPositionTo_Implementation(const FVector_Net
 		TEXT("%s: ClientSetPositionTo - Position=%s"),
 		*GetName(), *Position.ToCompactString());
 
+	bTurnActivated = false;
 	// Disable any timers so we don't overwrite the position
 	UnregisterShotFinishedTimer();
 
@@ -646,6 +660,11 @@ void AGolfPlayerController::ServerProcessShootInput_Implementation()
 
 	AddStroke();
 	bCanFlick = false;
+
+	if (auto GolfPlayerState = GetPlayerState<AGolfPlayerState>(); ensure(GolfPlayerState))
+	{
+		GolfPlayerState->SetReadyForShot(false);
+	}
 }
 
 void AGolfPlayerController::AddStroke()
@@ -982,6 +1001,8 @@ void AGolfPlayerController::DoActivateTurn()
 
 	// Ensure that input is always activated and timer is always registered
 	EnableInput(this);
+	SetInputEnabled(true);
+
 	RegisterShotFinishedTimer();
 
 	if (bTurnActivated)
@@ -1001,7 +1022,15 @@ void AGolfPlayerController::DoActivateTurn()
 		return;
 	}
 
-	SetupNextShot();
+	if (!PaperGolfPawn->IsAtRest())
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DoActivateTurn - Resetting shot state as paper golf pawn is not at rest"),
+			*GetName(), *LoggingUtils::GetName(PaperGolfPawn));
+		// Force reset of physics state to avoid triggering assertion
+		PaperGolfPawn->SetUpForNextShot();
+	}
+
+	SetupNextShot(true);
 	bTurnActivated = true;
 }
 
@@ -1033,7 +1062,10 @@ void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn
 	// TODO: Do we need to wait for Spectate to propagate?
 	// Allow the spectator pawn to take over the controls; otherwise, some of the bindings will be disabled
 
-	DisableInput(this);
+	//DisableInput(this);
+	SetInputEnabled(false);
+	bTurnActivated = false;
+	UnregisterShotFinishedTimer();
 }
 
 void AGolfPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -1147,6 +1179,7 @@ void AGolfPlayerController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 		PlayerStateCategory.Category = FString::Printf(TEXT("PlayerState"));
 
 		PlayerStateCategory.Add(TEXT("Shots"), FString::Printf(TEXT("%d"), GolfPlayerState->GetShots()));
+		PlayerStateCategory.Add(TEXT("IsReadyForShot"), LoggingUtils::GetBoolString(GolfPlayerState->IsReadyForShot()));
 
 		Snapshot->Status.Last().AddChild(PlayerStateCategory);
 	}
