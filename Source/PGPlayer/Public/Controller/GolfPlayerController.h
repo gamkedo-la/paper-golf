@@ -174,6 +174,8 @@ private:
 	UFUNCTION()
 	void OnRep_Scored();
 
+	void OnScored();
+
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	TArray<FShotHistory> ShotHistory{};
@@ -281,11 +283,6 @@ FORCEINLINE bool AGolfPlayerController::IsInputEnabled() const
 FORCEINLINE bool AGolfPlayerController::HasScored() const
 {
 	return bScored;
-}
-
-FORCEINLINE void AGolfPlayerController::MarkScored()
-{
-	bScored = true;
 }
 
 #pragma endregion Inline Definitions

@@ -30,6 +30,7 @@
 AGolfPlayerController::AGolfPlayerController()
 {
 	bReplicates = true;
+	bAlwaysRelevant = true;
 }
 
 void AGolfPlayerController::AddToShotHistory(APaperGolfPawn* PaperGolfPawn)
@@ -199,9 +200,28 @@ void AGolfPlayerController::DetermineIfCloseShot()
 	PaperGolfPawn->SetCloseShot(bCloseShot);
 }
 
+void AGolfPlayerController::MarkScored()
+{
+	bScored = true;
+
+	// Rep notifies are not called on the server so we need to invoke the function manually if the server is also a client
+	if (HasAuthority() && IsLocalController())
+	{
+		OnScored();
+	}
+}
+
 void AGolfPlayerController::OnRep_Scored()
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s-%s: OnRep_Scored - %s"),
+		*GetName(), *LoggingUtils::GetName(GetPawn()), LoggingUtils::GetBoolString(bScored));
+
+	OnScored();
+}
+
+void AGolfPlayerController::OnScored()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s-%s: OnScored - %s"),
 		*GetName(), *LoggingUtils::GetName(GetPawn()), LoggingUtils::GetBoolString(bScored));
 
 	// Nothing to do if scored is false
@@ -210,12 +230,10 @@ void AGolfPlayerController::OnRep_Scored()
 		return;
 	}
 
-	auto PaperGolfPawn = GetPaperGolfPawn();
-
 	bCanFlick = false;
 
 	auto GolfPlayerState = GetPlayerState<AGolfPlayerState>();
-	if(!ensure(GolfPlayerState))
+	if (!ensure(GolfPlayerState))
 	{
 		return;
 	}
