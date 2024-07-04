@@ -9,6 +9,7 @@
 #include "GolfPlayerController.generated.h"
 
 class APaperGolfPawn;
+class AGolfHole;
 
 USTRUCT(BlueprintType)
 struct FShotHistory
@@ -176,6 +177,9 @@ private:
 
 	void OnScored();
 
+	UFUNCTION(BlueprintPure)
+	bool CanFlick() const;
+
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	TArray<FShotHistory> ShotHistory{};
@@ -186,52 +190,39 @@ private:
 	FTimerHandle VisualLoggerTimer{};
 #endif
 
-	// TODO: Remove some of these from blueprint access
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
-	bool bCanFlick{ };
-
-	bool bTurnActivated{};
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	FRotator RotationMax{ 75.0, 180.0, 90.0 };
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	FRotator TotalRotation{ EForceInit::ForceInitToZero };
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float RotationRate{ 100.0f };
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float RestCheckTickRate{ 0.5f };
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
 	float FlickZ{ };
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	FLinearColor FlickReticuleColor{ };
 
-	UPROPERTY(ReplicatedUsing = OnRep_Scored, EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
-	bool bScored{};
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
-	bool bOutOfBounds{};
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float OutOfBoundsDelayTime{ 3.0f };
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float CloseShotThreshold{ 1000.0f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Setup")
 	TSubclassOf<UInterface> FocusableActorClass{};
 
 	UPROPERTY(EditDefaultsOnly, Category = "Setup")
-	TSubclassOf<AActor> GolfHoleClass{};
+	TSubclassOf<AGolfHole> GolfHoleClass{};
 
-	UPROPERTY(EditDefaultsOnly, Transient, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(transient)
 	TArray<AActor*> FocusableActors{};
 
-	UPROPERTY(EditDefaultsOnly, Transient, BlueprintReadWrite, Category = "Controller", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(Transient)
 	TObjectPtr<AActor> DefaultFocus{};
 
 	UPROPERTY(EditDefaultsOnly, Category = "Setup")
@@ -240,7 +231,6 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Setup")
 	int32 FlickZNotUpdatedMaxRetries{ 2 };
 
-	bool bInputEnabled{ true };
 	EShotType ShotType{ EShotType::Default };
 
 	FTimerHandle NextShotTimerHandle{};
@@ -248,14 +238,20 @@ private:
 	FTimerHandle SpectatorCameraDelayTimer{};
 
 	// TODO: Do we want to allow the player to change the camera controls when spectating?
-	UPROPERTY(Category = "Camera | Spectator", EditDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(Category = "Camera | Spectator", EditDefaultsOnly)
 	float SpectatorCameraControlsDelay{ 3.0f };
 
 	UPROPERTY(Transient)
 	TObjectPtr<APaperGolfPawn> PlayerPawn{};
 
-	//UPROPERTY(ReplicatedUsing = OnRep_ShotFinishedLocation)
-	//FVector_NetQuantize ShotFinishedLocation{};
+	bool bCanFlick{ };
+	bool bTurnActivated{};
+	bool bInputEnabled{ true };
+
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_Scored)
+	bool bScored{};
+
+	bool bOutOfBounds{};
 };
 
 #pragma region Inline Definitions
@@ -283,6 +279,11 @@ FORCEINLINE bool AGolfPlayerController::IsInputEnabled() const
 FORCEINLINE bool AGolfPlayerController::HasScored() const
 {
 	return bScored;
+}
+
+FORCEINLINE bool AGolfPlayerController::CanFlick() const
+{
+	return bCanFlick;
 }
 
 #pragma endregion Inline Definitions

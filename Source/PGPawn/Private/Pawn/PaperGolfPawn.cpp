@@ -405,13 +405,7 @@ void APaperGolfPawn::PostInitializeComponents()
 
 float APaperGolfPawn::GetFlickMaxForce() const
 {
-	if (IsCloseShot())
-	{
-		return FlickMaxForceCloseShot;
-	}
-
-
-	return UBuildUtilities::GetBuildCharacteristics().bGame ? FlickMaxForce * StandaloneGameMutliplier : FlickMaxForce;
+	return IsCloseShot() ? FlickMaxForceCloseShot : FlickMaxForce;
 }
 
 void APaperGolfPawn::SetCameraForFlick()

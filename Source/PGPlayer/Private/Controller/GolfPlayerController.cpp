@@ -20,6 +20,8 @@
 
 #include "State/GolfPlayerState.h"
 
+#include "Golf/GolfHole.h"
+
 #include "Subsystems/GolfEventsSubsystem.h"
 
 #include <limits>

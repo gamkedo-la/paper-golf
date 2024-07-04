@@ -107,8 +107,6 @@ private:
 	TArray<FState> States;
 	int32 StateIndex{};
 
-	// TODO: Remove some of these from blueprint access
-
 	/*
 	* Number of samples for checking if stuck in perpetual motion sampled at the tick rate.
 	*/
@@ -118,32 +116,27 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Stuck")
 	float MinDistanceThreshold{ 10.0 };
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Shot", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	float FlickMaxForce { 330.f };
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Shot", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	FVector FlickLocation{ 0.0, 0.0, 0.05 };
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Shot", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	FRotator InitialRotation{ EForceInit::ForceInitToZero };
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Shot", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	float RestLinearVelocitySquaredMax{ 4.f };
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Shot", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	float RestAngularVelocityRadsSquaredMax{ 0.001f };
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Camera", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(Transient)
 	TObjectPtr<AActor> FocusActor{};
 
-	// TODO: Rename - this doesn't make much sense
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Shot", meta = (AllowPrivateAccess = "true"))
-	float StandaloneGameMutliplier{ 1.f };
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Shot", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	float FlickMaxForceCloseShot{ 100.f };
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Shot", meta = (AllowPrivateAccess = "true"))
 	bool bCloseShot{};
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty")
