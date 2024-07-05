@@ -141,13 +141,14 @@ void UGolfTurnBasedDirectorComponent::RegisterEventHandlers()
 	{
 		GolfEventSubsystem->OnPaperGolfShotFinished.AddDynamic(this, &UGolfTurnBasedDirectorComponent::OnPaperGolfShotFinished);
 		GolfEventSubsystem->OnPaperGolfPawnScored.AddDynamic(this, &UGolfTurnBasedDirectorComponent::OnPaperGolfPlayerScored);
+		GolfEventSubsystem->OnPaperGolfPawnOutBounds.AddDynamic(this, &UGolfTurnBasedDirectorComponent::OnPaperGolfOutOfBounds);
 	}
 }
 
 void UGolfTurnBasedDirectorComponent::OnPaperGolfShotFinished(APaperGolfPawn* PaperGolfPawn)
 {
 	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: OnPaperGolfShotFinished: PaperGolfPawn=%s"), *GetName(), *LoggingUtils::GetName(PaperGolfPawn));
-
+	
 	DoNextTurn();
 }
 
@@ -168,6 +169,15 @@ void UGolfTurnBasedDirectorComponent::OnPaperGolfPlayerScored(APaperGolfPawn* Pa
 	}
 
 	DoNextTurn();
+}
+
+void UGolfTurnBasedDirectorComponent::OnPaperGolfOutOfBounds(APaperGolfPawn* PaperGolfPawn)
+{
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: OnPaperGolfOutOfBounds: PaperGolfPawn=%s"), *GetName(), *LoggingUtils::GetName(PaperGolfPawn));
+	if (auto GolfPlayerController = Cast<AGolfPlayerController>(PaperGolfPawn->GetController()); ensure(GolfPlayerController))
+	{
+		GolfPlayerController->HandleOutOfBounds();
+	}
 }
 
 void UGolfTurnBasedDirectorComponent::DoNextTurn()

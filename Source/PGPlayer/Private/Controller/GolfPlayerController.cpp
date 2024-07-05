@@ -680,6 +680,9 @@ void AGolfPlayerController::AddStroke()
 
 void AGolfPlayerController::HandleOutOfBounds()
 {
+	// only called on server
+	check(HasAuthority());
+
 	if (bOutOfBounds)
 	{
 		return;
@@ -689,22 +692,13 @@ void AGolfPlayerController::HandleOutOfBounds()
 
 	bOutOfBounds = true;
 
-	auto PaperGolfPawn = GetPaperGolfPawn();
-	if (!PaperGolfPawn)
-	{
-		return;
-	}
+	// Make sure we don't process this is as a normal shot 
+	UnregisterShotFinishedTimer();
 
-	// One stroke penalty
+	// One stroke penalty - TODO: This should be called from game mode
 	AddStroke();
 
-	if (IsLocalController())
-	{
-		if (auto HUD = GetHUD<APGHUD>(); ensure(HUD))
-		{
-			HUD->DisplayMessageWidget(EMessageWidgetType::OutOfBounds);
-		}
-	}
+	ClientHandleOutOfBounds();
 
 	auto World = GetWorld();
 	if(!ensure(World))
@@ -716,17 +710,23 @@ void AGolfPlayerController::HandleOutOfBounds()
 	World->GetTimerManager().SetTimer(Handle, this, &ThisClass::ResetShotAfterOutOfBounds, OutOfBoundsDelayTime);
 }
 
+void AGolfPlayerController::ClientHandleOutOfBounds_Implementation()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientHandleOutOfBounds_Implementation"), *GetName());
+
+	bOutOfBounds = true;
+	if (auto HUD = GetHUD<APGHUD>(); ensure(HUD))
+	{
+		HUD->DisplayMessageWidget(EMessageWidgetType::OutOfBounds);
+	}
+}
+
 void AGolfPlayerController::ResetShotAfterOutOfBounds()
 {
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ResetShotAfterOutOfBounds"), *GetName());
+	// Only called on server
+	check(HasAuthority());
 
-	if (IsLocalController())
-	{
-		if (auto HUD = GetHUD<APGHUD>(); ensure(HUD))
-		{
-			HUD->RemoveActiveMessageWidget();
-		}
-	}
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ResetShotAfterOutOfBounds"), *GetName());
 
 	auto PaperGolfPawn = GetPaperGolfPawn();
 	if (!PaperGolfPawn)
@@ -737,19 +737,39 @@ void AGolfPlayerController::ResetShotAfterOutOfBounds()
 	PaperGolfPawn->SetUpForNextShot();
 
 	bOutOfBounds = false;
+	bTurnActivated = false;
 
 	// Set location to last in shot history
 	if(ensureMsgf(!ShotHistory.IsEmpty(), TEXT("%s-%s: ResetShotAfterOutOfBounds - ShotHistory is empty"),
 		*GetName(), *PaperGolfPawn->GetName()))
 	{
 		const auto& ResetPosition = ShotHistory.Last().Position;
-		SetPositionTo(ResetPosition);
-
-		if (HasAuthority() && !IsLocalController())
+		if (!IsLocalController())
 		{
-			ClientSetPositionTo(ResetPosition);
+			SetPositionTo(ResetPosition);
+			DoActivateTurn();
 		}
+
+		ClientResetShotAfterOutOfBounds(ResetPosition);
 	}
+	// TODO: What to do if we bail out early as user will still have the HUD message for out of bounds displaying
+}
+
+void AGolfPlayerController::ClientResetShotAfterOutOfBounds_Implementation(const FVector_NetQuantize& Position)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientResetShotAfterOutOfBounds - Position=%s"), *GetName(), *Position.ToCompactString());
+
+	bOutOfBounds = false;
+	bTurnActivated = false;
+
+	SetPositionTo(Position);
+
+	if (auto HUD = GetHUD<APGHUD>(); ensure(HUD))
+	{
+		HUD->RemoveActiveMessageWidget();
+	}
+
+	DoActivateTurn();
 }
 
 APaperGolfPawn* AGolfPlayerController::GetPaperGolfPawn()
@@ -841,22 +861,11 @@ void AGolfPlayerController::RegisterGolfSubsystemEvents()
 		return;
 	}
 
-	GolfSubsystem->OnPaperGolfPawnOutBounds.AddDynamic(this, &ThisClass::OnOutOfBounds);
-	GolfSubsystem->OnPaperGolfPawnClippedThroughWorld.AddDynamic(this, &ThisClass::OnFellThroughFloor);
-}
-
-void AGolfPlayerController::OnOutOfBounds(APaperGolfPawn* InPaperGolfPawn)
-{
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnOutOfBounds: InPaperGolfPawn=%s"), *GetName(), *LoggingUtils::GetName(InPaperGolfPawn));
-
-	auto PaperGolfPawn = GetPaperGolfPawn();
-
-	if (PaperGolfPawn != InPaperGolfPawn)
+	// Only handle this on server
+	if (HasAuthority())
 	{
-		return;
+		GolfSubsystem->OnPaperGolfPawnClippedThroughWorld.AddDynamic(this, &ThisClass::OnFellThroughFloor);
 	}
-
-	HandleOutOfBounds();
 }
 
 void AGolfPlayerController::OnFellThroughFloor(APaperGolfPawn* InPaperGolfPawn)
@@ -978,13 +987,13 @@ void AGolfPlayerController::ActivateTurn()
 	}
 	else
 	{
-		ClientActivateTurn();
-
 		// Make sure that we execute on the server if this isn't a listen server client
 		if (!IsLocalController())
 		{
 			DoActivateTurn();
 		}
+
+		ClientActivateTurn();
 	}
 }
 

@@ -80,6 +80,8 @@ public:
 	UFUNCTION(BlueprintPure)
 	bool IsActivePlayer() const;
 
+	void HandleOutOfBounds();
+
 protected:
 	void BeginPlay() override;
 
@@ -136,14 +138,13 @@ private:
 
 	void RegisterGolfSubsystemEvents();
 
-	UFUNCTION()
-	void OnOutOfBounds(APaperGolfPawn* InPaperGolfPawn);
+	UFUNCTION(Client, Reliable)
+	void ClientHandleOutOfBounds();
 
 	UFUNCTION()
 	void OnFellThroughFloor(APaperGolfPawn* InPaperGolfPawn);
 
 	void HandleFallThroughFloor();
-	void HandleOutOfBounds();
 
 	bool IsReadyForNextShot() const;
 	void SetupNextShot(bool bSetCanFlick);
@@ -161,6 +162,9 @@ private:
 
 	UFUNCTION(Client, Reliable)
 	void ClientSetPositionTo(const FVector_NetQuantize& Position);
+
+	UFUNCTION(Client, Reliable)
+	void ClientResetShotAfterOutOfBounds(const FVector_NetQuantize& Position);
 
 	void CheckForNextShot();
 

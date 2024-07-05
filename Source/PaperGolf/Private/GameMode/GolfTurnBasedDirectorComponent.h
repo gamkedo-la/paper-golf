@@ -42,6 +42,9 @@ private:
 	UFUNCTION()
 	void OnPaperGolfPlayerScored(APaperGolfPawn* PaperGolfPawn);
 
+	UFUNCTION()
+	void OnPaperGolfOutOfBounds(APaperGolfPawn* PaperGolfPawn);
+
 	void DoNextTurn();
 
 	void ActivateNextPlayer();
