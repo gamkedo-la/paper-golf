@@ -11,6 +11,25 @@
 class USpringArmComponent;
 class UCameraComponent;
 
+USTRUCT()
+struct FServerFlickParams
+{
+	GENERATED_BODY()
+
+	// Must be marked uproperty in order to replicate in an RPC call
+	UPROPERTY(Transient)
+	float LocalZOffset;
+
+	UPROPERTY(Transient)
+	float PowerFraction;
+
+	UPROPERTY(Transient)
+	float Accuracy;
+
+	UPROPERTY(Transient)
+	FRotator Rotation;
+};
+
 UCLASS(Abstract)
 class PGPAWN_API APaperGolfPawn : public APawn, public IVisualLoggerDebugSnapshotInterface
 {
@@ -79,7 +98,7 @@ protected:
 	virtual void PostInitializeComponents() override;
 
 	UFUNCTION(Server, Reliable)
-	void ServerFlick(float LocalZOffset, float PowerFraction, float Accuracy);
+	void ServerFlick(const FServerFlickParams& FlickParams);
 
 	void DoFlick(float LocalZOffset, float PowerFraction, float Accuracy);
 

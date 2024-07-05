@@ -211,7 +211,14 @@ void APaperGolfPawn::Flick(float LocalZOffset, float PowerFraction, float Accura
 	SetCameraForFlick();
 
 	DoFlick(LocalZOffset, PowerFraction, Accuracy);
-	ServerFlick(LocalZOffset, PowerFraction, Accuracy);
+
+	ServerFlick(FServerFlickParams
+	{
+		.LocalZOffset = LocalZOffset,
+		.PowerFraction = PowerFraction,
+		.Accuracy = Accuracy,
+		.Rotation = GetActorRotation()
+	});
 }
 
 void APaperGolfPawn::DoFlick(float LocalZOffset, float PowerFraction, float Accuracy)
@@ -233,7 +240,7 @@ void APaperGolfPawn::DoFlick(float LocalZOffset, float PowerFraction, float Accu
 	_PaperGolfMesh->SetEnableGravity(true);
 }
 
-void APaperGolfPawn::ServerFlick_Implementation(float LocalZOffset, float PowerFraction, float Accuracy)
+void APaperGolfPawn::ServerFlick_Implementation(const FServerFlickParams& FlickParams)
 {
 	if (IsLocallyControlled())
 	{
@@ -241,11 +248,14 @@ void APaperGolfPawn::ServerFlick_Implementation(float LocalZOffset, float PowerF
 	}
 
 	UE_VLOG_UELOG(this, LogPGPawn, Log,
-		TEXT("%s: ServerFlick_Implementation - LocalZOffset=%f; PowerFraction=%f; Accuracy=%f"),
-		*GetName(), LocalZOffset, PowerFraction, Accuracy
+		TEXT("%s: ServerFlick_Implementation - Rotation=%s; LocalZOffset=%f; PowerFraction=%f; Accuracy=%f"),
+		*GetName(), *FlickParams.Rotation.ToCompactString(), FlickParams.LocalZOffset, FlickParams.PowerFraction, FlickParams.Accuracy
 	);
 
-	DoFlick(LocalZOffset, PowerFraction, Accuracy);
+	check(_PaperGolfMesh);
+	_PaperGolfMesh->SetWorldRotation(FlickParams.Rotation);
+
+	DoFlick(FlickParams.LocalZOffset, FlickParams.PowerFraction, FlickParams.Accuracy);
 }
 
 float APaperGolfPawn::ClampFlickZ(float OriginalZOffset, float DeltaZ) const

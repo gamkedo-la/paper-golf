@@ -158,10 +158,10 @@ private:
 	bool HasLOSToFocus(const FVector& Position, const AActor* FocusActor) const;
 
 	// TODO: This will be used on server to set the authoritative position on the client
-	void SetPositionTo(const FVector& Position);
+	void SetPositionTo(const FVector& Position, const TOptional<FRotator>& OptionalRotation = {});
 
 	UFUNCTION(Client, Reliable)
-	void ClientSetPositionTo(const FVector_NetQuantize& Position);
+	void ClientSetTransformTo(const FVector_NetQuantize& Position, const FRotator& Rotation);
 
 	UFUNCTION(Client, Reliable)
 	void ClientResetShotAfterOutOfBounds(const FVector_NetQuantize& Position);
@@ -177,7 +177,7 @@ private:
 	void DoActivateTurn();
 
 	UFUNCTION(Server, Reliable)
-	void ServerProcessShootInput();
+	void ServerProcessShootInput(const FRotator& InTotalRotation);
 
 	UFUNCTION()
 	void OnRep_Scored();

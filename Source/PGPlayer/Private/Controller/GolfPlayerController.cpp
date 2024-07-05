@@ -512,11 +512,11 @@ void AGolfPlayerController::HandleFallThroughFloor()
 
 	if (HasAuthority() && !IsLocalController())
 	{
-		ClientSetPositionTo(Position);
+		ClientSetTransformTo(Position, PaperGolfPawn->GetActorRotation());
 	}
 }
 
-void AGolfPlayerController::SetPositionTo(const FVector& Position)
+void AGolfPlayerController::SetPositionTo(const FVector& Position, const TOptional<FRotator>& OptionalRotation)
 {
 	auto PaperGolfPawn = GetPaperGolfPawn();
 	if (!PaperGolfPawn)
@@ -526,29 +526,43 @@ void AGolfPlayerController::SetPositionTo(const FVector& Position)
 
 	PaperGolfPawn->SetUpForNextShot();
 
-	PaperGolfPawn->SetActorLocation(
-		Position,
-		false,
-		nullptr,
-		TeleportFlagToEnum(true)
-	);
+	if (OptionalRotation)
+	{
+		PaperGolfPawn->SetActorTransform(
+
+			FTransform{ OptionalRotation.GetValue(), Position, PaperGolfPawn->GetActorScale() },
+			false,
+			nullptr,
+			TeleportFlagToEnum(true)
+		);
+	}
+
+	else
+	{
+		PaperGolfPawn->SetActorLocation(
+			Position,
+			false,
+			nullptr,
+			TeleportFlagToEnum(true)
+		);
+	}
 
 	UE_VLOG_LOCATION(this, LogPGPlayer, Log, Position, 20.0f, FColor::Red, TEXT("SetPositionTo"));
 
 	SetupNextShot(false);
 }
 
-void AGolfPlayerController::ClientSetPositionTo_Implementation(const FVector_NetQuantize& Position)
+void AGolfPlayerController::ClientSetTransformTo_Implementation(const FVector_NetQuantize& Position, const FRotator& Rotation)
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log,
-		TEXT("%s: ClientSetPositionTo - Position=%s"),
-		*GetName(), *Position.ToCompactString());
+		TEXT("%s: ClientSetTransformTo_Implementation - Position=%s; Rotation=%s"),
+		*GetName(), *Position.ToCompactString(), *Rotation.ToCompactString());
 
 	bTurnActivated = false;
 	// Disable any timers so we don't overwrite the position
 	UnregisterShotFinishedTimer();
 
-	SetPositionTo(Position);
+	SetPositionTo(Position, Rotation);
 }
 
 void AGolfPlayerController::CheckForNextShot()
@@ -587,7 +601,7 @@ void AGolfPlayerController::CheckForNextShot()
 			TEXT("%s-%s: CheckForNextShot - Setting final authoritative position for pawn: %s"),
 			*GetName(), *PaperGolfPawn->GetName(), *PaperGolfPawn->GetActorLocation().ToCompactString());
 
-		ClientSetPositionTo(PaperGolfPawn->GetActorLocation());
+		ClientSetTransformTo(PaperGolfPawn->GetActorLocation(), PaperGolfPawn->GetActorRotation());
 	}
 
 
@@ -650,16 +664,21 @@ void AGolfPlayerController::ProcessShootInput()
 	PaperGolfPawn->Flick(FlickZ, Power, Accuracy);
 	bCanFlick = false;
 
-	ServerProcessShootInput();
+	ServerProcessShootInput(TotalRotation);
 }
 
-void AGolfPlayerController::ServerProcessShootInput_Implementation()
+void AGolfPlayerController::ServerProcessShootInput_Implementation(const FRotator& InTotalRotation)
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log,
-		TEXT("%s: ServerProcessShootInput"), *GetName());
+		TEXT("%s: ServerProcessShootInput: TotalRotation=%s"), *GetName(), *TotalRotation.ToCompactString());
 
 	AddStroke();
 	bCanFlick = false;
+
+	if (!IsLocalController())
+	{
+		TotalRotation = InTotalRotation;
+	}
 
 	if (auto GolfPlayerState = GetPlayerState<AGolfPlayerState>(); ensure(GolfPlayerState))
 	{
