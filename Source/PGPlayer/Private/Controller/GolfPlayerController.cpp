@@ -18,6 +18,8 @@
 #include "UI/PGHUD.h"
 #include "UI/Widget/GolfUserWidget.h"
 
+#include "PaperGolfTypes.h"
+
 #include "Subsystems/TutorialTrackingSubsystem.h"
 
 #include "State/GolfPlayerState.h"
@@ -217,7 +219,7 @@ void AGolfPlayerController::DetermineIfCloseShot()
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s-%s: DetermineIfCloseShot: %s - Distance=%fm"),
 		*GetName(), *PaperGolfPawn->GetName(), LoggingUtils::GetBoolString(bCloseShot), ShotDistance / 100);
 
-	PaperGolfPawn->SetCloseShot(bCloseShot);
+	SetShotType(bCloseShot ? EShotType::Close : EShotType::Full);
 }
 
 void AGolfPlayerController::MarkScored()
@@ -619,9 +621,9 @@ void AGolfPlayerController::CheckForNextShot()
 			TEXT("%s-%s: CheckForNextShot - Setting final authoritative position for pawn: %s"),
 			*GetName(), *PaperGolfPawn->GetName(), *PaperGolfPawn->GetActorLocation().ToCompactString());
 
+		// TODO: This needs to invoke a multicast RPC so that clients reset the pawn position when they are spectating
 		ClientSetTransformTo(PaperGolfPawn->GetActorLocation(), PaperGolfPawn->GetActorRotation());
 	}
-
 
 	if (auto GolfEventSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventSubsystem))
 	{
@@ -679,7 +681,14 @@ void AGolfPlayerController::ProcessShootInput()
 	const auto Power = GolfWidget->GetMeterPower();
 	const auto Accuracy = GolfWidget->GetMeterAccuracy();
 
-	PaperGolfPawn->Flick(FlickZ, Power, Accuracy);
+	PaperGolfPawn->Flick(FFlickParams
+	{
+		.ShotType = GetShotType(),
+		.LocalZOffset = FlickZ,
+		.PowerFraction = Power,
+		.Accuracy = Accuracy
+	});
+
 	bCanFlick = false;
 
 	ServerProcessShootInput(TotalRotation);
@@ -787,6 +796,7 @@ void AGolfPlayerController::ResetShotAfterOutOfBounds()
 			DoActivateTurn();
 		}
 
+		// TODO: This needs to multicast the position update to client spectators
 		ClientResetShotAfterOutOfBounds(ResetPosition);
 	}
 	// TODO: What to do if we bail out early as user will still have the HUD message for out of bounds displaying
@@ -919,23 +929,6 @@ void AGolfPlayerController::OnFellThroughFloor(APaperGolfPawn* InPaperGolfPawn)
 	HandleFallThroughFloor();
 }
 
-EShotType AGolfPlayerController::GetShotType() const
-{
-	if (ShotType != EShotType::Default)
-	{
-		return ShotType;
-	}
-
-	const auto PaperGolfPawn = GetPaperGolfPawn();
-	if (!PaperGolfPawn)
-	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: GetShotType - Pawn not defined. Returning Default"), *GetName());
-		return EShotType::Default;
-	}
-
-	return PaperGolfPawn->IsCloseShot() ? EShotType::Close : EShotType::Full;
-}
-
 void AGolfPlayerController::OnPossess(APawn* InPawn)
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnPossess - InPawn=%s"), *GetName(), *LoggingUtils::GetName(InPawn));
@@ -987,16 +980,7 @@ void AGolfPlayerController::SetShotType(EShotType InShotType)
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SetShotType: %s"), *GetName(), *LoggingUtils::GetName(InShotType));
 
-	const auto PaperGolfPawn = Cast<APaperGolfPawn>(GetPawn());
-	if (!PaperGolfPawn)
-	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: SetShotType: %s - Pawn not defined - Ignoring"), *GetName(), *LoggingUtils::GetName(InShotType));
-		return;
-	}
-
 	ShotType = InShotType;
-
-	PaperGolfPawn->SetCloseShot(ShotType == EShotType::Close);
 }
 
 #pragma region Turn and spectator logic

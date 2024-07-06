@@ -3,6 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
+#include "PaperGolfTypes.h"
+
 #include "GameFramework/PlayerController.h"
 #include "VisualLogger/VisualLoggerDebugSnapshotInterface.h"
 
@@ -22,14 +25,6 @@ struct FShotHistory
 };
 
 bool operator== (const FShotHistory& First, const FShotHistory& Second);
-
-UENUM(BlueprintType)
-enum class EShotType : uint8
-{
-	Default,
-	Full,
-	Close
-};
 
 /**
  * 
@@ -306,6 +301,11 @@ FORCEINLINE AGolfHole* AGolfPlayerController::GetGolfHole() const
 FORCEINLINE bool AGolfPlayerController::IsActivePlayer() const
 {
 	return bTurnActivated;
+}
+
+FORCEINLINE EShotType AGolfPlayerController::GetShotType() const
+{
+	return ShotType;
 }
 
 #pragma endregion Inline Definitions

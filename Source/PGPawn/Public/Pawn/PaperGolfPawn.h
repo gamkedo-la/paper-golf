@@ -10,24 +10,37 @@
 
 class USpringArmComponent;
 class UCameraComponent;
+enum class EShotType : uint8;
 
-USTRUCT()
-struct FServerFlickParams
+USTRUCT(BlueprintType)
+struct FFlickParams
 {
 	GENERATED_BODY()
 
+	UPROPERTY(Transient)
+	EShotType ShotType{};
+
 	// Must be marked uproperty in order to replicate in an RPC call
 	UPROPERTY(Transient)
-	float LocalZOffset;
+	float LocalZOffset{};
 
 	UPROPERTY(Transient)
-	float PowerFraction;
+	float PowerFraction{};
 
 	UPROPERTY(Transient)
-	float Accuracy;
+	float Accuracy{};
+};
+
+USTRUCT()
+struct FNetworkFlickParams
+{
+	GENERATED_BODY()
 
 	UPROPERTY(Transient)
-	FRotator Rotation;
+	FFlickParams FlickParams{};
+
+	UPROPERTY(Transient)
+	FRotator Rotation { EForceInit::ForceInitToZero };
 };
 
 UCLASS(Abstract)
@@ -49,12 +62,6 @@ public:
 	bool IsStuckInPerpetualMotion() const;
 
 	UFUNCTION(BlueprintCallable)
-	void SetCloseShot(bool CloseShot);
-
-	UFUNCTION(BlueprintPure)
-	bool IsCloseShot() const { return bCloseShot;  }
-
-	UFUNCTION(BlueprintCallable)
 	void SetFocusActor(AActor* Focus);
 
 	UFUNCTION(BlueprintCallable)
@@ -70,7 +77,7 @@ public:
 	FVector GetFlickLocation(float LocationZ, float Accuracy = 1.0f, float Power = 1.0f) const;
 
 	UFUNCTION(BlueprintPure)
-	FVector GetFlickForce(float Accuracy, float Power) const;
+	FVector GetFlickForce(EShotType ShotType, float Accuracy, float Power) const;
 
 	UFUNCTION(BlueprintPure)
 	FVector GetLinearVelocity() const;
@@ -85,7 +92,7 @@ public:
 	void SetUpForNextShot();
 
 	UFUNCTION(BlueprintCallable)
-	void Flick(float LocalZOffset, float PowerFraction, float Accuracy);
+	void Flick(const FFlickParams& FlickParams);
 
 	UFUNCTION(BlueprintCallable)
 	float ClampFlickZ(float OriginalZOffset, float DeltaZ) const;
@@ -97,20 +104,27 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void PostInitializeComponents() override;
 
-	UFUNCTION(Server, Reliable)
-	void ServerFlick(const FServerFlickParams& FlickParams);
-
-	void DoFlick(float LocalZOffset, float PowerFraction, float Accuracy);
-
 private:
+
+	UFUNCTION(Server, Reliable)
+	void ServerFlick(const FNetworkFlickParams& Params);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastFlick(const FNetworkFlickParams& Params);
+
+	void DoFlick(const FFlickParams& FlickParams);
+	void DoNetworkFlick(const FNetworkFlickParams& Params);
 
 #if ENABLE_VISUAL_LOG
 	void DrawPawn(FVisualLogEntry* Snapshot) const;
 #endif
 
-	float GetFlickMaxForce() const;
+	float GetFlickMaxForce(EShotType ShotType) const;
 	void SetCameraForFlick();
 	void ResetCameraForShotSetup();
+
+
+	FNetworkFlickParams ToNetworkParams(const FFlickParams& Params) const;
 
 private:
 
@@ -156,8 +170,6 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	float FlickMaxForceCloseShot{ 100.f };
 
-	bool bCloseShot{};
-
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty")
 	float PowerAccuracyDampenExp{ 0.25f };
 
@@ -189,11 +201,6 @@ private:
 };
 
 #pragma region Inline Definitions
-
-FORCEINLINE void APaperGolfPawn::SetCloseShot(bool CloseShot)
-{
-	bCloseShot = CloseShot;
-}
 
 FORCEINLINE FVector APaperGolfPawn::GetLinearVelocity() const
 {

@@ -3,6 +3,8 @@
 
 #include "Pawn/PaperGolfPawn.h"
 
+#include "PaperGolfTypes.h"
+
 #include "DrawDebugHelpers.h"
 #include "Components/PrimitiveComponent.h" 
 
@@ -164,7 +166,7 @@ FVector APaperGolfPawn::GetFlickLocation(float LocationZ, float Accuracy, float 
 		FVector{ 0.0, 0.0, AccuracyAdjustedLocationZ });
 }
 
-FVector APaperGolfPawn::GetFlickForce(float Accuracy, float Power) const
+FVector APaperGolfPawn::GetFlickForce(EShotType ShotType, float Accuracy, float Power) const
 {
 	const auto& PerfectShotFlickDirection = GetFlickDirection();
 
@@ -177,7 +179,7 @@ FVector APaperGolfPawn::GetFlickForce(float Accuracy, float Power) const
 
 	const auto FlickDirection = (PerfectShotFlickDirection + FlickDirectionDeviation).GetSafeNormal();
 
-	const auto FlickMaxPower = GetFlickMaxForce();
+	const auto FlickMaxPower = GetFlickMaxForce(ShotType);
 
 	// Dampen initial power by accuracy
 	const auto RawDampenedPowerFactor = FMath::Pow(1 - FMath::Abs(Accuracy), PowerAccuracyDampenExp);
@@ -206,26 +208,38 @@ void APaperGolfPawn::SetUpForNextShot()
 	UPaperGolfPawnUtilities::ResetPhysicsState(_PaperGolfMesh);
 }
 
-void APaperGolfPawn::Flick(float LocalZOffset, float PowerFraction, float Accuracy)
+void APaperGolfPawn::Flick(const FFlickParams& FlickParams)
 {
 	SetCameraForFlick();
 
-	DoFlick(LocalZOffset, PowerFraction, Accuracy);
+	DoFlick(FlickParams);
 
-	ServerFlick(FServerFlickParams
+	if (HasAuthority() && IsLocallyControlled())
 	{
-		.LocalZOffset = LocalZOffset,
-		.PowerFraction = PowerFraction,
-		.Accuracy = Accuracy,
-		.Rotation = GetActorRotation()
-	});
+		// Broadcast to other clients
+		MulticastFlick(ToNetworkParams(FlickParams));
+	}
+	else if (!HasAuthority())
+	{
+		// Send to server
+		ServerFlick(ToNetworkParams(FlickParams));
+	}
 }
 
-void APaperGolfPawn::DoFlick(float LocalZOffset, float PowerFraction, float Accuracy)
+FNetworkFlickParams APaperGolfPawn::ToNetworkParams(const FFlickParams& Params) const
+{
+	return FNetworkFlickParams
+	{
+		.FlickParams = Params,
+		.Rotation = GetActorRotation()
+	};
+}
+
+void APaperGolfPawn::DoFlick(const FFlickParams& FlickParams)
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log,
-		TEXT("%s: DoFlick - LocalZOffset=%f; PowerFraction=%f; Accuracy=%f"),
-		*GetName(), LocalZOffset, PowerFraction, Accuracy
+		TEXT("%s: DoFlick - ShotType=%s; LocalZOffset=%f; PowerFraction=%f; Accuracy=%f"),
+		*GetName(), *LoggingUtils::GetName(FlickParams.ShotType), FlickParams.LocalZOffset, FlickParams.PowerFraction, FlickParams.Accuracy
 	);
 
 	check(_PaperGolfMesh);
@@ -233,29 +247,50 @@ void APaperGolfPawn::DoFlick(float LocalZOffset, float PowerFraction, float Accu
 	// Turn off physics at first so can move the actor
 	_PaperGolfMesh->SetSimulatePhysics(true);
 	_PaperGolfMesh->AddImpulseAtLocation(
-		GetFlickForce(Accuracy, PowerFraction),
-		GetFlickLocation(LocalZOffset, Accuracy, PowerFraction)
+		GetFlickForce(FlickParams.ShotType, FlickParams.Accuracy, FlickParams.PowerFraction),
+		GetFlickLocation(FlickParams.LocalZOffset, FlickParams.Accuracy, FlickParams.PowerFraction)
 	);
 
 	_PaperGolfMesh->SetEnableGravity(true);
 }
 
-void APaperGolfPawn::ServerFlick_Implementation(const FServerFlickParams& FlickParams)
+void APaperGolfPawn::DoNetworkFlick(const FNetworkFlickParams& Params)
 {
-	if (IsLocallyControlled())
+	UE_VLOG_UELOG(this, LogPGPawn, Log,
+		TEXT("%s: DoNetworkFlick - Rotation=%s; LocalZOffset=%f; PowerFraction=%f; Accuracy=%f"),
+		*GetName(), *Params.Rotation.ToCompactString(), Params.FlickParams.LocalZOffset, Params.FlickParams.PowerFraction, Params.FlickParams.Accuracy
+	);
+
+	check(_PaperGolfMesh);
+	_PaperGolfMesh->SetWorldRotation(Params.Rotation);
+
+	DoFlick(Params.FlickParams);
+
+}
+
+void APaperGolfPawn::MulticastFlick_Implementation(const FNetworkFlickParams& Params)
+{
+	if (HasAuthority())
 	{
 		return;
 	}
 
 	UE_VLOG_UELOG(this, LogPGPawn, Log,
-		TEXT("%s: ServerFlick_Implementation - Rotation=%s; LocalZOffset=%f; PowerFraction=%f; Accuracy=%f"),
-		*GetName(), *FlickParams.Rotation.ToCompactString(), FlickParams.LocalZOffset, FlickParams.PowerFraction, FlickParams.Accuracy
+		TEXT("%s: MulticastFlick_Implementation - Rotation=%s; LocalZOffset=%f; PowerFraction=%f; Accuracy=%f"),
+		*GetName(), *Params.Rotation.ToCompactString(), Params.FlickParams.LocalZOffset, Params.FlickParams.PowerFraction, Params.FlickParams.Accuracy
 	);
 
-	check(_PaperGolfMesh);
-	_PaperGolfMesh->SetWorldRotation(FlickParams.Rotation);
+	DoNetworkFlick(Params);
+}
 
-	DoFlick(FlickParams.LocalZOffset, FlickParams.PowerFraction, FlickParams.Accuracy);
+void APaperGolfPawn::ServerFlick_Implementation(const FNetworkFlickParams& Params)
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log,
+		TEXT("%s: ServerFlick_Implementation - Rotation=%s; LocalZOffset=%f; PowerFraction=%f; Accuracy=%f"),
+		*GetName(), *Params.Rotation.ToCompactString(), Params.FlickParams.LocalZOffset, Params.FlickParams.PowerFraction, Params.FlickParams.Accuracy
+	);
+
+	DoNetworkFlick(Params);
 }
 
 float APaperGolfPawn::ClampFlickZ(float OriginalZOffset, float DeltaZ) const
@@ -413,9 +448,9 @@ void APaperGolfPawn::PostInitializeComponents()
 	}
 }
 
-float APaperGolfPawn::GetFlickMaxForce() const
+float APaperGolfPawn::GetFlickMaxForce(EShotType ShotType) const
 {
-	return IsCloseShot() ? FlickMaxForceCloseShot : FlickMaxForce;
+	return ShotType == EShotType::Close ? FlickMaxForceCloseShot : FlickMaxForce;
 }
 
 void APaperGolfPawn::SetCameraForFlick()
@@ -489,7 +524,6 @@ void APaperGolfPawn::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 	Category.Category = FString::Printf(TEXT("PaperGolfPawn (%s)"), *GetName());
 
 	Category.Add(TEXT("FocusActor"), *LoggingUtils::GetName(FocusActor));
-	Category.Add(TEXT("CloseShot"), LoggingUtils::GetBoolString(bCloseShot));
 	Category.Add(TEXT("InPerpetualMotion"), LoggingUtils::GetBoolString(IsStuckInPerpetualMotion()));
 	Category.Add(TEXT("FlickLocation"), FlickLocation.ToCompactString());
 	Category.Add(TEXT("Location"), GetActorLocation().ToCompactString());

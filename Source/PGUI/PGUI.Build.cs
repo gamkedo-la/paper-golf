@@ -14,7 +14,8 @@ public class PGUI : ModuleRules
 		// that dependency in their module file if they use it explicitly (no transitivity in linking).
 		var modulePublicDependencyModuleNames = new string[]
 		{
-		};
+			"PGPawn",
+        };
 
 		var enginePublicDependencyModuleNames = new string[] 
 		{ 
@@ -33,7 +34,6 @@ public class PGUI : ModuleRules
 		var modulePrivateDependencyModuleNames = new string[]
 		{
 			"PGCore",
-			"PGPawn",
 		};
 
 		var enginePrivateDependencyModuleNames = new string[] 
