@@ -89,6 +89,9 @@ protected:
 	void SnapToGround();
 
 	UFUNCTION(BlueprintCallable)
+	void ResetForCamera();
+
+	UFUNCTION(BlueprintCallable)
 	void ProcessFlickZInput(float FlickZInput);
 
 	UFUNCTION(BlueprintCallable)
@@ -189,6 +192,8 @@ private:
 
 	UFUNCTION(BlueprintPure)
 	AGolfHole* GetGolfHole() const;
+
+	bool ShouldEnableInputForActivateTurn() const;
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)

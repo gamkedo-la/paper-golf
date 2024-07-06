@@ -39,24 +39,34 @@ private:
 };
 
 #pragma region Inline Definitions
-inline bool UTutorialTrackingSubsystem::IsHoleFlybySeen(int32 HoleNumber) const
+FORCEINLINE bool UTutorialTrackingSubsystem::IsHoleFlybySeen(int32 HoleNumber) const
 {
-	return HoleFlybySeen[HoleNumber];
+	if (!ensureAlwaysMsgf(HoleNumber > 0 && HoleNumber <= MaxHoles, TEXT("HoleNumber=%d must be between 1 and 18"), HoleNumber))
+	{
+		HoleNumber = FMath::Clamp(HoleNumber, 1, MaxHoles);
+	}
+
+	return HoleFlybySeen[HoleNumber - 1];
 }
 
-inline bool UTutorialTrackingSubsystem::IsTutorialSeen() const
+FORCEINLINE bool UTutorialTrackingSubsystem::IsTutorialSeen() const
 {
 	return bTutorialSeen;
 }
 
-inline void UTutorialTrackingSubsystem::MarkTutorialSeen()
+FORCEINLINE void UTutorialTrackingSubsystem::MarkTutorialSeen()
 {
 	bTutorialSeen = true;
 }
 
-inline void UTutorialTrackingSubsystem::MarkHoleFlybySeen(int32 HoleNumber)
+FORCEINLINE void UTutorialTrackingSubsystem::MarkHoleFlybySeen(int32 HoleNumber)
 {
-	HoleFlybySeen[HoleNumber] = true;
+	if (!ensureAlwaysMsgf(HoleNumber > 0 && HoleNumber <= MaxHoles, TEXT("HoleNumber=%d must be between 1 and 18"), HoleNumber))
+	{
+		HoleNumber = FMath::Clamp(HoleNumber, 1, MaxHoles);
+	}
+
+	HoleFlybySeen[HoleNumber - 1] = true;
 }
 
 #pragma endregion Inline Definitions

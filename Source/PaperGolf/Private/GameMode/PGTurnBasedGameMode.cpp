@@ -4,7 +4,7 @@
 #include "GameMode/PGTurnBasedGameMode.h"
 
 #include "GameMode/GolfTurnBasedDirectorComponent.h"
-
+#include "State/PaperGolfGameStateBase.h"
 #include "Logging/LoggingUtils.h"
 #include "VisualLogger/VisualLogger.h"
 #include "PaperGolfLogging.h"
@@ -49,6 +49,10 @@ void APGTurnBasedGameMode::OnMatchStateSet()
 	{
 		check(TurnBasedDirectorComponent);
 
-		TurnBasedDirectorComponent->StartHole();
+		if (auto GolfState = GetGameState<APaperGolfGameStateBase>(); ensure(GolfState))
+		{
+			GolfState->SetCurrentHoleNumber(1);
+			TurnBasedDirectorComponent->StartHole();
+		}
 	}
 }

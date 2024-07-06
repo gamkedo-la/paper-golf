@@ -18,7 +18,10 @@
 #include "UI/PGHUD.h"
 #include "UI/Widget/GolfUserWidget.h"
 
+#include "Subsystems/TutorialTrackingSubsystem.h"
+
 #include "State/GolfPlayerState.h"
+#include "State/PaperGolfGameStateBase.h"
 
 #include "Golf/GolfHole.h"
 
@@ -79,10 +82,25 @@ void AGolfPlayerController::SnapToGround()
 		return;
 	}
 
+	ResetForCamera();
+	AddToShotHistory(PaperGolfPawn);
+}
+
+void AGolfPlayerController::ResetForCamera()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ResetForCamera"), *GetName());
+
+	// Ignore if we haven't been possessed yet
+	const auto PaperGolfPawn = Cast<APaperGolfPawn>(GetPawn());
+
+	if (!PaperGolfPawn)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ResetForCamera - Skipping as Pawn=%s is not a APaperGolfPawn"), *GetName(), *LoggingUtils::GetName(GetPawn()));
+		return;
+	}
+
 	PaperGolfPawn->SnapToGround();
 	SetViewTargetWithBlend(PaperGolfPawn);
-
-	AddToShotHistory(PaperGolfPawn);
 }
 
 void AGolfPlayerController::ResetRotation()
@@ -1029,7 +1047,11 @@ void AGolfPlayerController::DoActivateTurn()
 
 	// Ensure that input is always activated and timer is always registered
 	EnableInput(this);
-	SetInputEnabled(true);
+
+	if (ShouldEnableInputForActivateTurn())
+	{
+		SetInputEnabled(true);
+	}
 
 	RegisterShotFinishedTimer();
 
@@ -1060,6 +1082,36 @@ void AGolfPlayerController::DoActivateTurn()
 
 	SetupNextShot(true);
 	bTurnActivated = true;
+}
+
+bool AGolfPlayerController::ShouldEnableInputForActivateTurn() const
+{
+	auto GameInstance = GetGameInstance();
+	if (!ensure(GameInstance))
+	{
+		return false;
+	}
+
+	auto TutorialTrackingSubsystem = GameInstance->GetSubsystem<UTutorialTrackingSubsystem>();
+
+	if(!ensure(TutorialTrackingSubsystem))
+	{
+		return true;
+	}
+
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return false;
+	}
+
+	auto GolfGameState = World->GetGameState<APaperGolfGameStateBase>();
+	if (!ensure(GolfGameState))
+	{
+		return false;
+	}
+
+	return TutorialTrackingSubsystem->IsHoleFlybySeen(GolfGameState->GetCurrentHoleNumber());
 }
 
 void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn)
