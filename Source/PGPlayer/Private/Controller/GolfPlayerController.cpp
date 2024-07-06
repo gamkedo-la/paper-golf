@@ -15,6 +15,8 @@
 #include "Logging/LoggingUtils.h"
 #include "VisualLogger/VisualLogger.h"
 
+#include "Utils/StringUtils.h"
+
 #include "UI/PGHUD.h"
 #include "UI/Widget/GolfUserWidget.h"
 
@@ -507,6 +509,12 @@ void AGolfPlayerController::SetupNextShot(bool bSetCanFlick)
 		{
 			GolfPlayerState->SetReadyForShot(true);
 		}
+
+		// Broadcast new upright ready position and rotation
+		if (HasAuthority())
+		{
+			PaperGolfPawn->MulticastReliableSetTransform(PaperGolfPawn->GetActorLocation(), true, PaperGolfPawn->GetActorRotation());
+		}
 	}
 }
 
@@ -538,38 +546,23 @@ void AGolfPlayerController::HandleFallThroughFloor()
 
 void AGolfPlayerController::SetPositionTo(const FVector& Position, const TOptional<FRotator>& OptionalRotation)
 {
+	UE_VLOG_UELOG(this, LogPGPlayer, Log,
+		TEXT("%s: SetPositionTo - Position=%s; Rotation=%s"),
+		*GetName(), *Position.ToCompactString(), *PG::StringUtils::ToString(OptionalRotation));
+
 	auto PaperGolfPawn = GetPaperGolfPawn();
 	if (!PaperGolfPawn)
 	{
 		return;
 	}
 
-	PaperGolfPawn->SetUpForNextShot();
+	PaperGolfPawn->SetTransform(Position, OptionalRotation);
+	PaperGolfPawn->MulticastReliableSetTransform(Position, OptionalRotation.IsSet(), OptionalRotation ? OptionalRotation.GetValue() : FRotator::ZeroRotator);
 
-	if (OptionalRotation)
+	if (HasAuthority())
 	{
-		PaperGolfPawn->SetActorTransform(
-
-			FTransform{ OptionalRotation.GetValue(), Position, PaperGolfPawn->GetActorScale() },
-			false,
-			nullptr,
-			TeleportFlagToEnum(true)
-		);
+		SetupNextShot(false);
 	}
-
-	else
-	{
-		PaperGolfPawn->SetActorLocation(
-			Position,
-			false,
-			nullptr,
-			TeleportFlagToEnum(true)
-		);
-	}
-
-	UE_VLOG_LOCATION(this, LogPGPlayer, Log, Position, 20.0f, FColor::Red, TEXT("SetPositionTo"));
-
-	SetupNextShot(false);
 }
 
 void AGolfPlayerController::ClientSetTransformTo_Implementation(const FVector_NetQuantize& Position, const FRotator& Rotation)
@@ -621,8 +614,8 @@ void AGolfPlayerController::CheckForNextShot()
 			TEXT("%s-%s: CheckForNextShot - Setting final authoritative position for pawn: %s"),
 			*GetName(), *PaperGolfPawn->GetName(), *PaperGolfPawn->GetActorLocation().ToCompactString());
 
-		// TODO: This needs to invoke a multicast RPC so that clients reset the pawn position when they are spectating
 		ClientSetTransformTo(PaperGolfPawn->GetActorLocation(), PaperGolfPawn->GetActorRotation());
+		PaperGolfPawn->MulticastReliableSetTransform(PaperGolfPawn->GetActorLocation(), true, PaperGolfPawn->GetActorRotation());
 	}
 
 	if (auto GolfEventSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventSubsystem))
@@ -796,8 +789,8 @@ void AGolfPlayerController::ResetShotAfterOutOfBounds()
 			DoActivateTurn();
 		}
 
-		// TODO: This needs to multicast the position update to client spectators
 		ClientResetShotAfterOutOfBounds(ResetPosition);
+		PaperGolfPawn->MulticastReliableSetTransform(ResetPosition, true, PaperGolfPawn->GetActorRotation());
 	}
 	// TODO: What to do if we bail out early as user will still have the HUD message for out of bounds displaying
 }
@@ -844,9 +837,20 @@ const APaperGolfPawn* AGolfPlayerController::GetPaperGolfPawn() const
 
 void AGolfPlayerController::BeginPlay()
 {
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: BeginPlay"), *GetName());
+
 	Super::BeginPlay();
 
 	Init();
+}
+
+void AGolfPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: EndPlay - %s"), *GetName(), *LoggingUtils::GetName(EndPlayReason));
+
+	Super::EndPlay(EndPlayReason);
+
+	CleanupDebugDraw();
 }
 
 void AGolfPlayerController::Init()
@@ -1270,9 +1274,15 @@ void AGolfPlayerController::InitDebugDraw()
 	GetWorldTimerManager().SetTimer(VisualLoggerTimer, DebugDrawDelegate, 0.05f, true);
 }
 
+void AGolfPlayerController::CleanupDebugDraw()
+{
+	GetWorldTimerManager().ClearTimer(VisualLoggerTimer);
+}
+
 #else
 
 void AGolfPlayerController::InitDebugDraw() {}
+void AGolfPlayerController::CleanupDebugDraw() {}
 
 #endif
 

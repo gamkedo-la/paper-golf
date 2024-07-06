@@ -78,7 +78,8 @@ public:
 	void HandleOutOfBounds();
 
 protected:
-	void BeginPlay() override;
+	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	UFUNCTION(BlueprintCallable)
 	void SnapToGround();
@@ -113,6 +114,7 @@ protected:
 private:
 
 	void InitDebugDraw();
+	void CleanupDebugDraw();
 
 	void AddToShotHistory(APaperGolfPawn* PaperGolfPawn);
 
@@ -155,7 +157,6 @@ private:
 
 	bool HasLOSToFocus(const FVector& Position, const AActor* FocusActor) const;
 
-	// TODO: This will be used on server to set the authoritative position on the client
 	void SetPositionTo(const FVector& Position, const TOptional<FRotator>& OptionalRotation = {});
 
 	UFUNCTION(Client, Reliable)
@@ -196,6 +197,7 @@ protected:
 	
 
 private:
+
 #if ENABLE_VISUAL_LOG
 	FTimerHandle VisualLoggerTimer{};
 #endif

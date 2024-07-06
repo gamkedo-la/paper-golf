@@ -94,6 +94,12 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void Flick(const FFlickParams& FlickParams);
 
+	// Cannot use TOptional in a UFUNCTION
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastReliableSetTransform(const FVector_NetQuantize& Position, bool bUseRotation = false, const FRotator& Rotation = FRotator::ZeroRotator);
+
+	void SetTransform(const FVector& Position, const TOptional<FRotator>& Rotation = {});
+
 	UFUNCTION(BlueprintCallable)
 	float ClampFlickZ(float OriginalZOffset, float DeltaZ) const;
 
@@ -102,9 +108,13 @@ public:
 protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void PostInitializeComponents() override;
 
 private:
+
+	void InitDebugDraw();
+	void CleanupDebugDraw();
 
 	UFUNCTION(Server, Reliable)
 	void ServerFlick(const FNetworkFlickParams& Params);
@@ -126,9 +136,13 @@ private:
 
 	FNetworkFlickParams ToNetworkParams(const FFlickParams& Params) const;
 
+	void SampleState();
+
 private:
 
-	void SampleState();
+#if ENABLE_VISUAL_LOG
+	FTimerHandle VisualLoggerTimer{};
+#endif
 
 	struct FState
 	{

@@ -21,6 +21,7 @@
 
 #include "VisualLogger/VisualLogger.h"
 #include "Logging/LoggingUtils.h"
+#include "Utils/StringUtils.h"
 #include "Utils/CollisionUtils.h"
 
 #include "Utils/VisualLoggerUtils.h"
@@ -69,6 +70,8 @@ bool APaperGolfPawn::IsStuckInPerpetualMotion() const
 
 void APaperGolfPawn::SetFocusActor(AActor* Focus)
 {
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: SetFocusActor - Focus=%s"), *GetName(), *LoggingUtils::GetName(Focus));
+
 	FocusActor = Focus;
 
 	ResetCameraForShotSetup();
@@ -76,6 +79,8 @@ void APaperGolfPawn::SetFocusActor(AActor* Focus)
 
 void APaperGolfPawn::SnapToGround()
 {
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: SnapToGround"), *GetName());
+
 	ResetRotation();
 
 	auto World = GetWorld();
@@ -130,6 +135,12 @@ void APaperGolfPawn::SnapToGround()
 		FColor::Green,
 		TEXT("SnapToGround")
 	);
+
+	if (HasAuthority())
+	{
+		//MulticastReliableSetTransform(Location, true, GetActorRotation());
+		MulticastReliableSetTransform(Location, false);
+	}
 }
 
 void APaperGolfPawn::ResetRotation()
@@ -208,18 +219,70 @@ void APaperGolfPawn::SetUpForNextShot()
 	UPaperGolfPawnUtilities::ResetPhysicsState(_PaperGolfMesh);
 }
 
+void APaperGolfPawn::MulticastReliableSetTransform_Implementation(const FVector_NetQuantize& Position, bool bUseRotation, const FRotator& Rotation)
+{
+	if (GetLocalRole() != ENetRole::ROLE_SimulatedProxy)
+	{
+		// Skip on non-authoritative clients that are controlling the pawn as they receive a more substantial client event from server
+		UE_VLOG_UELOG(this, LogPGPawn, Log,
+			TEXT("%s: MulticastReliableSetTransform_Implementation - Skipping as LocalRole=%s"),
+			*GetName(), *LoggingUtils::GetName(GetLocalRole())
+		);
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogPGPawn, Log,
+		TEXT("%s: MulticastReliableSetTransform_Implementation - Position=%s; bUseRotation=%s; Rotation=%s"),
+		*GetName(), *Position.ToCompactString(), LoggingUtils::GetBoolString(bUseRotation), *Rotation.ToCompactString()
+	);
+
+	SetTransform(Position, bUseRotation ? TOptional<FRotator> {Rotation} : TOptional<FRotator>{});
+}
+
+void APaperGolfPawn::SetTransform(const FVector& Position, const TOptional<FRotator>& Rotation)
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log,
+		TEXT("%s: SetTransform - Position=%s; Rotation=%s"),
+		*GetName(), *Position.ToCompactString(), *PG::StringUtils::ToString(Rotation)
+	);
+
+	SetUpForNextShot();
+
+	if (Rotation)
+	{
+		SetActorTransform(
+			FTransform{ *Rotation, Position, GetActorScale()},
+			false,
+			nullptr,
+			TeleportFlagToEnum(true)
+		);
+	}
+
+	else
+	{
+		SetActorLocation(
+			Position,
+			false,
+			nullptr,
+			TeleportFlagToEnum(true)
+		);
+	}
+
+	UE_VLOG_LOCATION(this, LogPGPawn, Log, Position, 20.0f, FColor::Red, TEXT("SetPositionTo"));
+}
+
 void APaperGolfPawn::Flick(const FFlickParams& FlickParams)
 {
 	SetCameraForFlick();
 
 	DoFlick(FlickParams);
 
-	if (HasAuthority() && IsLocallyControlled())
+	if (HasAuthority())
 	{
 		// Broadcast to other clients
 		MulticastFlick(ToNetworkParams(FlickParams));
 	}
-	else if (!HasAuthority())
+	else
 	{
 		// Send to server
 		ServerFlick(ToNetworkParams(FlickParams));
@@ -265,13 +328,17 @@ void APaperGolfPawn::DoNetworkFlick(const FNetworkFlickParams& Params)
 	_PaperGolfMesh->SetWorldRotation(Params.Rotation);
 
 	DoFlick(Params.FlickParams);
-
 }
 
 void APaperGolfPawn::MulticastFlick_Implementation(const FNetworkFlickParams& Params)
 {
-	if (HasAuthority())
+	if (GetLocalRole() != ENetRole::ROLE_SimulatedProxy)
 	{
+		// Skip on non-authoritative clients that are controlling the pawn as they receive a more substantial client event from server
+		UE_VLOG_UELOG(this, LogPGPawn, Log,
+			TEXT("%s: MulticastFlick_Implementation - Skip as LocalRole=%s"),
+			*GetName(), *LoggingUtils::GetName(GetLocalRole())
+		);
 		return;
 	}
 
@@ -291,6 +358,9 @@ void APaperGolfPawn::ServerFlick_Implementation(const FNetworkFlickParams& Param
 	);
 
 	DoNetworkFlick(Params);
+
+	// Broadcast to other clients
+	MulticastFlick(Params);
 }
 
 float APaperGolfPawn::ClampFlickZ(float OriginalZOffset, float DeltaZ) const
@@ -413,9 +483,25 @@ void APaperGolfPawn::Tick(float DeltaTime)
 
 void APaperGolfPawn::BeginPlay()
 {
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: BeginPlay"), *GetName());
+
 	Super::BeginPlay();
 
 	States.Reserve(NumSamples);
+
+	InitDebugDraw();
+}
+
+void APaperGolfPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: EndPlay - %s"), *GetName(), *LoggingUtils::GetName(EndPlayReason));
+
+	Super::EndPlay(EndPlayReason);
+
+	States.Reset();
+	StateIndex = 0;
+
+	CleanupDebugDraw();
 }
 
 void APaperGolfPawn::PostInitializeComponents()
@@ -544,5 +630,33 @@ void APaperGolfPawn::DrawPawn(FVisualLogEntry* Snapshot) const
 	PG::VisualLoggerUtils::DrawStaticMeshComponent(*Snapshot, LogPGPawn.GetCategoryName(), *_PaperGolfMesh);
 }
 
+void APaperGolfPawn::InitDebugDraw()
+{
+	// Ensure that state logged regularly so we see the updates in the visual logger
+	// Only need to do this for simulated proxies as otherwise it will be logged with the controller
+	if (GetLocalRole() != ENetRole::ROLE_SimulatedProxy)
+	{
+		return;
+	}
+
+	FTimerDelegate DebugDrawDelegate = FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			UE_VLOG(this, LogPGPawn, Log, TEXT("Get Player State"));
+		});
+
+	GetWorldTimerManager().SetTimer(VisualLoggerTimer, DebugDrawDelegate, 0.05f, true);
+}
+
+void APaperGolfPawn::CleanupDebugDraw()
+{
+	GetWorldTimerManager().ClearTimer(VisualLoggerTimer);
+}
+
+#else
+
+void APaperGolfPawn::InitDebugDraw() {}
+void APaperGolfPawn::CleanupDebugDraw() {}
+
 #endif
+
 #pragma endregion Visual Logger
