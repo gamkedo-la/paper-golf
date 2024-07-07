@@ -229,9 +229,13 @@ void AGolfPlayerController::MarkScored()
 	bScored = true;
 
 	// Rep notifies are not called on the server so we need to invoke the function manually if the server is also a client
-	if (HasAuthority() && IsLocalController())
+	if (HasAuthority())
 	{
-		OnScored();
+		if (IsLocalController())
+		{
+			OnScored();
+		}
+		DestroyPawn();
 	}
 }
 
@@ -280,8 +284,6 @@ void AGolfPlayerController::OnScored()
 			HUD->DisplayMessageWidget(EMessageWidgetType::HoleFinished);
 		}
 	}
-
-	DestroyPawn();
 }
 
 bool AGolfPlayerController::HasLOSToFocus(const FVector& Position, const AActor* FocusActor) const
@@ -956,7 +958,7 @@ void AGolfPlayerController::SetPawn(APawn* InPawn)
 
 	Super::SetPawn(InPawn);
 
-	const auto PaperGolfPawn = Cast<APaperGolfPawn>(InPawn); PaperGolfPawn;
+	const auto PaperGolfPawn = Cast<APaperGolfPawn>(InPawn);
 
 	// The player pawn will be first paper golf pawn possessed so set if not already set
 	if (!IsValid(PlayerPawn) && IsValid(PaperGolfPawn))
