@@ -21,10 +21,12 @@ void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, c
 
 	const auto& Transform = Component.GetComponentTransform();
 
+	// Render all the collision shapes even if multiple types are combined
 	if (!AggGeom.ConvexElems.IsEmpty())
 	{
 		for (const auto& ConvexElm : AggGeom.ConvexElems)
 		{
+			// Make a copy as we need to transform the position from model to world space
 			auto VertexData = ConvexElm.VertexData;
 			for (auto& Vertex : VertexData)
 			{
@@ -39,27 +41,34 @@ void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, c
 				FColor::Blue);
 		}
 	}
-	else if (!AggGeom.BoxElems.IsEmpty())
+	if (!AggGeom.BoxElems.IsEmpty())
 	{
-		Snapshot.AddElement(
-			PG::CollisionUtils::GetAABB(Component),
-			Transform.ToMatrixNoScale(),
-			CategoryName,
-			ELogVerbosity::Log,
-			FColor::Blue);
+		for (const auto& BoxElem : AggGeom.BoxElems)
+		{
+			Snapshot.AddElement(
+				FBox::BuildAABB(FVector::ZeroVector, FVector{ BoxElem.X, BoxElem.Y, BoxElem.Z }),
+				// BoxElem transform includes the center
+				(BoxElem.GetTransform() * Transform).ToMatrixWithScale(),
+				CategoryName,
+				ELogVerbosity::Log,
+				FColor::Blue
+			);
+		}
 	}
-	else if (!AggGeom.SphereElems.IsEmpty())
+	if (!AggGeom.SphereElems.IsEmpty())
 	{
-		const auto& Bounds = Component.Bounds;
-
-		Snapshot.AddSphere(
-			Bounds.Origin,
-			Bounds.SphereRadius,
-			CategoryName,
-			ELogVerbosity::Log,
-			FColor::Blue);
+		for (const auto& SphereElem : AggGeom.SphereElems)
+		{
+			Snapshot.AddSphere(
+				Transform.TransformPosition(SphereElem.Center),
+				SphereElem.Radius,
+				CategoryName,
+				ELogVerbosity::Log,
+				FColor::Blue
+			);
+		}
 	}
-	else if (!AggGeom.SphylElems.IsEmpty())
+	if (!AggGeom.SphylElems.IsEmpty())
 	{
 		for (const auto& SphylElm : AggGeom.SphylElems)
 		{
@@ -67,13 +76,13 @@ void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, c
 				Transform.TransformPosition(SphylElm.Center),
 				SphylElm.Length * 0.5f,
 				SphylElm.Radius,
-				SphylElm.Rotation.Quaternion() * Transform.GetRotation(),
+				Transform.GetRotation() * SphylElm.Rotation.Quaternion(),
 				CategoryName,
 				ELogVerbosity::Log,
 				FColor::Blue);
 		}
 	}
-	else if (!AggGeom.TaperedCapsuleElems.IsEmpty())
+	if (!AggGeom.TaperedCapsuleElems.IsEmpty())
 	{
 		for (const auto& CapsuleElm : AggGeom.TaperedCapsuleElems)
 		{
@@ -81,7 +90,7 @@ void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, c
 				Transform.TransformPosition(CapsuleElm.Center),
 				(CapsuleElm.Radius0 + CapsuleElm.Radius1) * 0.5f,
 				CapsuleElm.Length * 0.5f,
-				CapsuleElm.Rotation.Quaternion() * Transform.GetRotation(),
+				Transform.GetRotation() * CapsuleElm.Rotation.Quaternion(),
 				CategoryName,
 				ELogVerbosity::Log,
 				FColor::Blue);
