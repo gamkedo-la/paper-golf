@@ -100,6 +100,11 @@ public:
 
 	void SetTransform(const FVector& Position, const TOptional<FRotator>& Rotation = {});
 
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastSetCollisionEnabled(bool bEnabled);
+
+	void SetCollisionEnabled(bool bEnabled);
+
 	UFUNCTION(BlueprintCallable)
 	float ClampFlickZ(float OriginalZOffset, float DeltaZ) const;
 

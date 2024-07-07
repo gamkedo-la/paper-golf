@@ -486,6 +486,11 @@ void AGolfPlayerController::SetupNextShot(bool bSetCanFlick)
 		return;
 	}
 
+	if (bSetCanFlick)
+	{
+		PaperGolfPawn->SetCollisionEnabled(true);
+	}
+
 	PaperGolfPawn->SetUpForNextShot();
 
 	ResetShot();
@@ -1135,6 +1140,13 @@ void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn
 	// Allow the spectator pawn to take over the controls; otherwise, some of the bindings will be disabled
 
 	//DisableInput(this);
+
+	// Turn off collision on our own pawn
+	if (IsValid(PlayerPawn))
+	{
+		PlayerPawn->SetCollisionEnabled(false);
+	}
+
 	SetInputEnabled(false);
 	bTurnActivated = false;
 	UnregisterShotFinishedTimer();

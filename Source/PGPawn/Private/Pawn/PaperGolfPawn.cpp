@@ -271,6 +271,38 @@ void APaperGolfPawn::SetTransform(const FVector& Position, const TOptional<FRota
 	UE_VLOG_LOCATION(this, LogPGPawn, Log, Position, 20.0f, FColor::Red, TEXT("SetPositionTo"));
 }
 
+void APaperGolfPawn::MulticastSetCollisionEnabled_Implementation(bool bEnabled)
+{
+	if (GetLocalRole() != ENetRole::ROLE_SimulatedProxy)
+	{
+		// Skip on non-authoritative clients that are controlling the pawn as they receive a more substantial client event from server
+		UE_VLOG_UELOG(this, LogPGPawn, Log,
+			TEXT("%s: MulticastSetCollisionEnabled_Implementation - bEnabled=%s: Skip as LocalRole=%s"),
+			*GetName(), LoggingUtils::GetBoolString(bEnabled), *LoggingUtils::GetName(GetLocalRole())
+		);
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: MulticastSetCollisionEnabled_Implementation - bEnabled=%s"), *GetName(), LoggingUtils::GetBoolString(bEnabled));
+
+	SetCollisionEnabled(bEnabled);
+}
+
+void APaperGolfPawn::SetCollisionEnabled(bool bEnabled)
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: SetCollisionEnabled - bEnabled=%s"), *GetName(), LoggingUtils::GetBoolString(bEnabled));
+
+	check(_PaperGolfMesh);
+
+	if (!bEnabled)
+	{
+		_PaperGolfMesh->SetSimulatePhysics(false);
+	}
+	// Will explicitly opt-in to physics simulation when flicking
+	
+	_PaperGolfMesh->SetCollisionEnabled(bEnabled ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
+}
+
 void APaperGolfPawn::Flick(const FFlickParams& FlickParams)
 {
 	SetCameraForFlick();
@@ -306,6 +338,8 @@ void APaperGolfPawn::DoFlick(const FFlickParams& FlickParams)
 	);
 
 	check(_PaperGolfMesh);
+
+	SetCollisionEnabled(true);
 
 	// Turn off physics at first so can move the actor
 	_PaperGolfMesh->SetSimulatePhysics(true);
@@ -362,6 +396,7 @@ void APaperGolfPawn::ServerFlick_Implementation(const FNetworkFlickParams& Param
 	// Broadcast to other clients
 	MulticastFlick(Params);
 }
+
 
 float APaperGolfPawn::ClampFlickZ(float OriginalZOffset, float DeltaZ) const
 {

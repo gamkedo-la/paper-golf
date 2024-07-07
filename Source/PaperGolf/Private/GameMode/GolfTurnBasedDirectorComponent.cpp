@@ -148,6 +148,12 @@ void UGolfTurnBasedDirectorComponent::RegisterEventHandlers()
 void UGolfTurnBasedDirectorComponent::OnPaperGolfShotFinished(APaperGolfPawn* PaperGolfPawn)
 {
 	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: OnPaperGolfShotFinished: PaperGolfPawn=%s"), *GetName(), *LoggingUtils::GetName(PaperGolfPawn));
+
+	if (IsValid(PaperGolfPawn))
+	{
+		// Make sure that collision disabled for simulated proxies
+		PaperGolfPawn->MulticastSetCollisionEnabled(false);
+	}
 	
 	DoNextTurn();
 }
