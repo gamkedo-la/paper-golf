@@ -280,6 +280,8 @@ void AGolfPlayerController::OnScored()
 			HUD->DisplayMessageWidget(EMessageWidgetType::HoleFinished);
 		}
 	}
+
+	DestroyPawn();
 }
 
 bool AGolfPlayerController::HasLOSToFocus(const FVector& Position, const AActor* FocusActor) const
@@ -1276,6 +1278,30 @@ void AGolfPlayerController::InitDebugDraw()
 void AGolfPlayerController::CleanupDebugDraw()
 {
 	GetWorldTimerManager().ClearTimer(VisualLoggerTimer);
+}
+
+void AGolfPlayerController::DestroyPawn()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DestroyPawn: %s"), *GetName(), *LoggingUtils::GetName(PlayerPawn));
+
+	if (!IsValid(PlayerPawn))
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: DestroyPawn - PlayerPawn is NULL"), *GetName());
+		return;
+	}
+
+	UnPossess();
+
+	if (IsValid(PlayerPawn))
+	{
+		PlayerPawn->Destroy();
+	}
+
+	PlayerPawn = nullptr;
 }
 
 #else

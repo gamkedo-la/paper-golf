@@ -115,6 +115,7 @@ private:
 
 	void InitDebugDraw();
 	void CleanupDebugDraw();
+	void DestroyPawn();
 
 	void AddToShotHistory(APaperGolfPawn* PaperGolfPawn);
 
