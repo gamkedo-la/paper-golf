@@ -42,6 +42,16 @@ AGolfPlayerController::AGolfPlayerController()
 	bAlwaysRelevant = true;
 }
 
+AGolfPlayerState* AGolfPlayerController::GetGolfPlayerState()
+{
+	return GetPlayerState<AGolfPlayerState>();
+}
+
+const AGolfPlayerState* AGolfPlayerController::GetGolfPlayerState() const
+{
+	return GetPlayerState<const AGolfPlayerState>();
+}
+
 void AGolfPlayerController::AddToShotHistory(APaperGolfPawn* PaperGolfPawn)
 {
 	if (!PaperGolfPawn)

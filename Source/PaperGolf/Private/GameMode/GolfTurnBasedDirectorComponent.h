@@ -8,7 +8,7 @@
 
 class APaperGolfGameModeBase;
 class APaperGolfGameStateBase;
-class AGolfPlayerController;
+class IGolfController;
 class AGolfHole;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -51,7 +51,7 @@ private:
 
 	int32 DetermineNextPlayer() const;
 
-	void ActivatePlayer(AGolfPlayerController* Player);
+	void ActivatePlayer(IGolfController* Player);
 	// TODO: Will need a variant that takes an AI controller or better yet use an interface implemented by both
 
 	void NextHole();
@@ -66,7 +66,7 @@ private:
 
 	// FIXME: Should use an interface for this as want to also support AI players
 	UPROPERTY(Transient)
-	TArray<AGolfPlayerController*> Players{};
+	TArray<IGolfController*> Players{};
 
 	UPROPERTY(Transient)
 	TObjectPtr<AGolfHole> CurrentHole{};

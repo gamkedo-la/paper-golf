@@ -7,6 +7,7 @@
 
 #include "Logging/LoggingUtils.h"
 #include "Utils/ArrayUtils.h"
+#include "Utils/StringUtils.h"
 #include "VisualLogger/VisualLogger.h"
 #include "PaperGolfLogging.h"
 
@@ -49,7 +50,8 @@ UGolfTurnBasedDirectorComponent::UGolfTurnBasedDirectorComponent()
 
 void UGolfTurnBasedDirectorComponent::StartHole()
 {
-	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: StartHole with %d player%s: %s"), *GetName(), Players.Num(), LoggingUtils::Pluralize(Players.Num()), *PG::ToStringObjectElements(Players));
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: StartHole with %d player%s: %s"), *GetName(), Players.Num(), LoggingUtils::Pluralize(Players.Num()), 
+		*PG::ToString<IGolfController*, PG::StringUtils::ObjectToString<IGolfController>>(Players));
 
 	// TODO: Order should be based on previous hole's finish
 
@@ -72,26 +74,26 @@ void UGolfTurnBasedDirectorComponent::StartHole()
 
 void UGolfTurnBasedDirectorComponent::AddPlayer(AController* Player)
 {
-	auto PC = Cast<AGolfPlayerController>(Player);
-	if(!ensureMsgf(PC, TEXT("%s: AddPlayer - Player=%s is not a AGolfPlayerController"), *GetName(), *LoggingUtils::GetName(Player)))
+	auto GolfPlayer = Cast<IGolfController>(Player);
+	if(!ensureMsgf(GolfPlayer, TEXT("%s: AddPlayer - Player=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(Player)))
 	{
-		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: AddPlayer - Player=%s is not a AGolfPlayerController"), *GetName(), *LoggingUtils::GetName(Player));
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: AddPlayer - Player=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(Player));
 		return;
 	}
 
-	Players.AddUnique(PC);
+	Players.AddUnique(GolfPlayer);
 }
 
 void UGolfTurnBasedDirectorComponent::RemovePlayer(AController* Player)
 {
-	auto PC = Cast<AGolfPlayerController>(Player);
-	if(!ensureMsgf(PC, TEXT("%s: RemovePlayer - Player=%s is not a AGolfPlayerController"), *GetName(), *LoggingUtils::GetName(Player)))
+	auto GolfPlayer = Cast<IGolfController>(Player);
+	if(!ensureMsgf(GolfPlayer, TEXT("%s: RemovePlayer - Player=%s is not a AGolfPlayerController"), *GetName(), *LoggingUtils::GetName(Player)))
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: RemovePlayer - Player=%s is not a AGolfPlayerController"), *GetName(), *LoggingUtils::GetName(Player));
 		return;
 	}
 
-	Players.Remove(PC);
+	Players.Remove(GolfPlayer);
 }
 
 void UGolfTurnBasedDirectorComponent::InitializeComponent()
@@ -223,9 +225,9 @@ void UGolfTurnBasedDirectorComponent::ActivateNextPlayer()
 	}
 }
 
-void UGolfTurnBasedDirectorComponent::ActivatePlayer(AGolfPlayerController* Player)
+void UGolfTurnBasedDirectorComponent::ActivatePlayer(IGolfController* Player)
 {
-	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: ActivatePlayer - Player=%s"), *GetName(), *LoggingUtils::GetName(Player));
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: ActivatePlayer - Player=%s"), *GetName(), *PG::StringUtils::ToString(Player));
 
 	if (!ensure(Player))
 	{
@@ -234,12 +236,12 @@ void UGolfTurnBasedDirectorComponent::ActivatePlayer(AGolfPlayerController* Play
 	}
 
 	// If it's the player's first shot we must spawn them
-	const auto PlayerState = Player->GetPlayerState<AGolfPlayerState>();
+	const auto PlayerState = Player->GetGolfPlayerState();
 	if(!ensureMsgf(PlayerState, TEXT("%s: ActivatePlayer - Player=%s; PlayerState=%s is not the expected AGolfPlayerState"),
-		*GetName(), *LoggingUtils::GetName(Player), *LoggingUtils::GetName(Player->GetPlayerState<APlayerState>())))
+		*GetName(), *PG::StringUtils::ToString(Player), *LoggingUtils::GetName(Cast<AController>(Player) ? Cast<AController>(Player)->GetPlayerState<APlayerState>() : nullptr)))
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: ActivatePlayer - Player=%s is not the expected AGolfPlayerState"),
-			*GetName(), *LoggingUtils::GetName(Player), *LoggingUtils::GetName(Player->GetPlayerState<APlayerState>()));
+			*GetName(), *PG::StringUtils::ToString(Player), *LoggingUtils::GetName(Cast<AController>(Player) ? Cast<AController>(Player)->GetPlayerState<APlayerState>() : nullptr));
 		return;
 	}
 
@@ -250,15 +252,15 @@ void UGolfTurnBasedDirectorComponent::ActivatePlayer(AGolfPlayerController* Play
 	{
 		if(!ensureMsgf(GameMode, TEXT("%s: ActivatePlayer - GameMode is NULL"), *GetName()))
 		{
-			UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: ActivatePlayer - Player=%s - GameMode is NULL"), *GetName(), *LoggingUtils::GetName(Player));
+			UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: ActivatePlayer - Player=%s - GameMode is NULL"), *GetName(), *PG::StringUtils::ToString(Player));
 			return;
 		}
 
-		GameMode->RestartPlayer(Player);
-		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Display, TEXT("%s: ActivatePlayer - Player=%s - Spawning into game"), *GetName(), *LoggingUtils::GetName(Player));
+		GameMode->RestartPlayer(Cast<AController>(Player));
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Display, TEXT("%s: ActivatePlayer - Player=%s - Spawning into game"), *GetName(), *PG::StringUtils::ToString(Player));
 	}
 
-	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: ActivatePlayer - Player=%s - starting turn"), *GetName(), *LoggingUtils::GetName(Player));
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: ActivatePlayer - Player=%s - starting turn"), *GetName(), *PG::StringUtils::ToString(Player));
 
 	Player->ActivateTurn();
 }
@@ -288,9 +290,10 @@ int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 			continue;
 		}
 
-		const auto PlayerState = Player->GetPlayerState<const AGolfPlayerState>();
+		const auto PlayerState = Player->GetGolfPlayerState();
 		if (!ensureMsgf(PlayerState, TEXT("%s: DetermineClosestPlayerToHole - Player=%s; PlayerState=%s is not AGolfPlayerState"),
-			*GetName(), *LoggingUtils::GetName(Player), *LoggingUtils::GetName(Player->GetPlayerState<APlayerState>())))
+			*GetName(), *PG::StringUtils::ToString(Player),
+			*LoggingUtils::GetName(Cast<AController>(Player) ? Cast<AController>(Player)->GetPlayerState<APlayerState>() : nullptr)))
 		{
 			continue;
 		}

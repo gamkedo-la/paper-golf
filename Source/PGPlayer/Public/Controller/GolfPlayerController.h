@@ -7,6 +7,9 @@
 #include "PaperGolfTypes.h"
 
 #include "GameFramework/PlayerController.h"
+
+#include "Interfaces/GolfController.h"
+
 #include "VisualLogger/VisualLoggerDebugSnapshotInterface.h"
 
 #include "GolfPlayerController.generated.h"
@@ -30,7 +33,7 @@ bool operator== (const FShotHistory& First, const FShotHistory& Second);
  * 
  */
 UCLASS()
-class PGPLAYER_API AGolfPlayerController : public APlayerController, public IVisualLoggerDebugSnapshotInterface
+class PGPLAYER_API AGolfPlayerController : public APlayerController, public IGolfController, public IVisualLoggerDebugSnapshotInterface
 {
 	GENERATED_BODY()
 
@@ -47,9 +50,6 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ResetShot();
 
-	UFUNCTION(BlueprintCallable)
-	void DetermineIfCloseShot();
-
 	UFUNCTION(BlueprintPure)
 	bool IsReadyForShot() const;
 
@@ -59,23 +59,31 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Input")
 	bool IsInputEnabled() const;
 
-	void ActivateTurn();
-	void Spectate(APaperGolfPawn* InPawn);
+	virtual void ActivateTurn() override;
+	virtual void Spectate(APaperGolfPawn* InPawn) override;
 
 	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const override;
 
-	APaperGolfPawn* GetPaperGolfPawn();
-	const APaperGolfPawn* GetPaperGolfPawn() const;
+	virtual APaperGolfPawn* GetPaperGolfPawn() override;
+	virtual const APaperGolfPawn* GetPaperGolfPawn() const override;;
 
 	UFUNCTION(BlueprintPure)
-	bool HasScored() const;
+	virtual bool HasScored() const override;
 
-	void MarkScored();
+	virtual void MarkScored() override;
 
 	UFUNCTION(BlueprintPure)
-	bool IsActivePlayer() const;
+	virtual bool IsActivePlayer() const override;
 
-	void HandleOutOfBounds();
+	virtual void HandleOutOfBounds();
+
+	UFUNCTION(BlueprintPure)
+	virtual EShotType GetShotType() const override;
+
+	virtual FString ToString() const override { return GetName(); }
+
+	virtual AGolfPlayerState* GetGolfPlayerState() override;
+	virtual const AGolfPlayerState* GetGolfPlayerState() const override;
 
 protected:
 	virtual void BeginPlay() override;
@@ -102,9 +110,6 @@ protected:
 	UFUNCTION(BlueprintCallable)
 	void ToggleShotType();
 
-	UFUNCTION(BlueprintPure)
-	EShotType GetShotType() const;
-
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnUnPossess() override;
 
@@ -112,6 +117,8 @@ protected:
 	virtual void SetPawn(APawn* InPawn) override;
 
 private:
+
+	void DetermineIfCloseShot();
 
 	void InitDebugDraw();
 	void CleanupDebugDraw();
