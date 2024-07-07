@@ -512,6 +512,7 @@ void AGolfPlayerController::SetupNextShot(bool bSetCanFlick)
 			GolfPlayerState->SetReadyForShot(true);
 		}
 
+		// Broadcast new upright ready position and rotation
 		if (HasAuthority())
 		{
 			PaperGolfPawn->MulticastReliableSetTransform(PaperGolfPawn->GetActorLocation(), true, PaperGolfPawn->GetActorRotation());

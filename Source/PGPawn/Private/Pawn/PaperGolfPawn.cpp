@@ -81,9 +81,6 @@ void APaperGolfPawn::SnapToGround()
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: SnapToGround"), *GetName());
 
-	// Note current rotation prior to reset rotation to broadcast to clients so that everything is in sync
-	const auto OriginalRotation = GetActorRotation();
-
 	ResetRotation();
 
 	auto World = GetWorld();
@@ -141,7 +138,8 @@ void APaperGolfPawn::SnapToGround()
 
 	if (HasAuthority())
 	{
-		MulticastReliableSetTransform(Location, true, OriginalRotation);
+		//MulticastReliableSetTransform(Location, true, GetActorRotation());
+		MulticastReliableSetTransform(Location, false);
 	}
 }
 
