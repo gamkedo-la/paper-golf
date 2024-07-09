@@ -168,7 +168,7 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Stuck")
 	float MinDistanceThreshold{ 10.0 };
 
-	UPROPERTY(EditDefaultsOnly, Category = "Shot")
+	UPROPERTY(EditDefaultsOnly, Category = "Shot | Force")
 	float FlickMaxForce { 330.f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot")
@@ -186,8 +186,11 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<AActor> FocusActor{};
 
-	UPROPERTY(EditDefaultsOnly, Category = "Shot")
+	UPROPERTY(EditDefaultsOnly, Category = "Shot | Force")
 	float FlickMaxForceCloseShot{ 100.f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot | Force")
+	float FlickMaxForceMediumShot{ 200.f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty")
 	float PowerAccuracyDampenExp{ 0.25f };

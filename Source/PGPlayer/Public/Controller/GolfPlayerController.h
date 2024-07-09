@@ -118,7 +118,7 @@ protected:
 
 private:
 
-	void DetermineIfCloseShot();
+	void DetermineShotType();
 
 	void InitDebugDraw();
 	void CleanupDebugDraw();
@@ -230,8 +230,11 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Timer")
 	float OutOfBoundsDelayTime{ 3.0f };
 
-	UPROPERTY(EditDefaultsOnly, Category = "Shot")
+	UPROPERTY(EditDefaultsOnly, Category = "Shot | Type")
 	float CloseShotThreshold{ 1000.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot | Type")
+	float MediumShotThreshold{ 3000.0f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Focus")
 	TSubclassOf<UInterface> FocusableActorClass{};

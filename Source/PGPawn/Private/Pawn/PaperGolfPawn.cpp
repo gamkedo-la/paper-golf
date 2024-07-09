@@ -571,7 +571,12 @@ void APaperGolfPawn::PostInitializeComponents()
 
 float APaperGolfPawn::GetFlickMaxForce(EShotType ShotType) const
 {
-	return ShotType == EShotType::Close ? FlickMaxForceCloseShot : FlickMaxForce;
+	switch (ShotType)
+	{
+		case EShotType::Medium: return FlickMaxForceMediumShot;
+		case EShotType::Close: return FlickMaxForceCloseShot;
+		default: return FlickMaxForce;
+	}
 }
 
 void APaperGolfPawn::SetCameraForFlick()

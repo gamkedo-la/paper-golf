@@ -212,7 +212,7 @@ void AGolfPlayerController::SetPaperGolfPawnAimFocus()
 	PaperGolfPawn->SetFocusActor(BestFocus);
 }
 
-void AGolfPlayerController::DetermineIfCloseShot()
+void AGolfPlayerController::DetermineShotType()
 {
 	auto PaperGolfPawn = GetPaperGolfPawn();
 	if (!PaperGolfPawn)
@@ -226,12 +226,24 @@ void AGolfPlayerController::DetermineIfCloseShot()
 	}
 
 	const auto ShotDistance = PaperGolfPawn->GetDistanceTo(GolfHole);
-	const bool bCloseShot = ShotDistance < CloseShotThreshold;
 
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s-%s: DetermineIfCloseShot: %s - Distance=%fm"),
-		*GetName(), *PaperGolfPawn->GetName(), LoggingUtils::GetBoolString(bCloseShot), ShotDistance / 100);
+	const EShotType NewShotType = [&]()
+	{
+		if (ShotDistance > MediumShotThreshold)
+		{
+			return EShotType::Full;
+		}
+		if(ShotDistance > CloseShotThreshold)
+		{
+			return EShotType::Medium;
+		}
+		return EShotType::Close;
+	}();
 
-	SetShotType(bCloseShot ? EShotType::Close : EShotType::Full);
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s-%s: DetermineShotType: %s - Distance=%fm"),
+		*GetName(), *PaperGolfPawn->GetName(), *LoggingUtils::GetName(NewShotType), ShotDistance / 100);
+
+	SetShotType(NewShotType);
 }
 
 void AGolfPlayerController::MarkScored()
@@ -506,7 +518,7 @@ void AGolfPlayerController::SetupNextShot(bool bSetCanFlick)
 	ResetShot();
 	SetPaperGolfPawnAimFocus();
 	SnapToGround();
-	DetermineIfCloseShot();
+	DetermineShotType();
 	DrawFlickLocation();
 
 	if (IsLocalController())

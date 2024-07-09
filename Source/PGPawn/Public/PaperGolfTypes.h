@@ -9,5 +9,6 @@ enum class EShotType : uint8
 {
 	Default,
 	Full,
+	Medium,
 	Close
 };
