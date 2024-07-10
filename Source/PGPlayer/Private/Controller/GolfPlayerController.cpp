@@ -20,6 +20,8 @@
 #include "UI/PGHUD.h"
 #include "UI/Widget/GolfUserWidget.h"
 
+#include "Components/ShotArcPreviewComponent.h"
+
 #include "PaperGolfTypes.h"
 
 #include "Subsystems/TutorialTrackingSubsystem.h"
@@ -40,6 +42,8 @@ AGolfPlayerController::AGolfPlayerController()
 {
 	bReplicates = true;
 	bAlwaysRelevant = true;
+
+	ShotArcPreviewComponent = CreateDefaultSubobject<UShotArcPreviewComponent>(TEXT("ShotArcPreview"));
 }
 
 AGolfPlayerState* AGolfPlayerController::GetGolfPlayerState()

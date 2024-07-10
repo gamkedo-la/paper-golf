@@ -16,6 +16,7 @@
 
 class APaperGolfPawn;
 class AGolfHole;
+class UShotArcPreviewComponent;
 
 USTRUCT(BlueprintType)
 struct FShotHistory
@@ -199,16 +200,18 @@ private:
 
 	bool ShouldEnableInputForActivateTurn() const;
 
-protected:
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
-	TArray<FShotHistory> ShotHistory{};
-	
+	UFUNCTION(BlueprintPure)
+	float GetFlickZ() const;
 
 private:
-
+	TArray<FShotHistory> ShotHistory{};
+	
 #if ENABLE_VISUAL_LOG
 	FTimerHandle VisualLoggerTimer{};
 #endif
+
+	UPROPERTY(Category = "Components", VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UShotArcPreviewComponent> ShotArcPreviewComponent{};
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	FRotator RotationMax{ 75.0, 180.0, 90.0 };
@@ -319,6 +322,11 @@ FORCEINLINE bool AGolfPlayerController::IsActivePlayer() const
 FORCEINLINE EShotType AGolfPlayerController::GetShotType() const
 {
 	return ShotType;
+}
+
+FORCEINLINE float AGolfPlayerController::GetFlickZ() const
+{
+	return FlickZ;
 }
 
 #pragma endregion Inline Definitions

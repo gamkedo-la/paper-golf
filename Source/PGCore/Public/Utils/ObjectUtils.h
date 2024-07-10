@@ -19,6 +19,27 @@ namespace PG::ObjectUtils
 
 	template<std::derived_from<UActorComponent> T>
 	T* FindDefaultComponentByClass(AActor* ActorClassDefault);
+
+    /**
+    * Returns whether the specified UObject is exactly the specified type.
+    */
+    template<std::derived_from<UObject> T>
+    bool IsExactTypeOf(const T* Object);
+
+    /**
+    * Returns whether the specified UObject is exactly the specified type.
+    */
+    template<std::derived_from<UObject> T>
+    bool IsExactTypeOf(const T& Object);
+
+    template<typename S, std::derived_from<UObject> T>
+    bool InitScriptInterface(UObject* Outer, TScriptInterface<S>& ScriptInterface, const TSubclassOf<T>& ObjectClass);
+
+    template<std::derived_from<UInterface> T>
+    bool ImplementsInterface(const UObject* Object);
+
+    template<std::derived_from<UInterface> UInterfaceType, typename TInterfaceType>
+    TInterfaceType* CastToInterface(UObject* Object);
 }
 
 
@@ -43,6 +64,18 @@ inline bool PG::ObjectUtils::IsClassDefaultObject(const T* Object)
     return Object && 
             ((Object->GetFlags() & (EObjectFlags::RF_ArchetypeObject | EObjectFlags::RF_ClassDefaultObject)) ||
             (Object->GetClass() && Object->GetClass()->GetDefaultObject() == Object));
+}
+
+template<std::derived_from<UObject> T>
+inline bool PG::ObjectUtils::IsExactTypeOf(const T* Object)
+{
+    Object&& IsExactTypeOf(*Object);
+}
+
+template<std::derived_from<UObject> T>
+inline bool PG::ObjectUtils::IsExactTypeOf(const T& Object)
+{
+    return Object.GetClass() == T::StaticClass();
 }
 
 // Adapted from https://forums.unrealengine.com/t/how-to-get-a-component-from-a-classdefaultobject/383881/5
@@ -93,6 +126,41 @@ T* PG::ObjectUtils::FindDefaultComponentByClass(AActor* ActorClassDefault)
     } while (ActorClass != AActor::StaticClass());
 
     return nullptr;
+}
+
+template<typename S, std::derived_from<UObject> T>
+bool PG::ObjectUtils::InitScriptInterface(UObject* Outer, TScriptInterface<S>& ScriptInterface, const TSubclassOf<T>& ObjectClass)
+{
+    if (!ObjectClass)
+    {
+        return false;
+    }
+
+    auto Object = NewObject<T>(Outer, ObjectClass);
+    auto Interface = Cast<S>(Object);
+
+    if (!Object || !Interface)
+    {
+        return false;
+    }
+
+    ScriptInterface.SetObject(Object);
+    ScriptInterface.SetInterface(Interface);
+
+    return static_cast<bool>(ScriptInterface);
+}
+
+template<std::derived_from<UInterface> T>
+inline bool PG::ObjectUtils::ImplementsInterface(const UObject* Object)
+{
+    // See https://www.stevestreeting.com/2020/11/02/ue4-c-interfaces-hints-n-tips/
+    return Object && Object->GetClass() && Object->GetClass()->ImplementsInterface(T::StaticClass());
+}
+
+template<std::derived_from<UInterface> UInterfaceType, typename TInterfaceType>
+inline TInterfaceType* PG::ObjectUtils::CastToInterface(UObject* Object)
+{
+    return ImplementsInterface<UInterfaceType>(Object) ? Cast<TInterfaceType>(Object) : nullptr;
 }
 
 #pragma endregion Template Definitions

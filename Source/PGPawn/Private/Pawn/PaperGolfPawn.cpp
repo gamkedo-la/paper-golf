@@ -343,6 +343,9 @@ void APaperGolfPawn::DoFlick(const FFlickParams& FlickParams)
 
 	// Turn off physics at first so can move the actor
 	_PaperGolfMesh->SetSimulatePhysics(true);
+
+	RefreshMass();
+
 	_PaperGolfMesh->AddImpulseAtLocation(
 		GetFlickForce(FlickParams.ShotType, FlickParams.Accuracy, FlickParams.PowerFraction),
 		GetFlickLocation(FlickParams.LocalZOffset, FlickParams.Accuracy, FlickParams.PowerFraction)
@@ -578,6 +581,11 @@ float APaperGolfPawn::GetFlickMaxForce(EShotType ShotType) const
 	}
 }
 
+float APaperGolfPawn::GetMass() const
+{
+	return Mass = CalculateMass();
+}
+
 void APaperGolfPawn::SetCameraForFlick()
 {
 	check(_CameraSpringArm);
@@ -625,6 +633,38 @@ void APaperGolfPawn::SampleState()
 	}
 
 	States[StateIndex] = *this;
+}
+
+float APaperGolfPawn::CalculateMass() const
+{
+	if(!FMath::IsNearlyZero(Mass))
+	{
+		return Mass;
+	}
+
+	if (!ensure(_PaperGolfMesh))
+	{
+		return 0.0f;
+	}
+
+	bool bSetSimulatePhysics{};
+
+	if (!_PaperGolfMesh->IsSimulatingPhysics())
+	{
+		// necessary to read the mass
+		_PaperGolfMesh->SetSimulatePhysics(true);
+
+		bSetSimulatePhysics = true;
+	}
+
+	const auto CalculatedMass = _PaperGolfMesh->GetMass();
+
+	if (bSetSimulatePhysics)
+	{
+		UPaperGolfPawnUtilities::ResetPhysicsState(_PaperGolfMesh);
+	}
+
+	return CalculatedMass;
 }
 
 APaperGolfPawn::FState::FState(const APaperGolfPawn& Pawn) : 

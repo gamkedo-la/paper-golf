@@ -17,19 +17,22 @@ struct FFlickParams
 {
 	GENERATED_BODY()
 
-	UPROPERTY(Transient)
+	// Must be marked uproperty in order to replicate in an RPC call
+
+	UPROPERTY(Transient, BlueprintReadWrite)
 	EShotType ShotType{};
 
-	// Must be marked uproperty in order to replicate in an RPC call
-	UPROPERTY(Transient)
+	UPROPERTY(Transient, BlueprintReadWrite)
 	float LocalZOffset{};
 
-	UPROPERTY(Transient)
-	float PowerFraction{};
+	UPROPERTY(Transient, BlueprintReadWrite)
+	float PowerFraction{ 1.0f };
 
-	UPROPERTY(Transient)
-	float Accuracy{};
+	UPROPERTY(Transient, BlueprintReadWrite)
+	float Accuracy{ 1.0f };
 };
+
+bool operator ==(const FFlickParams& First, const FFlickParams& Second);
 
 USTRUCT()
 struct FNetworkFlickParams
@@ -110,6 +113,10 @@ public:
 
 	float GetFlickOffsetZTraceSize() const;
 
+	float GetFlickMaxForce(EShotType ShotType) const;
+
+	float GetMass() const;
+
 protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void BeginPlay() override;
@@ -134,14 +141,15 @@ private:
 	void DrawPawn(FVisualLogEntry* Snapshot) const;
 #endif
 
-	float GetFlickMaxForce(EShotType ShotType) const;
 	void SetCameraForFlick();
 	void ResetCameraForShotSetup();
-
 
 	FNetworkFlickParams ToNetworkParams(const FFlickParams& Params) const;
 
 	void SampleState();
+
+	float CalculateMass() const;
+	void RefreshMass();
 
 private:
 
@@ -207,6 +215,8 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty", meta = (ClampMin = "1.0"))
 	float FlickOffsetZTraceSize{ 5.0f };
 
+	mutable float Mass{};
+
 	// TODO: move component set up to C++
 private:
 	UPROPERTY(Transient)
@@ -241,6 +251,19 @@ FORCEINLINE FVector APaperGolfPawn::GetAngularVelocity() const
 FORCEINLINE float APaperGolfPawn::GetFlickOffsetZTraceSize() const
 {
 	return FlickOffsetZTraceSize;
+}
+
+FORCEINLINE void APaperGolfPawn::RefreshMass()
+{
+	Mass = CalculateMass();
+}
+
+FORCEINLINE bool operator ==(const FFlickParams& First, const FFlickParams& Second)
+{
+	return First.ShotType == Second.ShotType &&
+		FMath::IsNearlyEqual(First.LocalZOffset, Second.LocalZOffset) &&
+		FMath::IsNearlyEqual(First.PowerFraction, Second.PowerFraction) &&
+		FMath::IsNearlyEqual(First.Accuracy, Second.Accuracy);
 }
 
 #pragma endregion Inline Definitions
