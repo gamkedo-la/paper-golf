@@ -316,7 +316,7 @@ int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 			continue;
 		}
 
-		const auto DistanceToHole = CurrentHole->GetSquaredDistanceTo(Pawn);
+		const auto DistanceToHole = CurrentHole->GetSquaredHorizontalDistanceTo(Pawn);
 
 		FGolfPlayerOrderState CurrentPlayerState
 		{
