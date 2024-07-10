@@ -358,8 +358,7 @@ void APaperGolfPawn::DoNetworkFlick(const FNetworkFlickParams& Params)
 		*GetName(), *Params.Rotation.ToCompactString(), Params.FlickParams.LocalZOffset, Params.FlickParams.PowerFraction, Params.FlickParams.Accuracy
 	);
 
-	check(_PaperGolfMesh);
-	_PaperGolfMesh->SetWorldRotation(Params.Rotation);
+	SetActorRotation(Params.Rotation);
 
 	DoFlick(Params.FlickParams);
 }
