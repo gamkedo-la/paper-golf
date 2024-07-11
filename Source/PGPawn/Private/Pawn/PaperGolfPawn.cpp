@@ -30,6 +30,12 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PaperGolfPawn)
 
+namespace
+{
+	constexpr float ValidateFloatEpsilon = 0.001f;
+	constexpr float ValidateZOffsetExtentFraction = 0.5f;
+}
+
 APaperGolfPawn::APaperGolfPawn()
 {
 	PrimaryActorTick.bCanEverTick = false;
@@ -319,6 +325,9 @@ void APaperGolfPawn::Flick(const FFlickParams& FlickParams)
 		// Send to server
 		ServerFlick(ToNetworkParams(FlickParams));
 	}
+
+	// Wait until next shot to be able to hit again
+	bReadyForShot = false;
 }
 
 FNetworkFlickParams APaperGolfPawn::ToNetworkParams(const FFlickParams& Params) const
@@ -330,7 +339,7 @@ FNetworkFlickParams APaperGolfPawn::ToNetworkParams(const FFlickParams& Params) 
 	};
 }
 
-void APaperGolfPawn::DoFlick(const FFlickParams& FlickParams)
+void APaperGolfPawn::DoFlick(FFlickParams FlickParams)
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log,
 		TEXT("%s: DoFlick - ShotType=%s; LocalZOffset=%f; PowerFraction=%f; Accuracy=%f"),
@@ -338,6 +347,8 @@ void APaperGolfPawn::DoFlick(const FFlickParams& FlickParams)
 	);
 
 	check(_PaperGolfMesh);
+
+	FlickParams.Clamp();
 
 	SetCollisionEnabled(true);
 
@@ -399,10 +410,88 @@ void APaperGolfPawn::ServerFlick_Implementation(const FNetworkFlickParams& Param
 	MulticastFlick(Params);
 }
 
+bool APaperGolfPawn::ServerFlick_Validate(const FNetworkFlickParams& Params)
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log,
+		TEXT("%s: ServerFlick_Validate - Rotation=%s; LocalZOffset=%f; PowerFraction=%f; Accuracy=%f"),
+		*GetName(), *Params.Rotation.ToCompactString(), Params.FlickParams.LocalZOffset, Params.FlickParams.PowerFraction, Params.FlickParams.Accuracy
+	);
+
+	// TODO: If this becomes problematic may just want to log a warning in ServerFlick_Implementation and not process the RPC
+	if(!bReadyForShot)
+	{
+		UE_VLOG_UELOG(this, LogPGPawn, Warning,
+			TEXT("%s: ServerFlick_Validate - FALSE - Not ready for shot"),
+			*GetName()
+		);
+
+		return false;
+	}
+
+	const auto& FlickParams = Params.FlickParams;
+
+	FFlickParams ClampedFlickParmas{ FlickParams };
+	ClampedFlickParmas.Clamp();
+
+	if (!FMath::IsNearlyEqual(FlickParams.PowerFraction, ClampedFlickParmas.PowerFraction, ValidateFloatEpsilon))
+	{
+		UE_VLOG_UELOG(this, LogPGPawn, Warning,
+			TEXT("%s: ServerFlick_Validate - FALSE - PowerFraction=%f is not in range [0, 1]"),
+			*GetName(), FlickParams.PowerFraction
+		);
+
+		return false;
+	}
+
+	if (!FMath::IsNearlyEqual(FlickParams.Accuracy, ClampedFlickParmas.Accuracy, ValidateFloatEpsilon))
+	{
+		UE_VLOG_UELOG(this, LogPGPawn, Warning,
+			TEXT("%s: ServerFlick_Validate - FALSE - PowerFraction=%f is not in range [-1, 1]"),
+			*GetName(), FlickParams.PowerFraction
+		);
+
+		return false;
+	}
+
+	if(FlickParams.ShotType == EShotType::MAX)
+	{
+		UE_VLOG_UELOG(this, LogPGPawn, Warning,
+			TEXT("%s: ServerFlick_Validate - FALSE - ShotType is MAX"),
+			*GetName()
+		);
+
+		return false;
+	}
+
+	// Make sure that OffsetZ not way out of bounds
+	const auto Box = PG::CollisionUtils::GetAABB(*this);
+	const auto ZExtent = Box.GetExtent().Z;
+
+	const auto ClampedZ = FMath::Clamp(FlickParams.LocalZOffset, -ZExtent, ZExtent);
+
+	// Be lenient on the z range to avoid potential legitimate failure cases
+	if (!FMath::IsNearlyEqual(ClampedZ, FlickParams.LocalZOffset, ZExtent * ValidateZOffsetExtentFraction))
+	{
+		UE_VLOG_UELOG(this, LogPGPawn, Warning,
+			TEXT("%s: ServerFlick_Validate - FALSE - LocalZOffset=%f is out of bounds. Expected [%f,%f]"),
+			*GetName(), FlickParams.LocalZOffset, -ZExtent, ZExtent
+		);
+
+		return false;
+	}
+
+	UE_VLOG_UELOG(this, LogPGPawn, Verbose,
+		TEXT("%s: ServerFlick_Validate - TRUE - LocalZOffset=%f within [%f,%f] when accounting for extent fraction [%f,%f]"),
+		*GetName(), FlickParams.LocalZOffset, -ZExtent, ZExtent, -ZExtent * (1 + ValidateZOffsetExtentFraction), ZExtent * (1 + ValidateZOffsetExtentFraction)
+	);
+
+	return true;
+}
+
 
 float APaperGolfPawn::ClampFlickZ(float OriginalZOffset, float DeltaZ) const
 {
-	// TODO: Do a sweep test from OriginalZOffset + DeltaZ back to OriginalZOfset with GetFlickLocation
+	// Do a sweep test from OriginalZOffset + DeltaZ back to OriginalZOfset with GetFlickLocation
 	// If there is no intersection then return OriginalZOffset; otherwise return the impact point
 	auto World = GetWorld();
 
@@ -666,6 +755,13 @@ float APaperGolfPawn::CalculateMass() const
 
 	return CalculatedMass;
 }
+
+void FFlickParams::Clamp()
+{
+	PowerFraction = FMath::Clamp(PowerFraction, 0.0f, 1.0f);
+	Accuracy = FMath::Clamp(Accuracy, -1.0f, 1.0f);
+}
+
 
 APaperGolfPawn::FState::FState(const APaperGolfPawn& Pawn) : 
 	Position(Pawn.GetActorLocation())

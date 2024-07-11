@@ -30,6 +30,8 @@ struct FFlickParams
 
 	UPROPERTY(Transient, BlueprintReadWrite)
 	float Accuracy{ 1.0f };
+
+	void Clamp();
 };
 
 bool operator ==(const FFlickParams& First, const FFlickParams& Second);
@@ -117,6 +119,9 @@ public:
 
 	float GetMass() const;
 
+	// Used for server validation
+	void SetReadyForShot(bool bReady) { bReadyForShot = bReady; }
+
 protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void BeginPlay() override;
@@ -128,13 +133,14 @@ private:
 	void InitDebugDraw();
 	void CleanupDebugDraw();
 
-	UFUNCTION(Server, Reliable)
+	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerFlick(const FNetworkFlickParams& Params);
 
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastFlick(const FNetworkFlickParams& Params);
 
-	void DoFlick(const FFlickParams& FlickParams);
+	// Making a copy as need to clamp
+	void DoFlick(FFlickParams FlickParams);
 	void DoNetworkFlick(const FNetworkFlickParams& Params);
 
 #if ENABLE_VISUAL_LOG
@@ -216,6 +222,7 @@ private:
 	float FlickOffsetZTraceSize{ 5.0f };
 
 	mutable float Mass{};
+	bool bReadyForShot{};
 
 	// TODO: move component set up to C++
 private:

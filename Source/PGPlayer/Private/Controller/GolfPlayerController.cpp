@@ -1108,6 +1108,8 @@ void AGolfPlayerController::DoActivateTurn()
 
 	SetupNextShot(true);
 	bTurnActivated = true;
+
+	PaperGolfPawn->SetReadyForShot(true);
 }
 
 bool AGolfPlayerController::ShouldEnableInputForActivateTurn() const
