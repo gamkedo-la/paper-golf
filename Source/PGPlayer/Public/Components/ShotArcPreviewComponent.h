@@ -27,6 +27,8 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
 private:
 	void CalculateShotArc(const APaperGolfPawn& Pawn, const FFlickParams& FlickParams);
 	void DoShowShotArc();
@@ -34,11 +36,15 @@ private:
 	bool NeedsToRecalculateArc(const APaperGolfPawn& Pawn, const FFlickParams& FlickParams) const;
 
 private:
+
+	TArray<FVector> ArcPoints;
+
 	FTransform LastCalculatedTransform{};
 	EShotType ShotType{};
 	float LocalZOffset{};
 
 	bool bVisible{};
+	bool bLastPointIsHit{};
 
 	UPROPERTY(Category = "Shot Arc", EditDefaultsOnly)
 	float MaxSimTime{ 30.0f };
@@ -48,4 +54,7 @@ private:
 
 	UPROPERTY(Category = "Shot Arc", EditDefaultsOnly)
 	float CollisionRadius{ 3.0f };
+
+	UPROPERTY(Category = "Shot Arc", EditDefaultsOnly)
+	float HitRadiusSize{ 100.0f };
 };

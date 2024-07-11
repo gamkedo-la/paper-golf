@@ -23,4 +23,10 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "HUD")
 	static void DrawPoint(const UObject* WorldContextObject, const FVector& Position, const FLinearColor& Color, float PointSize = 15.0f);
+
+	UFUNCTION(BlueprintCallable, Category = "HUD")
+	static void DrawSphere(const UObject* WorldContextObject, const FVector& Position, const FLinearColor& Color, float Radius, int32 NumSegments = 16);
+
+	UFUNCTION(BlueprintCallable, Category = "HUD")
+	static void DrawBox(const UObject* WorldContextObject, const FVector& Position, const FLinearColor& Color, const FVector& Extent);
 };

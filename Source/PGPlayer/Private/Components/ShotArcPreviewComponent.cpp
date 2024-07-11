@@ -4,6 +4,9 @@
 #include "Components/ShotArcPreviewComponent.h"
 
 #include "Pawn/PaperGolfPawn.h"
+
+#include "Library/PaperGolfPawnUtilities.h"
+
 #include "PGPlayerLogging.h"
 #include "Logging/LoggingUtils.h"
 #include "VisualLogger/VisualLogger.h"
@@ -16,7 +19,8 @@
 
 UShotArcPreviewComponent::UShotArcPreviewComponent()
 {
-	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bStartWithTickEnabled = false;
 }
 
 void UShotArcPreviewComponent::ShowShotArc(const FFlickParams& FlickParams)
@@ -37,13 +41,36 @@ void UShotArcPreviewComponent::ShowShotArc(const FFlickParams& FlickParams)
 	}
 
 	DoShowShotArc();
-
-	bVisible = true;
 }
 
 void UShotArcPreviewComponent::BeginPlay()
 {
 	Super::BeginPlay();
+}
+
+void UShotArcPreviewComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	// we shouldn't be ticking if not visible
+	if (!ensure(bVisible))
+	{
+		return;
+	}
+
+	for(int32 i = 0, Len = ArcPoints.Num(); const auto& Point : ArcPoints)
+	{
+		if (i == Len - 1 && bLastPointIsHit)
+		{
+			UPaperGolfPawnUtilities::DrawBox(this, Point, FColor::Red, FVector { HitRadiusSize, HitRadiusSize, 20.0f });
+		}
+		else
+		{
+			UPaperGolfPawnUtilities::DrawSphere(this, Point, FColor::Green, CollisionRadius, 6);
+		}
+
+		++i;
+	}
 }
 
 bool UShotArcPreviewComponent::NeedsToRecalculateArc(const APaperGolfPawn& Pawn, const FFlickParams& FlickParams) const
@@ -56,12 +83,16 @@ bool UShotArcPreviewComponent::NeedsToRecalculateArc(const APaperGolfPawn& Pawn,
 
 void UShotArcPreviewComponent::CalculateShotArc(const APaperGolfPawn& Pawn, const FFlickParams& FlickParams)
 {
+	ArcPoints.Reset();
+	bLastPointIsHit = false;
+
 	const auto& FlickDirection = Pawn.GetFlickDirection();
 	const auto FlickForceMagnitude = Pawn.GetFlickMaxForce(FlickParams.ShotType);
 	const auto FlickImpulse = FlickDirection * FlickForceMagnitude;
 
 	FPredictProjectilePathParams Params;
-	Params.StartLocation = Pawn.GetFlickLocation(FlickParams.LocalZOffset);
+	// Offset start location a bit so that we don't collide with walls so that edge of sphere is on the flick location
+	Params.StartLocation = Pawn.GetFlickLocation(FlickParams.LocalZOffset) + FlickDirection * CollisionRadius;
 	Params.ActorsToIgnore.Add(const_cast<APaperGolfPawn*>(&Pawn));
 	Params.bTraceWithCollision = true;
 	//Params.bTraceWithChannel = true;
@@ -74,9 +105,9 @@ void UShotArcPreviewComponent::CalculateShotArc(const APaperGolfPawn& Pawn, cons
 	// Impulse = change in momentum
 	Params.LaunchVelocity = FlickImpulse / Pawn.GetMass();
 
-	// TODO: Later toggle with console variable once have proper visualization
-	Params.DrawDebugType = EDrawDebugTrace::ForDuration;
-	Params.DrawDebugTime = 10.0f;
+	// TODO: Later toggle with console variable
+	//Params.DrawDebugType = EDrawDebugTrace::ForDuration;
+	//Params.DrawDebugTime = 10.0f;
 
 	UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: CalculateShotArc - Pawn=%s; FlickDirection=%s; FlickForceMagnitude=%.1f; StartLocation=%s; LaunchVelocity=%scm/s"),
 		*GetName(),
@@ -88,7 +119,7 @@ void UShotArcPreviewComponent::CalculateShotArc(const APaperGolfPawn& Pawn, cons
 
 	FPredictProjectilePathResult Result;
 
-	const bool bHit = UGameplayStatics::PredictProjectilePath(
+	const bool bHit = bLastPointIsHit = UGameplayStatics::PredictProjectilePath(
 		GetWorld(),
 		Params,
 		Result);
@@ -97,28 +128,34 @@ void UShotArcPreviewComponent::CalculateShotArc(const APaperGolfPawn& Pawn, cons
 
 	if (!bHit)
 	{
-		UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Warning, TEXT("%s: CalculateShotArc - No hit found"), *GetName());
-		return;
+		UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: CalculateShotArc - No hit found"), *GetName());
 	}
 
-#if ENABLE_VISUAL_LOG
-	if (FVisualLogger::IsRecording())
-	{
-		for (int32 i = 0; const auto& PathDatum : Result.PathData)
-		{
-			UE_VLOG_LOCATION(
-				GetOwner(), LogPGPlayer, Verbose, PathDatum.Location, Params.ProjectileRadius, FColor::Green, TEXT("P%d"), i);
-			++i;
-		}
+	ArcPoints.Reserve(Result.PathData.Num());
 
+	for (int32 i = 0; const auto& PathDatum : Result.PathData)
+	{
+		UE_VLOG_LOCATION(
+			GetOwner(), LogPGPlayer, Verbose, PathDatum.Location, Params.ProjectileRadius, FColor::Green, TEXT("P%d"), i);
+		++i;
+
+		ArcPoints.Add(PathDatum.Location);
+	}
+
+	if (bLastPointIsHit)
+	{
+		ArcPoints.Add(Result.HitResult.ImpactPoint);
 		UE_VLOG_BOX(GetOwner(), LogPGPlayer, Verbose, FBox::BuildAABB(Result.HitResult.ImpactPoint, FVector{ 10.0 }), FColor::Red, TEXT("Hit"));
 	}
-#endif
+
 }
 
 void UShotArcPreviewComponent::DoShowShotArc()
 {
 	UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: DoShowShotArc"), *GetName());
+
+	bVisible = true;
+	SetComponentTickEnabled(true);
 }
 
 void UShotArcPreviewComponent::HideShotArc()
@@ -126,4 +163,5 @@ void UShotArcPreviewComponent::HideShotArc()
 	UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: HideShotArc"), *GetName());
 
 	bVisible = false;
+	SetComponentTickEnabled(false);
 }
