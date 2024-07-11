@@ -7,8 +7,9 @@
 UENUM(BlueprintType)
 enum class EShotType : uint8
 {
-	Default,
+	Default	UMETA(Hidden),
 	Full,
 	Medium,
-	Close
+	Close,
+	MAX UMETA(Hidden)
 };

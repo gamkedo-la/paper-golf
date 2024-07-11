@@ -141,6 +141,7 @@ void AGolfPlayerController::ResetShot()
 
 	ResetRotation();
 	ResetFlickZ();
+	DetermineShotType();
 }
 
 void AGolfPlayerController::SetPaperGolfPawnAimFocus()
@@ -522,7 +523,6 @@ void AGolfPlayerController::SetupNextShot(bool bSetCanFlick)
 	ResetShot();
 	SetPaperGolfPawnAimFocus();
 	SnapToGround();
-	DetermineShotType();
 	DrawFlickLocation();
 
 	if (IsLocalController())
@@ -1006,12 +1006,15 @@ void AGolfPlayerController::SetPawn(APawn* InPawn)
 
 void AGolfPlayerController::ToggleShotType()
 {
-	switch (GetShotType())
+	const EShotType NewShotType = static_cast<EShotType>((static_cast<int32>(GetShotType()) + 1) % static_cast<int32>(EShotType::MAX));
+
+	if (NewShotType != EShotType::Default)
 	{
-		case EShotType::Close:
-			return SetShotType(EShotType::Full);
-		default:
-			return SetShotType(EShotType::Close);
+		SetShotType(NewShotType);
+	}
+	else
+	{
+		SetShotType(EShotType::Full);
 	}
 }
 

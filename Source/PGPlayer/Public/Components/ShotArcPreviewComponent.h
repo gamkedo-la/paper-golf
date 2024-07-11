@@ -24,6 +24,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void HideShotArc();
 
+	UFUNCTION(BlueprintPure)
+	bool IsVisible() const { return bVisible;  }
+
 protected:
 	virtual void BeginPlay() override;
 
