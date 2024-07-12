@@ -256,14 +256,14 @@ void APaperGolfPawn::SetTransform(const FVector& Position, const TOptional<FRota
 
 	if (Rotation)
 	{
-		SetActorTransform(
-			FTransform{ *Rotation, Position, GetActorScale()},
+		SetActorLocationAndRotation(
+			Position,
+			*Rotation,
 			false,
 			nullptr,
 			TeleportFlagToEnum(true)
 		);
 	}
-
 	else
 	{
 		SetActorLocation(

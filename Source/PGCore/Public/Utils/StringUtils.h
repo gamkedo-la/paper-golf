@@ -57,6 +57,12 @@ namespace PG::StringUtils
 		{
 			t.IsValid()
 		} -> std::convertible_to<bool>;
+	}) || (requires(const T t)
+	{
+		// Weak ptr types
+		{
+			t.IsValid()
+		} -> std::convertible_to<bool>;
 	})));
 
 	template<typename T> requires ToStringConcept<T>
@@ -101,9 +107,30 @@ namespace PG::StringUtils
 
 				return obj->GetName();
 			}
-			else // std::convertible_to<T, bool>
+			else if constexpr (requires { obj.IsExplicitlyNull(); }) // WeakObjectPtr
+			{
+				if (obj.IsExplicitlyNull())
+				{
+					return TEXT("NULL");
+				}
+				if (!obj.IsValid())
+				{
+					return TEXT("INVALID");
+				}
+
+				return obj->GetName();
+			}
+			else if constexpr(std::convertible_to<T, bool>)
 			{
 				return obj ? obj->GetName() : TEXT("NULL");
+			}
+			else if constexpr (requires { obj.IsValid(); })
+			{
+				return obj.IsValid() ? obj->GetName() : TEXT("NULL");
+			}
+			else
+			{
+				static_assert(false, "Mismatch between GetNameConcept and this type");
 			}
 		}
 	};

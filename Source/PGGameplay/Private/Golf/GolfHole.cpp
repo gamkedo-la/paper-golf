@@ -100,8 +100,12 @@ void AGolfHole::SetCollider(UPrimitiveComponent* Collider)
 		return;
 	}
 
-	Collider->OnComponentBeginOverlap.AddDynamic(this, &AGolfHole::OnComponentBeginOverlap);
-	Collider->OnComponentEndOverlap.AddDynamic(this, &AGolfHole::OnComponentEndOverlap);
+	// Only register ovents on server
+	if (HasAuthority())
+	{
+		Collider->OnComponentBeginOverlap.AddDynamic(this, &AGolfHole::OnComponentBeginOverlap);
+		Collider->OnComponentEndOverlap.AddDynamic(this, &AGolfHole::OnComponentEndOverlap);
+	}
 }
 
 void AGolfHole::OnComponentBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -134,7 +138,7 @@ void AGolfHole::OnComponentEndOverlap(UPrimitiveComponent* OverlappedComponent, 
 
 	if (OtherActor == OverlappingPaperGolfPawn)
 	{
-		UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: OnComponentEndOverlap - %s - Player has left hole. Clearing timer."), *GetName(), *LoggingUtils::GetName(OtherActor));
+		UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: OnComponentEndOverlap - %s - Player has left hole."), *GetName(), *LoggingUtils::GetName(OtherActor));
 		
 		// Be sure to cancel the timer if the overlapping pawn leaves the hole
 		ClearTimer();
@@ -145,8 +149,6 @@ void AGolfHole::OnCheckScored()
 {
 	if (CheckedScored())
 	{
-		UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: OnCheckScored - Player %s has scored. Clearing timer."), *GetName(), *LoggingUtils::GetName(OverlappingPaperGolfPawn.Get()));
-
 		ClearTimer();
 	}
 }
@@ -166,6 +168,7 @@ bool AGolfHole::CheckedScored() const
 	}
 
 	// Fire scored event
+	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: CheckedScored - Player %s has scored"), *GetName(), *PaperGolfPawn->GetName());
 
 	if(auto GolfEventsSubsystem = GetWorld()->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventsSubsystem))
 	{
@@ -177,6 +180,9 @@ bool AGolfHole::CheckedScored() const
 
 void AGolfHole::ClearTimer()
 {
+	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: ClearTimer: CheckScoredTimerHandle=%s; OverlappingPaperGolfPawn=%s"),
+		*GetName(), LoggingUtils::GetBoolString(CheckScoredTimerHandle.IsValid()), *LoggingUtils::GetName(OverlappingPaperGolfPawn));
+
 	OverlappingPaperGolfPawn.Reset();
 
 	if (auto World = GetWorld(); World)
