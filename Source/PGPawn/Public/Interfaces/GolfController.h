@@ -28,7 +28,6 @@ class PGPAWN_API IGolfController
 {
 	GENERATED_BODY()
 
-	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
 	virtual void MarkScored() = 0;
 	virtual bool HasScored() const = 0;
@@ -37,7 +36,7 @@ public:
 	virtual void ActivateTurn() = 0;
 	virtual void Spectate(APaperGolfPawn* InPawn) = 0;
 
-	virtual void HandleOutOfBounds() = 0;
+	virtual bool HandleOutOfBounds() = 0;
 
 	virtual APaperGolfPawn* GetPaperGolfPawn() = 0;
 	virtual const APaperGolfPawn* GetPaperGolfPawn() const = 0;
@@ -48,4 +47,6 @@ public:
 
 	virtual AGolfPlayerState* GetGolfPlayerState() = 0;
 	virtual const AGolfPlayerState* GetGolfPlayerState() const = 0;
+
+	void AddStroke();
 };

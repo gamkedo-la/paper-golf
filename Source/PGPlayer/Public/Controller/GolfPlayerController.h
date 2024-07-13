@@ -76,7 +76,7 @@ public:
 	UFUNCTION(BlueprintPure)
 	virtual bool IsActivePlayer() const override;
 
-	virtual void HandleOutOfBounds();
+	virtual bool HandleOutOfBounds() override;
 
 	UFUNCTION(BlueprintPure)
 	virtual EShotType GetShotType() const override;
@@ -132,8 +132,6 @@ private:
 	void DrawFlickLocation();
 
 	void ResetFlickZ();
-
-	void AddStroke();
 
 	void Init();
 	void DeferredInit();

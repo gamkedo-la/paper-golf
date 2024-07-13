@@ -68,6 +68,8 @@ void UGolfTurnBasedDirectorComponent::StartHole()
 		return;
 	}
 
+	InitializePlayersForHole();
+
 	ActivePlayerIndex = 0;
 	ActivateNextPlayer();
 }
@@ -141,9 +143,9 @@ void UGolfTurnBasedDirectorComponent::RegisterEventHandlers()
 
 	if(auto GolfEventSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); GolfEventSubsystem)
 	{
-		GolfEventSubsystem->OnPaperGolfShotFinished.AddDynamic(this, &UGolfTurnBasedDirectorComponent::OnPaperGolfShotFinished);
-		GolfEventSubsystem->OnPaperGolfPawnScored.AddDynamic(this, &UGolfTurnBasedDirectorComponent::OnPaperGolfPlayerScored);
-		GolfEventSubsystem->OnPaperGolfPawnOutBounds.AddDynamic(this, &UGolfTurnBasedDirectorComponent::OnPaperGolfOutOfBounds);
+		GolfEventSubsystem->OnPaperGolfShotFinished.AddDynamic(this, &ThisClass::OnPaperGolfShotFinished);
+		GolfEventSubsystem->OnPaperGolfPawnScored.AddDynamic(this, &ThisClass::OnPaperGolfPlayerScored);
+		GolfEventSubsystem->OnPaperGolfPawnEnteredHazard.AddDynamic(this, &ThisClass::OnPaperGolfEnteredHazard);
 	}
 }
 
@@ -179,12 +181,17 @@ void UGolfTurnBasedDirectorComponent::OnPaperGolfPlayerScored(APaperGolfPawn* Pa
 	DoNextTurn();
 }
 
-void UGolfTurnBasedDirectorComponent::OnPaperGolfOutOfBounds(APaperGolfPawn* PaperGolfPawn)
+void UGolfTurnBasedDirectorComponent::OnPaperGolfEnteredHazard(APaperGolfPawn* PaperGolfPawn, EHazardType HazardType)
 {
-	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: OnPaperGolfOutOfBounds: PaperGolfPawn=%s"), *GetName(), *LoggingUtils::GetName(PaperGolfPawn));
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: OnPaperGolfEnteredHazard: PaperGolfPawn=%s; HazardType=%s"),
+		*GetName(), *LoggingUtils::GetName(PaperGolfPawn), *LoggingUtils::GetName(HazardType));
 	if (auto GolfPlayerController = Cast<AGolfPlayerController>(PaperGolfPawn->GetController()); ensure(GolfPlayerController))
 	{
-		GolfPlayerController->HandleOutOfBounds();
+		if (GolfPlayerController->HandleOutOfBounds())
+		{
+			// One stroke penalty - TODO: May want to pull this up to another component or main game mode
+			GolfPlayerController->AddStroke();
+		}
 	}
 }
 
@@ -342,6 +349,8 @@ void UGolfTurnBasedDirectorComponent::NextHole()
 	check(GameState);
 	GameState->SetActivePlayer(nullptr);
 
+	MarkPlayersFinishedHole();
+
 	// TODO: Adjust once have multiple holes and a way to transition between them
 	auto World = GetWorld();
 	if (!ensure(World))
@@ -359,6 +368,40 @@ void UGolfTurnBasedDirectorComponent::NextHole()
 
 	FTimerHandle Handle;
 	World->GetTimerManager().SetTimer(Handle, Delegate, NextHoleDelay, false);
+}
+
+void UGolfTurnBasedDirectorComponent::InitializePlayersForHole()
+{
+	for (auto Player : Players)
+	{
+		if (auto PlayerState = Player->GetGolfPlayerState(); ensureMsgf(PlayerState,
+			TEXT("%s: InitializePlayersForHole - Player=%s does not have GolfPlayerState"), *GetName(), *PG::StringUtils::ToString(Player)))
+		{
+			PlayerState->StartHole();
+		}
+		else
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: InitializePlayersForHole - Player=%s does not have GolfPlayerState"),
+				*GetName(), *PG::StringUtils::ToString(Player));
+		}
+	}
+}
+
+void UGolfTurnBasedDirectorComponent::MarkPlayersFinishedHole()
+{
+	for (auto Player : Players)
+	{
+		if (auto PlayerState = Player->GetGolfPlayerState(); ensureMsgf(PlayerState,
+			TEXT("%s: MarkPlayersFinishedHole - Player=%s does not have GolfPlayerState"), *GetName(), *PG::StringUtils::ToString(Player)))
+		{
+			PlayerState->FinishHole();
+		}
+		else
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: MarkPlayersFinishedHole - Player=%s does not have GolfPlayerState"),
+				*GetName(), *PG::StringUtils::ToString(Player));
+		}
+	}
 }
 
 namespace

@@ -287,7 +287,7 @@ void AGolfPlayerController::OnScored()
 
 	bCanFlick = false;
 
-	auto GolfPlayerState = GetPlayerState<AGolfPlayerState>();
+	auto GolfPlayerState = GetGolfPlayerState();
 	if (!ensure(GolfPlayerState))
 	{
 		return;
@@ -540,7 +540,7 @@ void AGolfPlayerController::SetupNextShot(bool bSetCanFlick)
 	{
 		// TODO: Rectify these dual variables
 		bCanFlick = true;
-		if (auto GolfPlayerState = GetPlayerState<AGolfPlayerState>(); HasAuthority() && ensure(GolfPlayerState))
+		if (auto GolfPlayerState = GetGolfPlayerState(); HasAuthority() && ensure(GolfPlayerState))
 		{
 			GolfPlayerState->SetReadyForShot(true);
 		}
@@ -735,31 +735,20 @@ void AGolfPlayerController::ServerProcessShootInput_Implementation(const FRotato
 		TotalRotation = InTotalRotation;
 	}
 
-	if (auto GolfPlayerState = GetPlayerState<AGolfPlayerState>(); ensure(GolfPlayerState))
+	if (auto GolfPlayerState = GetGolfPlayerState(); ensure(GolfPlayerState))
 	{
 		GolfPlayerState->SetReadyForShot(false);
 	}
 }
 
-void AGolfPlayerController::AddStroke()
-{
-	auto GolfPlayerState = GetPlayerState<AGolfPlayerState>();
-	if (!ensure(GolfPlayerState))
-	{
-		return;
-	}
-
-	GolfPlayerState->AddShot();
-}
-
-void AGolfPlayerController::HandleOutOfBounds()
+bool AGolfPlayerController::HandleOutOfBounds()
 {
 	// only called on server
 	check(HasAuthority());
 
 	if (bOutOfBounds)
 	{
-		return;
+		return false;
 	}
 
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: HandleOutOfBounds"), *GetName());
@@ -769,19 +758,15 @@ void AGolfPlayerController::HandleOutOfBounds()
 	// Make sure we don't process this is as a normal shot 
 	UnregisterShotFinishedTimer();
 
-	// One stroke penalty - TODO: This should be called from game mode
-	AddStroke();
-
 	ClientHandleOutOfBounds();
 
-	auto World = GetWorld();
-	if(!ensure(World))
+	if(auto World = GetWorld(); ensure(World))
 	{
-		return;
+		FTimerHandle Handle;
+		World->GetTimerManager().SetTimer(Handle, this, &ThisClass::ResetShotAfterOutOfBounds, OutOfBoundsDelayTime);
 	}
 
-	FTimerHandle Handle;
-	World->GetTimerManager().SetTimer(Handle, this, &ThisClass::ResetShotAfterOutOfBounds, OutOfBoundsDelayTime);
+	return true;
 }
 
 void AGolfPlayerController::ClientHandleOutOfBounds_Implementation()
@@ -1288,12 +1273,13 @@ void AGolfPlayerController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 	Snapshot->Status.Add(Category);
 
 	// TODO: Consider moving logic to PlayerState itself
-	if (auto GolfPlayerState = GetPlayerState<AGolfPlayerState>(); GolfPlayerState)
+	if (auto GolfPlayerState = GetGolfPlayerState(); GolfPlayerState)
 	{
 		FVisualLogStatusCategory PlayerStateCategory;
 		PlayerStateCategory.Category = FString::Printf(TEXT("PlayerState"));
 
 		PlayerStateCategory.Add(TEXT("Shots"), FString::Printf(TEXT("%d"), GolfPlayerState->GetShots()));
+		PlayerStateCategory.Add(TEXT("TotalShots"), FString::Printf(TEXT("%d"), GolfPlayerState->GetTotalShots()));
 		PlayerStateCategory.Add(TEXT("IsReadyForShot"), LoggingUtils::GetBoolString(GolfPlayerState->IsReadyForShot()));
 
 		Snapshot->Status.Last().AddChild(PlayerStateCategory);

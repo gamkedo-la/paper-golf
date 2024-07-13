@@ -11,6 +11,8 @@ class APaperGolfGameStateBase;
 class IGolfController;
 class AGolfHole;
 
+enum class EHazardType : uint8;
+
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class UGolfTurnBasedDirectorComponent : public UActorComponent
 {
@@ -43,7 +45,7 @@ private:
 	void OnPaperGolfPlayerScored(APaperGolfPawn* PaperGolfPawn);
 
 	UFUNCTION()
-	void OnPaperGolfOutOfBounds(APaperGolfPawn* PaperGolfPawn);
+	void OnPaperGolfEnteredHazard(APaperGolfPawn* PaperGolfPawn, EHazardType HazardType);
 
 	void DoNextTurn();
 
@@ -55,6 +57,9 @@ private:
 	// TODO: Will need a variant that takes an AI controller or better yet use an interface implemented by both
 
 	void NextHole();
+
+	void InitializePlayersForHole();
+	void MarkPlayersFinishedHole();
 
 private:
 	// TODO: Use APGTurnBasedGameMode if need the functionality of it.  Keeping it to the base class for now for maximum reuse

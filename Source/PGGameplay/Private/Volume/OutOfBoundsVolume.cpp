@@ -10,5 +10,5 @@
 
 void AOutOfBoundsVolume::OnPaperGolfPawnOverlap(APaperGolfPawn& PaperGolfPawn, UGolfEventsSubsystem& GolfEvents)
 {
-	GolfEvents.OnPaperGolfPawnOutBounds.Broadcast(&PaperGolfPawn);
+	GolfEvents.OnPaperGolfPawnEnteredHazard.Broadcast(&PaperGolfPawn, EHazardType::OutOfBounds);
 }

@@ -23,15 +23,30 @@ public:
 	UFUNCTION(BlueprintPure)
 	int32 GetShots() const { return Shots; }
 
+	UFUNCTION(BlueprintPure)
+	int32 GetTotalShots() const;
+
 	UFUNCTION(BlueprintCallable)
 	void SetReadyForShot(bool bReady) { bReadyForShot = bReady; }
 
 	UFUNCTION(BlueprintPure)
 	bool IsReadyForShot() const { return bReadyForShot; }
 
+	UFUNCTION(BlueprintCallable)
+	void FinishHole();
+
+	UFUNCTION(BlueprintCallable)
+	void StartHole() { Shots = 0; }
+
+	virtual void CopyProperties(APlayerState* PlayerState) override;
+
 private:
+
 	UPROPERTY(Replicated)
-	int32 Shots{};
+	TArray<uint8> ScoreByHole{};
+
+	UPROPERTY(Replicated)
+	uint8 Shots{};
 
 	UPROPERTY(Replicated)
 	bool bReadyForShot{};

@@ -13,4 +13,36 @@ void AGolfPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 
 	DOREPLIFETIME(AGolfPlayerState, Shots);
 	DOREPLIFETIME(AGolfPlayerState, bReadyForShot);
+	DOREPLIFETIME(AGolfPlayerState, ScoreByHole);
+}
+
+int32 AGolfPlayerState::GetTotalShots() const
+{
+	int32 Total{};
+	for(auto HoleScore : ScoreByHole)
+	{
+		Total += HoleScore;
+	}
+
+	return Total;
+}
+
+void AGolfPlayerState::FinishHole()
+{
+	ScoreByHole.Add(Shots);
+}
+
+void AGolfPlayerState::CopyProperties(APlayerState* PlayerState)
+{
+	Super::CopyProperties(PlayerState);
+
+	auto OtherPlayerState = Cast<AGolfPlayerState>(PlayerState);
+	if (!IsValid(OtherPlayerState))
+	{
+		return;
+	}
+
+	ScoreByHole = OtherPlayerState->ScoreByHole;
+	Shots = OtherPlayerState->Shots;
+	bReadyForShot = OtherPlayerState->bReadyForShot;
 }

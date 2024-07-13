@@ -3,4 +3,16 @@
 
 #include "Interfaces/GolfController.h"
 
-// Add default functionality here for any IGolfController functions that are not pure virtual.
+#include "State/GolfPlayerState.h"
+
+
+void IGolfController::AddStroke()
+{
+	auto GolfPlayerState = GetGolfPlayerState();
+	if (!ensure(GolfPlayerState))
+	{
+		return;
+	}
+
+	GolfPlayerState->AddShot();
+}
