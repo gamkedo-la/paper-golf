@@ -21,6 +21,7 @@
 #include "UI/Widget/GolfUserWidget.h"
 
 #include "Components/ShotArcPreviewComponent.h"
+#include "Components/GolfControllerCommonComponent.h"
 
 #include "PaperGolfTypes.h"
 
@@ -44,16 +45,7 @@ AGolfPlayerController::AGolfPlayerController()
 	bAlwaysRelevant = true;
 
 	ShotArcPreviewComponent = CreateDefaultSubobject<UShotArcPreviewComponent>(TEXT("ShotArcPreview"));
-}
-
-AGolfPlayerState* AGolfPlayerController::GetGolfPlayerState()
-{
-	return GetPlayerState<AGolfPlayerState>();
-}
-
-const AGolfPlayerState* AGolfPlayerController::GetGolfPlayerState() const
-{
-	return GetPlayerState<const AGolfPlayerState>();
+	GolfControllerCommonComponent = CreateDefaultSubobject<UGolfControllerCommonComponent>(TEXT("GolfControllerCommon"));
 }
 
 void AGolfPlayerController::AddToShotHistory(APaperGolfPawn* PaperGolfPawn)
@@ -848,11 +840,6 @@ APaperGolfPawn* AGolfPlayerController::GetPaperGolfPawn()
 	}
 
 	return PaperGolfPawn;
-}
-
-const APaperGolfPawn* AGolfPlayerController::GetPaperGolfPawn() const
-{
-	return const_cast<AGolfPlayerController*>(this)->GetPaperGolfPawn();
 }
 
 void AGolfPlayerController::BeginPlay()

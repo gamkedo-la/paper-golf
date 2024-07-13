@@ -39,14 +39,32 @@ public:
 	virtual bool HandleOutOfBounds() = 0;
 
 	virtual APaperGolfPawn* GetPaperGolfPawn() = 0;
-	virtual const APaperGolfPawn* GetPaperGolfPawn() const = 0;
+	const APaperGolfPawn* GetPaperGolfPawn() const;
 
 	virtual EShotType GetShotType() const = 0;
 
-	virtual FString ToString() const = 0;
+	FString ToString() const;
 
-	virtual AGolfPlayerState* GetGolfPlayerState() = 0;
-	virtual const AGolfPlayerState* GetGolfPlayerState() const = 0;
+	AGolfPlayerState* GetGolfPlayerState();
+	const AGolfPlayerState* GetGolfPlayerState() const;
 
 	void AddStroke();
+
+protected:
+	virtual AController* AsController() = 0;
+	virtual const AController* AsController() const = 0;
 };
+
+#pragma region Inline Definitions
+
+FORCEINLINE FString IGolfController::ToString() const
+{
+	return AsController()->GetName();
+}
+
+FORCEINLINE const APaperGolfPawn* IGolfController::GetPaperGolfPawn() const
+{
+	return const_cast<IGolfController*>(this)->GetPaperGolfPawn();
+}
+
+#pragma endregion Inline Definitions

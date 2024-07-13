@@ -17,6 +17,7 @@
 class APaperGolfPawn;
 class AGolfHole;
 class UShotArcPreviewComponent;
+class UGolfControllerCommonComponent;
 
 USTRUCT(BlueprintType)
 struct FShotHistory
@@ -60,13 +61,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Input")
 	bool IsInputEnabled() const;
 
+	using IGolfController::GetPaperGolfPawn;
+	virtual APaperGolfPawn* GetPaperGolfPawn() override;
+
 	virtual void ActivateTurn() override;
 	virtual void Spectate(APaperGolfPawn* InPawn) override;
 
 	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const override;
-
-	virtual APaperGolfPawn* GetPaperGolfPawn() override;
-	virtual const APaperGolfPawn* GetPaperGolfPawn() const override;;
 
 	UFUNCTION(BlueprintPure)
 	virtual bool HasScored() const override;
@@ -80,11 +81,6 @@ public:
 
 	UFUNCTION(BlueprintPure)
 	virtual EShotType GetShotType() const override;
-
-	virtual FString ToString() const override { return GetName(); }
-
-	virtual AGolfPlayerState* GetGolfPlayerState() override;
-	virtual const AGolfPlayerState* GetGolfPlayerState() const override;
 
 protected:
 	virtual void BeginPlay() override;
@@ -201,6 +197,9 @@ private:
 	UFUNCTION(BlueprintPure)
 	float GetFlickZ() const;
 
+	virtual AController* AsController() override { return this; }
+	virtual const AController* AsController() const override { return this; }
+
 private:
 	TArray<FShotHistory> ShotHistory{};
 	
@@ -210,6 +209,9 @@ private:
 
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UShotArcPreviewComponent> ShotArcPreviewComponent{};
+
+	UPROPERTY(Category = "Components", VisibleDefaultsOnly)
+	TObjectPtr<UGolfControllerCommonComponent> GolfControllerCommonComponent{};
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	FRotator RotationMax{ 75.0, 180.0, 90.0 };
