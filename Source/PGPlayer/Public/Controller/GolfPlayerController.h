@@ -19,17 +19,6 @@ class AGolfHole;
 class UShotArcPreviewComponent;
 class UGolfControllerCommonComponent;
 
-USTRUCT(BlueprintType)
-struct FShotHistory
-{
-	GENERATED_BODY()
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
-	FVector Position{ EForceInit::ForceInitToZero };
-
-};
-
-bool operator== (const FShotHistory& First, const FShotHistory& Second);
 
 /**
  * 
@@ -74,6 +63,7 @@ public:
 
 	virtual void MarkScored() override;
 
+	// TODO: pull up variable to IGolfController as protected
 	UFUNCTION(BlueprintPure)
 	virtual bool IsActivePlayer() const override;
 
@@ -82,6 +72,7 @@ public:
 	UFUNCTION(BlueprintPure)
 	virtual EShotType GetShotType() const override;
 
+	// TODO: Can we remove UFUNCTION on some of these
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -120,8 +111,6 @@ private:
 	void InitDebugDraw();
 	void CleanupDebugDraw();
 	void DestroyPawn();
-
-	void AddToShotHistory(APaperGolfPawn* PaperGolfPawn);
 
 	bool IsFlickedAtRest() const;
 
@@ -189,11 +178,10 @@ private:
 	UFUNCTION(BlueprintPure)
 	bool CanFlick() const;
 
-	UFUNCTION(BlueprintPure)
 	AGolfHole* GetGolfHole() const;
 
 	bool ShouldEnableInputForActivateTurn() const;
-
+	
 	UFUNCTION(BlueprintPure)
 	float GetFlickZ() const;
 
@@ -201,7 +189,6 @@ private:
 	virtual const AController* AsController() const override { return this; }
 
 private:
-	TArray<FShotHistory> ShotHistory{};
 	
 #if ENABLE_VISUAL_LOG
 	FTimerHandle VisualLoggerTimer{};
@@ -279,10 +266,7 @@ private:
 
 #pragma region Inline Definitions
 
-FORCEINLINE bool operator== (const FShotHistory& First, const FShotHistory& Second)
-{
-	return First.Position.Equals(Second.Position, 1.0);
-}
+
 
 FORCEINLINE bool AGolfPlayerController::IsReadyForShot() const
 {

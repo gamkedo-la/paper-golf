@@ -48,39 +48,6 @@ AGolfPlayerController::AGolfPlayerController()
 	GolfControllerCommonComponent = CreateDefaultSubobject<UGolfControllerCommonComponent>(TEXT("GolfControllerCommon"));
 }
 
-void AGolfPlayerController::AddToShotHistory(APaperGolfPawn* PaperGolfPawn)
-{
-	if (!PaperGolfPawn)
-	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: AddToShotHistory - PaperGolfPawn is NULL"), *GetName());
-		return;
-	}
-
-	const auto& ActorLocation = PaperGolfPawn->GetActorLocation();
-
-	const auto Size = ShotHistory.Num();
-
-	[[maybe_unused]]const auto Index = ShotHistory.AddUnique({ ActorLocation });
-
-	if (ShotHistory.Num() > Size)
-	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: AddToShotHistory - PaperGolfPawn=%s - New shot added to history: %s; Count=%d"),
-			*GetName(),
-			*PaperGolfPawn->GetName(),
-			*ActorLocation.ToCompactString(),
-			ShotHistory.Num());
-	}
-	else
-	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: AddToShotHistory - PaperGolfPawn=%s - Duplicate shot not added to history: %s; ExistingIndex=%d; Count=%d"),
-			*GetName(),
-			*PaperGolfPawn->GetName(),
-			*ActorLocation.ToCompactString(),
-			Index,
-			ShotHistory.Num());
-	}
-}
-
 void AGolfPlayerController::SnapToGround()
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SnapToGround"), *GetName());
@@ -93,7 +60,7 @@ void AGolfPlayerController::SnapToGround()
 	}
 
 	ResetForCamera();
-	AddToShotHistory(PaperGolfPawn);
+	GolfControllerCommonComponent->AddToShotHistory(PaperGolfPawn);
 }
 
 void AGolfPlayerController::ResetForCamera()
@@ -790,11 +757,13 @@ void AGolfPlayerController::ResetShotAfterOutOfBounds()
 	bOutOfBounds = false;
 	bTurnActivated = false;
 
+	const auto& LastShotOptional = GolfControllerCommonComponent->GetLastShot();
+
 	// Set location to last in shot history
-	if(ensureMsgf(!ShotHistory.IsEmpty(), TEXT("%s-%s: ResetShotAfterOutOfBounds - ShotHistory is empty"),
+	if(ensureMsgf(LastShotOptional, TEXT("%s-%s: ResetShotAfterOutOfBounds - ShotHistory is empty"),
 		*GetName(), *PaperGolfPawn->GetName()))
 	{
-		const auto& ResetPosition = ShotHistory.Last().Position;
+		const auto& ResetPosition = LastShotOptional->Position;
 		if (!IsLocalController())
 		{
 			SetPositionTo(ResetPosition);
