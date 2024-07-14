@@ -32,7 +32,7 @@ public:
 	virtual void MarkScored() = 0;
 	virtual bool HasScored() const = 0;
 	virtual bool IsActivePlayer() const = 0;
-	virtual bool IsReadyForShot() const = 0;
+	virtual bool IsReadyForNextShot() const = 0;
 	virtual void ActivateTurn() = 0;
 	virtual void Spectate(APaperGolfPawn* InPawn) = 0;
 
@@ -50,7 +50,6 @@ public:
 
 	void AddStroke();
 
-protected:
 	virtual AController* AsController() = 0;
 	virtual const AController* AsController() const = 0;
 };

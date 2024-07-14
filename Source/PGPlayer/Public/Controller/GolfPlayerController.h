@@ -36,13 +36,12 @@ public:
 #endif
 
 	UFUNCTION(BlueprintCallable)
-	void ResetRotation();
-
-	UFUNCTION(BlueprintCallable)
 	void ResetShot();
 
 	UFUNCTION(BlueprintPure)
 	bool IsReadyForShot() const;
+
+	virtual bool IsReadyForNextShot() const override;
 
 	UFUNCTION(BlueprintCallable, Category = "Input")
 	void SetInputEnabled(bool bEnabled);
@@ -76,9 +75,6 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-
-	UFUNCTION(BlueprintCallable)
-	void SnapToGround();
 
 	UFUNCTION(BlueprintCallable)
 	void ResetForCamera();
@@ -125,9 +121,6 @@ private:
 
 	void ResetShotAfterOutOfBounds();
 
-	void RegisterShotFinishedTimer();
-	void UnregisterShotFinishedTimer();
-
 	void RegisterGolfSubsystemEvents();
 
 	UFUNCTION(Client, Reliable)
@@ -138,7 +131,6 @@ private:
 
 	void HandleFallThroughFloor();
 
-	bool IsReadyForNextShot() const;
 	void SetupNextShot(bool bSetCanFlick);
 
 	void SetPaperGolfPawnAimFocus();
@@ -157,7 +149,7 @@ private:
 	UFUNCTION(Client, Reliable)
 	void ClientResetShotAfterOutOfBounds(const FVector_NetQuantize& Position);
 
-	void CheckForNextShot();
+	void OnShotFinished();
 
 	UFUNCTION(Client, Reliable)
 	void ClientActivateTurn();
@@ -203,7 +195,6 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	FRotator RotationMax{ 75.0, 180.0, 90.0 };
 
-	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	FRotator TotalRotation{ EForceInit::ForceInitToZero };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot")
@@ -220,12 +211,6 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Timer")
 	float OutOfBoundsDelayTime{ 3.0f };
 
-	UPROPERTY(EditDefaultsOnly, Category = "Shot | Type")
-	float CloseShotThreshold{ 1000.0f };
-
-	UPROPERTY(EditDefaultsOnly, Category = "Shot | Type")
-	float MediumShotThreshold{ 3000.0f };
-
 	UPROPERTY(EditDefaultsOnly, Category = "Focus")
 	TSubclassOf<UInterface> FocusableActorClass{};
 
@@ -234,9 +219,6 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<AGolfHole> GolfHole{};
-
-	UPROPERTY(EditDefaultsOnly, Category = "Correction")
-	float FallThroughFloorCorrectionTestZ{ 1000.0f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Correction")
 	int32 FlickZNotUpdatedMaxRetries{ 2 };

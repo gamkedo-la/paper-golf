@@ -48,21 +48,6 @@ AGolfPlayerController::AGolfPlayerController()
 	GolfControllerCommonComponent = CreateDefaultSubobject<UGolfControllerCommonComponent>(TEXT("GolfControllerCommon"));
 }
 
-void AGolfPlayerController::SnapToGround()
-{
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SnapToGround"), *GetName());
-
-	const auto PaperGolfPawn = GetPaperGolfPawn();
-
-	if (!PaperGolfPawn)
-	{
-		return;
-	}
-
-	ResetForCamera();
-	GolfControllerCommonComponent->AddToShotHistory(PaperGolfPawn);
-}
-
 void AGolfPlayerController::ResetForCamera()
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ResetForCamera"), *GetName());
@@ -80,25 +65,13 @@ void AGolfPlayerController::ResetForCamera()
 	SetViewTargetWithBlend(PaperGolfPawn);
 }
 
-void AGolfPlayerController::ResetRotation()
-{
-	const auto PaperGolfPawn = GetPaperGolfPawn();
-
-	if (!PaperGolfPawn)
-	{
-		return;
-	}
-
-	TotalRotation = FRotator::ZeroRotator;
-
-	PaperGolfPawn->ResetRotation();
-}
-
 void AGolfPlayerController::ResetShot()
 {
 	ShotType = EShotType::Default;
+	TotalRotation = FRotator::ZeroRotator;
 
-	ResetRotation();
+	GolfControllerCommonComponent->ResetShot();
+
 	ResetFlickZ();
 	DetermineShotType();
 }
@@ -178,36 +151,17 @@ void AGolfPlayerController::SetPaperGolfPawnAimFocus()
 
 void AGolfPlayerController::DetermineShotType()
 {
-	auto PaperGolfPawn = GetPaperGolfPawn();
-	if (!PaperGolfPawn)
-	{
-		return;
-	}
-
 	if (!GolfHole)
 	{
 		return;
 	}
 
-	const auto ShotDistance = PaperGolfPawn->GetDistanceTo(GolfHole);
+	const auto NewShotType = GolfControllerCommonComponent->DetermineShotType(*GolfHole);
 
-	const EShotType NewShotType = [&]()
+	if (NewShotType != EShotType::Default)
 	{
-		if (ShotDistance > MediumShotThreshold)
-		{
-			return EShotType::Full;
-		}
-		if(ShotDistance > CloseShotThreshold)
-		{
-			return EShotType::Medium;
-		}
-		return EShotType::Close;
-	}();
-
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s-%s: DetermineShotType: %s - Distance=%fm"),
-		*GetName(), *PaperGolfPawn->GetName(), *LoggingUtils::GetName(NewShotType), ShotDistance / 100);
-
-	SetShotType(NewShotType);
+		SetShotType(NewShotType);
+	}
 }
 
 void AGolfPlayerController::MarkScored()
@@ -458,31 +412,14 @@ void AGolfPlayerController::SetupNextShot(bool bSetCanFlick)
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SetupNextShot: bSetCanFlick=%s"), *GetName(), LoggingUtils::GetBoolString(bSetCanFlick));
 
-	if(!ensureMsgf(IsReadyForNextShot(), TEXT("%s-%s: SetupNextShot - Not ready for next shot"), *GetName(), *LoggingUtils::GetName(GetPawn())))
+	if(!GolfControllerCommonComponent->SetupNextShot(bSetCanFlick))
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s-%s: SetupNextShot - Not ready for next shot"), *GetName(), *LoggingUtils::GetName(GetPawn()));
-	}
-
-	auto PaperGolfPawn = GetPaperGolfPawn();
-	if (!PaperGolfPawn)
-	{
-		UE_VLOG_UELOG(this, LogPGPlayer, VeryVerbose,
-			TEXT("%s: CheckAndSetupNextShot - Skip - No PaperGolf pawn"),
-			*GetName());
 		return;
 	}
 
-	if (bSetCanFlick)
-	{
-		PaperGolfPawn->SetCollisionEnabled(true);
-	}
-
-	PaperGolfPawn->SetUpForNextShot();
-
 	ResetShot();
 	SetPaperGolfPawnAimFocus();
-	SnapToGround();
-	DrawFlickLocation();
+	ResetForCamera();
 
 	if (IsLocalController())
 	{
@@ -497,18 +434,7 @@ void AGolfPlayerController::SetupNextShot(bool bSetCanFlick)
 
 	if (bSetCanFlick)
 	{
-		// TODO: Rectify these dual variables
 		bCanFlick = true;
-		if (auto GolfPlayerState = GetGolfPlayerState(); HasAuthority() && ensure(GolfPlayerState))
-		{
-			GolfPlayerState->SetReadyForShot(true);
-		}
-
-		// Broadcast new upright ready position and rotation
-		if (HasAuthority())
-		{
-			PaperGolfPawn->MulticastReliableSetTransform(PaperGolfPawn->GetActorLocation(), true, PaperGolfPawn->GetActorRotation());
-		}
 	}
 }
 
@@ -518,23 +444,14 @@ void AGolfPlayerController::HandleFallThroughFloor()
 		TEXT("%s-%s: HandleFallThroughFloor"),
 		*GetName(), *LoggingUtils::GetName(GetPawn()));
 
-	auto PaperGolfPawn = GetPaperGolfPawn();
-
-	if (!PaperGolfPawn)
+	if (!GolfControllerCommonComponent->HandleFallThroughFloor())
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Warning,
-			TEXT("%s: HandleFallThroughFloor - PaperGolf pawn is NULL"),
-			*GetName());
 		return;
 	}
 
-	const auto& Position = PaperGolfPawn->GetActorLocation() + FVector::UpVector * FallThroughFloorCorrectionTestZ;
-
-	SetPositionTo(Position);
-
-	if (HasAuthority() && !IsLocalController())
+	if (auto PaperGolfPawn = GetPaperGolfPawn();  HasAuthority() && !IsLocalController() && PaperGolfPawn)
 	{
-		ClientSetTransformTo(Position, PaperGolfPawn->GetActorRotation());
+		ClientSetTransformTo(PaperGolfPawn->GetActorLocation(), PaperGolfPawn->GetActorRotation());
 	}
 }
 
@@ -544,14 +461,7 @@ void AGolfPlayerController::SetPositionTo(const FVector& Position, const TOption
 		TEXT("%s: SetPositionTo - Position=%s; Rotation=%s"),
 		*GetName(), *Position.ToCompactString(), *PG::StringUtils::ToString(OptionalRotation));
 
-	auto PaperGolfPawn = GetPaperGolfPawn();
-	if (!PaperGolfPawn)
-	{
-		return;
-	}
-
-	PaperGolfPawn->SetTransform(Position, OptionalRotation);
-	PaperGolfPawn->MulticastReliableSetTransform(Position, OptionalRotation.IsSet(), OptionalRotation ? OptionalRotation.GetValue() : FRotator::ZeroRotator);
+	GolfControllerCommonComponent->SetPositionTo(Position, OptionalRotation);
 
 	if (HasAuthority())
 	{
@@ -567,42 +477,17 @@ void AGolfPlayerController::ClientSetTransformTo_Implementation(const FVector_Ne
 
 	bTurnActivated = false;
 	// Disable any timers so we don't overwrite the position
-	UnregisterShotFinishedTimer();
+	GolfControllerCommonComponent->EndTurn();
 
 	SetPositionTo(Position, Rotation);
 }
 
-void AGolfPlayerController::CheckForNextShot()
+void AGolfPlayerController::OnShotFinished()
 {
-	if (bScored)
-	{
-		UnregisterShotFinishedTimer();
-		return;
-	}
-
-	if (!IsReadyForNextShot())
-	{
-		return;
-	}
-
-	auto World = GetWorld();
-	if (!ensure(World))
-	{
-		return;
-	}
-
-	auto PaperGolfPawn = GetPaperGolfPawn();
-	if (!PaperGolfPawn)
-	{
-		return;
-	}
-
-	UnregisterShotFinishedTimer();
-
 	bTurnActivated = false;
 
 	// invoke a client reliable function to say the next shot is ready unless the server is the client
-	if (HasAuthority() && !IsLocalPlayerController())
+	if (auto PaperGolfPawn = GetPaperGolfPawn(); HasAuthority() && !IsLocalPlayerController() && PaperGolfPawn)
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Log,
 			TEXT("%s-%s: CheckForNextShot - Setting final authoritative position for pawn: %s"),
@@ -610,12 +495,6 @@ void AGolfPlayerController::CheckForNextShot()
 
 		ClientSetTransformTo(PaperGolfPawn->GetActorLocation(), PaperGolfPawn->GetActorRotation());
 		PaperGolfPawn->MulticastReliableSetTransform(PaperGolfPawn->GetActorLocation(), true, PaperGolfPawn->GetActorRotation());
-	}
-
-	if (auto GolfEventSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventSubsystem))
-	{
-		// This will call a function on server from game mode to set up next turn - we use above RPC to make sure 
-		GolfEventSubsystem->OnPaperGolfShotFinished.Broadcast(PaperGolfPawn);
 	}
 }
 
@@ -715,7 +594,7 @@ bool AGolfPlayerController::HandleOutOfBounds()
 	bOutOfBounds = true;
 
 	// Make sure we don't process this is as a normal shot 
-	UnregisterShotFinishedTimer();
+	GolfControllerCommonComponent->EndTurn();
 
 	ClientHandleOutOfBounds();
 
@@ -831,6 +710,8 @@ void AGolfPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void AGolfPlayerController::Init()
 {
+	GolfControllerCommonComponent->Initialize(FSimpleDelegate::CreateUObject(this, &ThisClass::OnShotFinished));
+	
 	// turn is activated manually so we set this to false initially
 	bCanFlick = false;
 
@@ -850,28 +731,6 @@ void AGolfPlayerController::DeferredInit()
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DeferredInit"), *GetName());
 
 	InitFocusableActors();
-}
-
-void AGolfPlayerController::RegisterShotFinishedTimer()
-{
-	auto World = GetWorld();
-	if (!ensure(World))
-	{
-		return;
-	}
-
-	World->GetTimerManager().SetTimer(NextShotTimerHandle, this, &ThisClass::CheckForNextShot, RestCheckTickRate, true);
-}
-
-void AGolfPlayerController::UnregisterShotFinishedTimer()
-{
-	auto World = GetWorld();
-	if (!World)
-	{
-		return;
-	}
-
-	World->GetTimerManager().ClearTimer(NextShotTimerHandle);
 }
 
 void AGolfPlayerController::RegisterGolfSubsystemEvents()
@@ -1020,7 +879,7 @@ void AGolfPlayerController::DoActivateTurn()
 		SetInputEnabled(true);
 	}
 
-	RegisterShotFinishedTimer();
+	GolfControllerCommonComponent->BeginTurn();
 
 	if (bTurnActivated)
 	{
@@ -1121,7 +980,7 @@ void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn
 
 	SetInputEnabled(false);
 	bTurnActivated = false;
-	UnregisterShotFinishedTimer();
+	GolfControllerCommonComponent->EndTurn();
 }
 
 void AGolfPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -1282,12 +1141,7 @@ void AGolfPlayerController::DestroyPawn()
 		return;
 	}
 
-	UnPossess();
-
-	if (IsValid(PlayerPawn))
-	{
-		PlayerPawn->Destroy();
-	}
+	GolfControllerCommonComponent->DestroyPawn();
 
 	PlayerPawn = nullptr;
 }

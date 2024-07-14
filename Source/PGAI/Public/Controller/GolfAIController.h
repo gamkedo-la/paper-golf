@@ -33,7 +33,7 @@ public:
 
 	virtual bool IsActivePlayer() const override;
 
-	virtual bool IsReadyForShot() const override;
+	virtual bool IsReadyForNextShot() const override;
 
 	virtual void ActivateTurn() override;
 

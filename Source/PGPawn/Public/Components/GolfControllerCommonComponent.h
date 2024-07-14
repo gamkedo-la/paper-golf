@@ -32,84 +32,48 @@ class PGPAWN_API UGolfControllerCommonComponent : public UActorComponent
 	GENERATED_BODY()
 
 public:	
+
 	UGolfControllerCommonComponent();
 
-	void ResetRotation();
-
-	void ResetShot();
-
-	bool IsReadyForShot() const;
-
-	bool HandleOutOfBounds();
-
-	bool HasScored() const;
-
-	void MarkScored();
-
-	void SnapToGround();
-
-	void AddPaperGolfPawnRelativeRotation(const FRotator& DeltaRotation);
-
-	void SetShotType(EShotType InShotType);
-
-	void ToggleShotType();
+	void Initialize(const FSimpleDelegate& InOnControllerShotFinished);
 
 	void DestroyPawn();
 
-	void DetermineShotType(const AActor& GolfHole);
+	EShotType DetermineShotType(const AActor& GolfHole);
 
 	void AddToShotHistory(APaperGolfPawn* PaperGolfPawn);
 
 	TOptional<FShotHistory> GetLastShot() const;
 
-	bool IsFlickedAtRest() const;
+	bool HandleFallThroughFloor();
 
-	void ResetShotAfterOutOfBounds();
+	void ResetShot();
+
+	bool SetupNextShot(bool bSetCanFlick);
+
+	void SetPositionTo(const FVector& Position, const TOptional<FRotator>& OptionalRotation = {});
+
+	void BeginTurn();
+
+	void EndTurn();
+
+	// TODO: Visual Logger grab debug snapshot function to be called from controllers
+
+protected:
+	virtual void BeginPlay() override;
+
+private:
 
 	void RegisterShotFinishedTimer();
 	void UnregisterShotFinishedTimer();
 
-	void RegisterGolfSubsystemEvents();
-
-	void HandleFallThroughFloor();
-
-	bool IsReadyForNextShot() const;
-	void SetupNextShot(bool bSetCanFlick);
-
-	void SetPositionTo(const FVector& Position, const TOptional<FRotator>& OptionalRotation = {});
-
 	void CheckForNextShot();
-
-	bool CanFlick() const;
-
-	// TODO: Visual Logger grab debug snapshot function to be called from controllers
-
-
-protected:
-	// Called when the game starts
-	virtual void BeginPlay() override;
-
-private:
-	void Init();
-	void DeferredInit();
-
-	UFUNCTION()
-	void OnFellThroughFloor(APaperGolfPawn* InPaperGolfPawn);
 
 private:
 	TArray<FShotHistory> ShotHistory{};
 
 	UPROPERTY(Transient)
 	TScriptInterface<IGolfController> GolfController{};
-
-	UPROPERTY(EditDefaultsOnly, Category = "Shot")
-	FRotator RotationMax{ 75.0, 180.0, 90.0 };
-
-	UPROPERTY(EditDefaultsOnly, Category = "Shot")
-	FRotator TotalRotation{ EForceInit::ForceInitToZero };
-
-	UPROPERTY(EditDefaultsOnly, Category = "Shot")
-	float RotationRate{ 100.0f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Timer")
 	float RestCheckTickRate{ 0.5f };
@@ -123,14 +87,11 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Correction")
 	float FallThroughFloorCorrectionTestZ{ 1000.0f };
 
-	EShotType ShotType{ EShotType::Default };
-
 	FTimerHandle NextShotTimerHandle{};
 
-	bool bCanFlick{ };
-	bool bTurnActivated{};
-	bool bScored{};
-	bool bOutOfBounds{};
+	DECLARE_DELEGATE(FOnControllerShotFinished);
+
+	FOnControllerShotFinished OnControllerShotFinished{};
 
 	// TODO: Move focus actors here for AI reuse?
 };

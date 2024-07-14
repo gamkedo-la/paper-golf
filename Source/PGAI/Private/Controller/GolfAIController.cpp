@@ -28,7 +28,7 @@ bool AGolfAIController::IsActivePlayer() const
 	return false;
 }
 
-bool AGolfAIController::IsReadyForShot() const
+bool AGolfAIController::IsReadyForNextShot() const
 {
 	return false;
 }
