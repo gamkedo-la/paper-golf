@@ -140,6 +140,9 @@ public:
 
 	bool PredictFlick(const FFlickParams& FlickParams, const FFlickPredictParams& FlickPredictParams, FPredictProjectilePathResult& Result) const;
 
+	UFUNCTION(BlueprintPure)
+	AActor* GetFocusActor() const;
+
 protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void BeginPlay() override;
@@ -281,6 +284,11 @@ FORCEINLINE float APaperGolfPawn::GetFlickOffsetZTraceSize() const
 FORCEINLINE void APaperGolfPawn::RefreshMass()
 {
 	Mass = CalculateMass();
+}
+
+FORCEINLINE AActor* APaperGolfPawn::GetFocusActor() const
+{
+	return FocusActor;
 }
 
 FORCEINLINE bool operator ==(const FFlickParams& First, const FFlickParams& Second)
