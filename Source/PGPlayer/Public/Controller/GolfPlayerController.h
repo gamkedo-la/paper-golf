@@ -114,9 +114,6 @@ private:
 	void ResetFlickZ();
 
 	void Init();
-	void DeferredInit();
-
-	void InitFocusableActors();
 
 	void ResetShotAfterOutOfBounds();
 
@@ -132,13 +129,9 @@ private:
 
 	void SetupNextShot(bool bSetCanFlick);
 
-	void SetPaperGolfPawnAimFocus();
-
 	void AddSpectatorPawn(APawn* PawnToSpectate);
 	void SetCameraToViewPawn(APawn* InPawn);
 	void SetCameraOwnedBySpectatorPawn(APawn* InPawn);
-
-	bool HasLOSToFocus(const FVector& Position, const AActor* FocusActor) const;
 
 	void SetPositionTo(const FVector& Position, const TOptional<FRotator>& OptionalRotation = {});
 
@@ -209,12 +202,6 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Timer")
 	float OutOfBoundsDelayTime{ 3.0f };
-
-	UPROPERTY(Transient)
-	TArray<AActor*> FocusableActors{};
-
-	UPROPERTY(Transient)
-	TObjectPtr<AGolfHole> GolfHole{};
 
 	UPROPERTY(EditDefaultsOnly, Category = "Correction")
 	int32 FlickZNotUpdatedMaxRetries{ 2 };

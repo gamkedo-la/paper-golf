@@ -78,87 +78,10 @@ void AGolfPlayerController::ResetShot()
 	DetermineShotType();
 }
 
-void AGolfPlayerController::SetPaperGolfPawnAimFocus()
-{
-	auto PaperGolfPawn = GetPaperGolfPawn();
-	if (!PaperGolfPawn)
-	{
-		return;
-	}
-
-	auto World = GetWorld();
-	if (!World)
-	{
-		return;
-	}
-
-	if (!GolfHole)
-	{
-		return;
-	}
-
-	const auto& Position = PaperGolfPawn->GetActorLocation();
-
-	AActor* BestFocus{ GolfHole };
-
-	if (HasLOSToFocus(Position, GolfHole))
-	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s-%s: SetPaperGolfPawnAimFocus: LOS to DefaultFocus; Setting to %s"),
-			*GetName(), *PaperGolfPawn->GetName(), *LoggingUtils::GetName(GolfHole));
-	}
-	else
-	{
-		const auto ToHole = GolfHole->GetActorLocation() - Position;
-
-		// Find closest
-		float MinDist{ std::numeric_limits<float>::max() };
-
-		for (auto FocusTarget : FocusableActors)
-		{
-			if (!FocusTarget)
-			{
-				continue;
-			}
-			const auto ToFocusTarget = FocusTarget->GetActorLocation() - Position;
-
-			// Make sure we are facing the focus target
-			if ((ToFocusTarget | ToHole) <= 0)
-			{
-				UE_VLOG_UELOG(this, LogPGPlayer, Verbose, TEXT("%s: SetPaperGolfPawnAimFocus - Skipping target=%s as it is behind"),
-					*GetName(), *FocusTarget->GetName());
-				UE_VLOG_ARROW(this, LogPGPlayer, Verbose, Position, FocusTarget->GetActorLocation(), FColor::Orange, TEXT("Target: %s"), *FocusTarget->GetName());
-
-				continue;
-			}
-
-			// Consider Z as don't want to aim at targets way above or below us
-			const auto DistSq = ToFocusTarget.SizeSquared();
-			if (DistSq < MinDist && HasLOSToFocus(Position, FocusTarget))
-			{
-				MinDist = DistSq;
-				BestFocus = FocusTarget;
-			}
-		} // for
-
-		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s-%s: SetPaperGolfPawnAimFocus: BestFocus=%s"),
-			*GetName(), *PaperGolfPawn->GetName(), *LoggingUtils::GetName(BestFocus));
-		if (BestFocus)
-		{
-			UE_VLOG_ARROW(this, LogPGPlayer, Log, Position, BestFocus->GetActorLocation(), FColor::Blue, TEXT("Target: %s"), *BestFocus->GetName());
-		}
-	}
-
-	PaperGolfPawn->SetFocusActor(BestFocus);
-}
 
 void AGolfPlayerController::DetermineShotType()
 {
-	if (!GolfHole)
-	{
-		return;
-	}
-
-	const auto NewShotType = GolfControllerCommonComponent->DetermineShotType(*GolfHole);
+	const auto NewShotType = GolfControllerCommonComponent->DetermineShotType();
 
 	if (NewShotType != EShotType::Default)
 	{
@@ -226,37 +149,6 @@ void AGolfPlayerController::OnScored()
 			HUD->DisplayMessageWidget(EMessageWidgetType::HoleFinished);
 		}
 	}
-}
-
-bool AGolfPlayerController::HasLOSToFocus(const FVector& Position, const AActor* FocusActor) const
-{
-	auto World = GetWorld();
-	if (!ensure(World))
-	{
-		return false;
-	}
-
-	if (!FocusActor)
-	{
-		return false;
-	}
-
-	FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(FocusActor);
-
-	// prefer the hole if have LOS
-	// TODO: Use custom trace channel or possibly alternative strategy as this doesn't always work as intended
-	const bool bLOS = !World->LineTraceTestByChannel(
-		Position + 200.f,
-		FocusActor->GetActorLocation() + 200.f,
-		ECollisionChannel::ECC_Visibility,
-		QueryParams
-	);
-
-	UE_VLOG_ARROW(this, LogPGPlayer, Verbose, Position + 200.f, FocusActor->GetActorLocation() + 200.f,
-		bLOS ? FColor::Green : FColor::Red, TEXT("BestFocus: %s"), *FocusActor->GetName());
-
-	return bLOS;
 }
 
 bool AGolfPlayerController::IsFlickedAtRest() const
@@ -336,30 +228,6 @@ void AGolfPlayerController::ProcessFlickZInput(float FlickZInput)
 	DrawFlickLocation();
 }
 
-void AGolfPlayerController::InitFocusableActors()
-{
-	auto World = GetWorld();
-	if (!ensure(World))
-	{
-		return;
-	}
-
-	// TODO: Ignore IsHole for focusableActors and instead assign it to the GolfHole
-
-	FocusableActors.Reset();
-	UGameplayStatics::GetAllActorsWithInterface(GetWorld(), UFocusableActor::StaticClass(), FocusableActors);
-	if (FocusableActors.IsEmpty())
-	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Warning,
-			TEXT("%s: InitFocusableActors - no instances of UFocusableActor present in world. Aim targeting impacted."),
-			*GetName());
-	}
-
-	GolfHole = AGolfHole::GetCurrentHole(this);
-	ensureMsgf(GolfHole, TEXT("%s: InitFocusableActors - No relevant AGolfHole in world for hole focus. No aim targeting will occur."),
-		*GetName());
-}
-
 void AGolfPlayerController::ResetFlickZ()
 {
 	FlickZ = 0.f;
@@ -419,7 +287,7 @@ void AGolfPlayerController::SetupNextShot(bool bSetCanFlick)
 	}
 
 	ResetShot();
-	SetPaperGolfPawnAimFocus();
+	GolfControllerCommonComponent->SetPaperGolfPawnAimFocus();
 	ResetForCamera();
 
 	if (IsLocalController())
@@ -718,21 +586,9 @@ void AGolfPlayerController::Init()
 
 	RegisterGolfSubsystemEvents();
 
-	if (auto World = GetWorld(); ensure(World))
-	{
-		FTimerHandle InitTimerHandle;
-		World->GetTimerManager().SetTimer(InitTimerHandle, this, &ThisClass::DeferredInit, 0.2f);
-	}
-
 	InitDebugDraw();
 }
 
-void AGolfPlayerController::DeferredInit()
-{
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DeferredInit"), *GetName());
-
-	InitFocusableActors();
-}
 
 void AGolfPlayerController::RegisterGolfSubsystemEvents()
 {

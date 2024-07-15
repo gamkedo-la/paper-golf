@@ -39,9 +39,11 @@ public:
 
 	void DestroyPawn();
 
-	EShotType DetermineShotType(const AActor& GolfHole);
+	EShotType DetermineShotType();
 
 	void AddToShotHistory(APaperGolfPawn* PaperGolfPawn);
+
+	void SetPaperGolfPawnAimFocus();
 
 	TOptional<FShotHistory> GetLastShot() const;
 
@@ -69,8 +71,18 @@ private:
 
 	void CheckForNextShot();
 
+	void InitFocusableActors();
+
+	bool HasLOSToFocus(const FVector& Position, const AActor* FocusActor) const;
+
 private:
 	TArray<FShotHistory> ShotHistory{};
+
+	UPROPERTY(Transient)
+	TArray<AActor*> FocusableActors{};
+
+	UPROPERTY(Transient)
+	TObjectPtr<AActor> GolfHole{};
 
 	UPROPERTY(Transient)
 	TScriptInterface<IGolfController> GolfController{};
