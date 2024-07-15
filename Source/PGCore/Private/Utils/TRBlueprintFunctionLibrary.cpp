@@ -1,12 +1,12 @@
 // Copyright Game Salutes. All Rights Reserved.
 
 
-#include "Utils/TRBlueprintFunctionLibrary.h"
+#include "Utils/PGBlueprintFunctionLibrary.h"
 
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Misc/ConfigCacheIni.h"
 
-#include UE_INLINE_GENERATED_CPP_BY_NAME(TRBlueprintFunctionLibrary)
+#include UE_INLINE_GENERATED_CPP_BY_NAME(PGBlueprintFunctionLibrary)
 
 bool UPGBlueprintFunctionLibrary::IsRunningInEditor(const UObject* WorldContextObject)
 {
