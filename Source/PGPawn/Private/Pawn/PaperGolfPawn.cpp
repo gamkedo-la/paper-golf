@@ -14,7 +14,7 @@
 #include "Components/SceneComponent.h"
 
 #include "Kismet/KismetMathLibrary.h"
-
+#include "Kismet/GameplayStatics.h"
 #include "Build/BuildUtilities.h"
 
 #include "Library/PaperGolfPawnUtilities.h"
@@ -597,6 +597,44 @@ float APaperGolfPawn::ClampFlickZ(float OriginalZOffset, float DeltaZ) const
 	);
 
 	return NewZOffset;
+}
+
+bool APaperGolfPawn::PredictFlick(const FFlickParams& FlickParams, const FFlickPredictParams& FlickPredictParams, FPredictProjectilePathResult& Result) const
+{
+	const auto FlickImpulse = GetFlickForce(FlickParams.ShotType, FlickParams.Accuracy, FlickParams.PowerFraction);
+	const auto& FlickDirection = FlickImpulse.GetSafeNormal();
+
+	FPredictProjectilePathParams Params;
+	// Offset start location a bit so that we don't collide with walls so that edge of sphere is on the flick location
+	Params.StartLocation = GetFlickLocation(FlickParams.LocalZOffset) + FlickDirection * FlickPredictParams.CollisionRadius;
+	Params.ActorsToIgnore.Add(const_cast<APaperGolfPawn*>(this));
+	Params.bTraceWithCollision = true;
+	//Params.bTraceWithChannel = true;
+	//Params.TraceChannel = ECollisionChannel::ECC_Visibility;
+	Params.ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_Pawn));
+	Params.ProjectileRadius = FlickPredictParams.CollisionRadius;
+	Params.MaxSimTime = FlickPredictParams.MaxSimTime;
+	Params.SimFrequency = FlickPredictParams.SimFrequency;
+
+	// Impulse = change in momentum
+	Params.LaunchVelocity = FlickImpulse / GetMass();
+
+	// TODO: Later toggle with console variable
+	//Params.DrawDebugType = EDrawDebugTrace::ForDuration;
+	//Params.DrawDebugTime = 10.0f;
+
+	UE_VLOG_UELOG(this, LogPGPawn, Log, 
+		TEXT("%s: PredictFlick - FlickDirection=%s; FlickForceMagnitude=%.1f; StartLocation=%s; LaunchVelocity=%scm/s"),
+		*GetName(),
+		*FlickDirection.ToCompactString(),
+		FlickImpulse.Size(),
+		*Params.StartLocation.ToCompactString(),
+		*Params.LaunchVelocity.ToCompactString());
+
+	return UGameplayStatics::PredictProjectilePath(
+		GetWorld(),
+		Params,
+		Result);
 }
 
 void APaperGolfPawn::Tick(float DeltaTime)

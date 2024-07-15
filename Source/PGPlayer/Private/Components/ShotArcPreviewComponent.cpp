@@ -89,43 +89,16 @@ void UShotArcPreviewComponent::CalculateShotArc(const APaperGolfPawn& Pawn, cons
 	ArcPoints.Reset();
 	bLastPointIsHit = false;
 
-	const auto& FlickDirection = Pawn.GetFlickDirection();
-	const auto FlickForceMagnitude = Pawn.GetFlickMaxForce(FlickParams.ShotType);
-	const auto FlickImpulse = FlickDirection * FlickForceMagnitude;
-
-	FPredictProjectilePathParams Params;
-	// Offset start location a bit so that we don't collide with walls so that edge of sphere is on the flick location
-	Params.StartLocation = Pawn.GetFlickLocation(FlickParams.LocalZOffset) + FlickDirection * CollisionRadius;
-	Params.ActorsToIgnore.Add(const_cast<APaperGolfPawn*>(&Pawn));
-	Params.bTraceWithCollision = true;
-	//Params.bTraceWithChannel = true;
-	//Params.TraceChannel = ECollisionChannel::ECC_Visibility;
-	Params.ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_Pawn));
-	Params.ProjectileRadius = CollisionRadius;
-	Params.MaxSimTime = MaxSimTime;
-	Params.SimFrequency = SimFrequency;
-
-	// Impulse = change in momentum
-	Params.LaunchVelocity = FlickImpulse / Pawn.GetMass();
-
-	// TODO: Later toggle with console variable
-	//Params.DrawDebugType = EDrawDebugTrace::ForDuration;
-	//Params.DrawDebugTime = 10.0f;
-
-	UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: CalculateShotArc - Pawn=%s; FlickDirection=%s; FlickForceMagnitude=%.1f; StartLocation=%s; LaunchVelocity=%scm/s"),
-		*GetName(),
-		*Pawn.GetName(),
-		*FlickDirection.ToCompactString(),
-		FlickForceMagnitude,
-		*Params.StartLocation.ToCompactString(),
-		*Params.LaunchVelocity.ToCompactString());
+	const FFlickPredictParams PredictParams
+	{
+		.MaxSimTime = MaxSimTime,
+		.SimFrequency = SimFrequency,
+		.CollisionRadius = CollisionRadius
+	};
 
 	FPredictProjectilePathResult Result;
 
-	const bool bHit = bLastPointIsHit = UGameplayStatics::PredictProjectilePath(
-		GetWorld(),
-		Params,
-		Result);
+	const bool bHit = bLastPointIsHit = Pawn.PredictFlick(FlickParams, PredictParams, Result);
 
 	LastCalculatedTransform = Pawn.GetActorTransform();
 
@@ -139,7 +112,7 @@ void UShotArcPreviewComponent::CalculateShotArc(const APaperGolfPawn& Pawn, cons
 	for (int32 i = 0; const auto& PathDatum : Result.PathData)
 	{
 		UE_VLOG_LOCATION(
-			GetOwner(), LogPGPlayer, Verbose, PathDatum.Location, Params.ProjectileRadius, FColor::Green, TEXT("P%d"), i);
+			GetOwner(), LogPGPlayer, Verbose, PathDatum.Location, CollisionRadius, FColor::Green, TEXT("P%d"), i);
 		++i;
 
 		ArcPoints.Add(PathDatum.Location);

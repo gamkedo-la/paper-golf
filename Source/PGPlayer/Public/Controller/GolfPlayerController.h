@@ -192,9 +192,6 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	float RotationRate{ 100.0f };
 
-	UPROPERTY(EditDefaultsOnly, Category = "Timer")
-	float RestCheckTickRate{ 0.5f };
-
 	float FlickZ{ };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot")

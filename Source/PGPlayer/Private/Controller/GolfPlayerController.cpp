@@ -138,7 +138,7 @@ void AGolfPlayerController::OnScored()
 
 	// GetShots may not necessary be accurate if the Shots variable replication happens after the score replication;
 	// however, it is only for logging purposes
-	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s-%s: OnRep_Scored: NumStrokes=%d"),
+	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s-%s: OnScored: NumStrokes=%d"),
 		*GetName(), *LoggingUtils::GetName(GetPawn()), GolfPlayerState->GetShots());
 
 	if (IsLocalController())

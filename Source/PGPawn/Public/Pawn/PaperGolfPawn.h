@@ -11,6 +11,7 @@
 class USpringArmComponent;
 class UCameraComponent;
 enum class EShotType : uint8;
+struct FPredictProjectilePathResult;
 
 USTRUCT(BlueprintType)
 struct FFlickParams
@@ -29,9 +30,24 @@ struct FFlickParams
 	float PowerFraction{ 1.0f };
 
 	UPROPERTY(Transient, BlueprintReadWrite)
-	float Accuracy{ 1.0f };
+	float Accuracy{ 0.0f };
 
 	void Clamp();
+};
+
+USTRUCT(BlueprintType)
+struct FFlickPredictParams
+{
+	GENERATED_BODY()
+
+	UPROPERTY(Transient, BlueprintReadWrite)
+	float MaxSimTime{ 30.0f };
+
+	UPROPERTY(Transient, BlueprintReadWrite)
+	float SimFrequency{ 30.0f };
+
+	UPROPERTY(Transient, BlueprintReadWrite)
+	float CollisionRadius{ 3.0f };
 };
 
 bool operator ==(const FFlickParams& First, const FFlickParams& Second);
@@ -121,6 +137,8 @@ public:
 
 	// Used for server validation
 	void SetReadyForShot(bool bReady) { bReadyForShot = bReady; }
+
+	bool PredictFlick(const FFlickParams& FlickParams, const FFlickPredictParams& FlickPredictParams, FPredictProjectilePathResult& Result) const;
 
 protected:
 	virtual void Tick(float DeltaTime) override;
