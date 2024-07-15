@@ -19,7 +19,6 @@ class AGolfHole;
 class UShotArcPreviewComponent;
 class UGolfControllerCommonComponent;
 
-
 /**
  * 
  */
@@ -210,9 +209,6 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Timer")
 	float OutOfBoundsDelayTime{ 3.0f };
-
-	UPROPERTY(EditDefaultsOnly, Category = "Focus")
-	TSubclassOf<UInterface> FocusableActorClass{};
 
 	UPROPERTY(Transient)
 	TArray<AActor*> FocusableActors{};

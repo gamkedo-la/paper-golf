@@ -5,6 +5,8 @@
 
 #include "Pawn/PaperGolfPawn.h"
 
+#include "Interfaces/FocusableActor.h"
+
 #include "Library/PaperGolfPawnUtilities.h"
 
 #include "Kismet/GameplayStatics.h"
@@ -342,16 +344,15 @@ void AGolfPlayerController::InitFocusableActors()
 		return;
 	}
 
-	if (ensureMsgf(FocusableActorClass, TEXT("%s: InitFocusableActors - FocusableActorClass not set"), *GetName()))
+	// TODO: Ignore IsHole for focusableActors and instead assign it to the GolfHole
+
+	FocusableActors.Reset();
+	UGameplayStatics::GetAllActorsWithInterface(GetWorld(), UFocusableActor::StaticClass(), FocusableActors);
+	if (FocusableActors.IsEmpty())
 	{
-		FocusableActors.Reset();
-		UGameplayStatics::GetAllActorsWithInterface(GetWorld(), FocusableActorClass, FocusableActors);
-		if (FocusableActors.IsEmpty())
-		{
-			UE_VLOG_UELOG(this, LogPGPlayer, Warning,
-				TEXT("%s: InitFocusableActors - no instances of FocusActorClass=%s present in world. Aim targeting impacted."),
-				*GetName(), *FocusableActorClass->GetName());
-		}
+		UE_VLOG_UELOG(this, LogPGPlayer, Warning,
+			TEXT("%s: InitFocusableActors - no instances of UFocusableActor present in world. Aim targeting impacted."),
+			*GetName());
 	}
 
 	GolfHole = AGolfHole::GetCurrentHole(this);

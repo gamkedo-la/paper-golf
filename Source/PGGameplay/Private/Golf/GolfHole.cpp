@@ -68,7 +68,7 @@ AGolfHole* AGolfHole::GetCurrentHole(const UObject* WorldContextObject)
 
 	for (auto GolfHole : GolfHoles)
 	{
-		if(GolfHole->GetHoleNumber() == CurrentHoleNumber)
+		if(AGolfHole::Execute_GetHoleNumber(GolfHole) == CurrentHoleNumber)
 		{
 			if (!MatchedGolfHole)
 			{

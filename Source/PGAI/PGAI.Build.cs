@@ -13,8 +13,9 @@ public class PGAI : ModuleRules
 		// This creates a transitive dependency for header includes, but users of this module still need to specify
 		// that dependency in their module file if they use it explicitly (no transitivity in linking).
 		var modulePublicDependencyModuleNames = new string[]
-		{
-		};
+		{  
+			"PGPawn",
+        };
 
 		var enginePublicDependencyModuleNames = new string[] 
 		{ 
@@ -36,7 +37,6 @@ public class PGAI : ModuleRules
 		var enginePrivateDependencyModuleNames = new string[] 
 		{
 			"PGCore",
-			"PGPawn",
 			"PGGameplay",
 		};
 

@@ -3,6 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
+#include "Interfaces/FocusableActor.h"
 #include "GameFramework/Actor.h"
 #include "GolfHole.generated.h"
 
@@ -10,7 +12,7 @@ class APaperGolfPawn;
 class APaperGolfGameStateBase;
 
 UCLASS()
-class PGGAMEPLAY_API AGolfHole : public AActor
+class PGGAMEPLAY_API AGolfHole : public AActor, public IFocusableActor
 {
 	GENERATED_BODY()
 	
@@ -20,14 +22,15 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Hole", meta = (DefaultToSelf = "WorldContextObject"))
 	static AGolfHole* GetCurrentHole(const UObject* WorldContextObject);
 
-	UFUNCTION(BlueprintPure)
-	int32 GetHoleNumber() const;
-
 protected:
 	UFUNCTION(BlueprintCallable)
 	void SetCollider(UPrimitiveComponent* Collider);
 
 private:
+
+	int32 GetHoleNumber_Implementation() const;
+	bool IsHole_Implementation() const { return true; }
+
 	UFUNCTION()
 	void OnComponentBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
@@ -51,7 +54,7 @@ private:
 
 #pragma region Inline Definitions
 
-FORCEINLINE int32 AGolfHole::GetHoleNumber() const
+FORCEINLINE int32 AGolfHole::GetHoleNumber_Implementation() const
 {
 	ensureAlwaysMsgf(HoleNumber > 0, TEXT("%s: HoleNumber is not set"), *GetName());
 

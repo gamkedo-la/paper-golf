@@ -26,17 +26,9 @@ namespace PG::CollisionUtils
 
 namespace PG::CollisionChannel
 {
-	inline constexpr ECollisionChannel GroundObjectType = ECollisionChannel::ECC_GameTraceChannel1;
-	inline constexpr ECollisionChannel ExplosionDamageTraceType = ECollisionChannel::ECC_GameTraceChannel2;
-	inline constexpr ECollisionChannel MissileHomingTargetTraceType = ECollisionChannel::ECC_GameTraceChannel3;
-	inline constexpr ECollisionChannel ProjectileObjectType = ECollisionChannel::ECC_GameTraceChannel4;
 }
 
 namespace PG::CollisionProfile
 {
-	inline constexpr const TCHAR* Projectile = TEXT("Projectile");
-	inline constexpr const TCHAR* Tank = TEXT("Tank");
 	inline constexpr const TCHAR* NoCollision = TEXT("NoCollision");
-	inline constexpr const TCHAR* StaticOverlapOnlyTank = TEXT("OverlapTankStatic");
-	inline constexpr const TCHAR* DynamicOverlapOnlyTank = TEXT("OverlapTankDynamic");
 }
