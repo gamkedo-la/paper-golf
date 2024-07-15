@@ -231,8 +231,6 @@ private:
 
 #pragma region Inline Definitions
 
-
-
 FORCEINLINE bool AGolfPlayerController::IsReadyForShot() const
 {
 	return bCanFlick;

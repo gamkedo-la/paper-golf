@@ -18,7 +18,7 @@
 
 #include "Subsystems/GolfEventsSubsystem.h"
 
-#include "Controller/GolfPlayerController.h"
+#include "Interfaces/GolfController.h"
 
 #include "Pawn/PaperGolfPawn.h"
 
@@ -51,7 +51,7 @@ UGolfTurnBasedDirectorComponent::UGolfTurnBasedDirectorComponent()
 void UGolfTurnBasedDirectorComponent::StartHole()
 {
 	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: StartHole with %d player%s: %s"), *GetName(), Players.Num(), LoggingUtils::Pluralize(Players.Num()), 
-		*PG::ToString<IGolfController*, PG::StringUtils::ObjectToString<IGolfController>>(Players));
+		*PG::ToString < TScriptInterface<IGolfController>, decltype([](const auto& Player) { return Player ? Player->ToString() : TEXT("NULL");  })> (Players));
 
 	// TODO: Order should be based on previous hole's finish
 
@@ -76,7 +76,8 @@ void UGolfTurnBasedDirectorComponent::StartHole()
 
 void UGolfTurnBasedDirectorComponent::AddPlayer(AController* Player)
 {
-	auto GolfPlayer = Cast<IGolfController>(Player);
+	const TScriptInterface<IGolfController> GolfPlayer{ Player };
+
 	if(!ensureMsgf(GolfPlayer, TEXT("%s: AddPlayer - Player=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(Player)))
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: AddPlayer - Player=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(Player));
@@ -88,10 +89,10 @@ void UGolfTurnBasedDirectorComponent::AddPlayer(AController* Player)
 
 void UGolfTurnBasedDirectorComponent::RemovePlayer(AController* Player)
 {
-	auto GolfPlayer = Cast<IGolfController>(Player);
-	if(!ensureMsgf(GolfPlayer, TEXT("%s: RemovePlayer - Player=%s is not a AGolfPlayerController"), *GetName(), *LoggingUtils::GetName(Player)))
+	const TScriptInterface<IGolfController> GolfPlayer{ Player };
+	if(!ensureMsgf(GolfPlayer, TEXT("%s: RemovePlayer - Player=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(Player)))
 	{
-		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: RemovePlayer - Player=%s is not a AGolfPlayerController"), *GetName(), *LoggingUtils::GetName(Player));
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: RemovePlayer - Player=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(Player));
 		return;
 	}
 
@@ -168,9 +169,9 @@ void UGolfTurnBasedDirectorComponent::OnPaperGolfPlayerScored(APaperGolfPawn* Pa
 
 	check(PaperGolfPawn);
 
-	if (auto GolfPlayerController = Cast<AGolfPlayerController>(PaperGolfPawn->GetController()); ensure(GolfPlayerController))
+	if (auto GolfController = Cast<IGolfController>(PaperGolfPawn->GetController()); ensure(GolfController))
 	{
-		GolfPlayerController->MarkScored();
+		GolfController->MarkScored();
 	}
 	else
 	{
@@ -185,12 +186,12 @@ void UGolfTurnBasedDirectorComponent::OnPaperGolfEnteredHazard(APaperGolfPawn* P
 {
 	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: OnPaperGolfEnteredHazard: PaperGolfPawn=%s; HazardType=%s"),
 		*GetName(), *LoggingUtils::GetName(PaperGolfPawn), *LoggingUtils::GetName(HazardType));
-	if (auto GolfPlayerController = Cast<AGolfPlayerController>(PaperGolfPawn->GetController()); ensure(GolfPlayerController))
+	if (auto GolfController = Cast<IGolfController>(PaperGolfPawn->GetController()); ensure(GolfController))
 	{
-		if (GolfPlayerController->HandleOutOfBounds())
+		if (GolfController->HandleOutOfBounds())
 		{
 			// One stroke penalty - TODO: May want to pull this up to another component or main game mode
-			GolfPlayerController->AddStroke();
+			GolfController->AddStroke();
 		}
 	}
 }
@@ -218,7 +219,7 @@ void UGolfTurnBasedDirectorComponent::ActivateNextPlayer()
 	checkf(ActivePlayerIndex >= 0 && ActivePlayerIndex < Players.Num(), TEXT("%s: ActivateNextPlayer - ActivePlayerIndex=%d is out of range"), *GetName(), ActivePlayerIndex);
 	auto NextPlayer = Players[ActivePlayerIndex];
 
-	ActivatePlayer(NextPlayer);
+	ActivatePlayer(NextPlayer.GetInterface());
 
 	// other players will spectate this player
 	for(int32 i = 0; i < Players.Num(); ++i)
@@ -286,7 +287,7 @@ int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 		int32& i;
 	};
 
-	for (int32 i = 0; auto Player : Players)
+	for (int32 i = 0; const auto& Player : Players)
 	{
 		// Ensure that i is incremented in all code paths
 		FIncrementer _(i);
@@ -300,7 +301,7 @@ int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 		const auto PlayerState = Player->GetGolfPlayerState();
 		if (!ensureMsgf(PlayerState, TEXT("%s: DetermineClosestPlayerToHole - Player=%s; PlayerState=%s is not AGolfPlayerState"),
 			*GetName(), *PG::StringUtils::ToString(Player),
-			*LoggingUtils::GetName(Cast<AController>(Player) ? Cast<AController>(Player)->GetPlayerState<APlayerState>() : nullptr)))
+			*LoggingUtils::GetName(Cast<AController>(Player.GetObject()) ? Cast<AController>(Player.GetObject())->GetPlayerState<APlayerState>() : nullptr)))
 		{
 			continue;
 		}

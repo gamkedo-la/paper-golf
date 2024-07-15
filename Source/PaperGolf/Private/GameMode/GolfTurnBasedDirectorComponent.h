@@ -69,9 +69,8 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<APaperGolfGameStateBase> GameState{};
 
-	// FIXME: Should use an interface for this as want to also support AI players
 	UPROPERTY(Transient)
-	TArray<IGolfController*> Players{};
+	TArray<TScriptInterface<IGolfController>> Players{};
 
 	UPROPERTY(Transient)
 	TObjectPtr<AGolfHole> CurrentHole{};

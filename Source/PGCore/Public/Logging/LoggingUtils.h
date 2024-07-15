@@ -51,6 +51,12 @@ namespace LoggingUtils
 		return (PG::StringUtils::ObjectName<T>{})(Object);
 	}
 
+	template<PG::StringUtils::ConvertibleToUObject T>
+	inline FString GetName(const TScriptInterface<T>& Object)
+	{
+		return (PG::StringUtils::UObjectInterfaceToString<T>{})(Object);
+	}
+
 	inline auto GetBoolString(bool bResult)
 	{
 		return bResult ? TEXT("TRUE") : TEXT("FALSE");

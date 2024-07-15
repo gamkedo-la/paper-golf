@@ -136,7 +136,7 @@ namespace PG::StringUtils
 	};
 
 	template<typename T>
-	concept ConvertibleToUObject = requires(T * t)
+	concept ConvertibleToUObject = requires(T* t)
 	{
 		{
 			Cast<UObject>(t)
@@ -146,9 +146,15 @@ namespace PG::StringUtils
 	template<ConvertibleToUObject T>
 	struct UObjectInterfaceToString
 	{
-		FString operator()(const T* interfacePtr) const
+		FString operator()(const T* InterfacePtr) const
 		{
-			auto obj = Cast<const UObject>(interfacePtr);
+			auto obj = Cast<const UObject>(InterfacePtr);
+			return obj ? obj->GetName() : TEXT("NULL");
+		}
+
+		FString operator()(const TScriptInterface<T>& InterfacePtr) const
+		{
+			auto obj = InterfacePtr.GetObject();
 			return obj ? obj->GetName() : TEXT("NULL");
 		}
 	};
@@ -167,6 +173,9 @@ namespace PG::StringUtils
 
 	template<ToStringConcept T>
 	FString ToString(const T* Value);
+
+	template<ToStringConcept T>
+	FString ToString(const TScriptInterface<T>& Value);
 
 	template<OptionalToStringConcept T>
 	FString ToString(const std::optional<T>& Value);
@@ -221,6 +230,12 @@ namespace PG::StringUtils
 	inline FString ToString(const T* Value)
 	{
 		return ObjectToString<T>{}(Value);
+	}
+
+	template<ToStringConcept T>
+	inline FString ToString(const TScriptInterface<T>& Value)
+	{
+		return ObjectToString<T>{}(Value.GetInterface());
 	}
 
 	template<ToStringConcept T>
