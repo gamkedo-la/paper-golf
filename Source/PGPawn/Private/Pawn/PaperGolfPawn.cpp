@@ -39,6 +39,7 @@ namespace
 APaperGolfPawn::APaperGolfPawn()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	bAlwaysRelevant = true;
 }
 
 void APaperGolfPawn::DebugDrawCenterOfMass(float DrawTime)
@@ -650,6 +651,11 @@ void APaperGolfPawn::BeginPlay()
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: BeginPlay"), *GetName());
 
 	Super::BeginPlay();
+
+	// TODO: May change this if undeterministic physics too much of a problem
+	// but then need to send client rpcs with rotation updates at a regular interval to show other clients
+	// what player is doing
+	SetReplicateMovement(false);
 
 	States.Reserve(NumSamples);
 

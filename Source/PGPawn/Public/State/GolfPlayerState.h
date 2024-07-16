@@ -15,6 +15,9 @@ class PGPAWN_API AGolfPlayerState : public APlayerState
 	GENERATED_BODY()
 
 public:
+
+	AGolfPlayerState();
+	
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
 
 	UFUNCTION(BlueprintCallable)
