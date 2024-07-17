@@ -100,6 +100,7 @@ void AGolfPlayerController::MarkScored()
 		{
 			OnScored();
 		}
+
 		DestroyPawn();
 	}
 }
@@ -339,7 +340,7 @@ void AGolfPlayerController::DoAdditionalOnShotFinished()
 	bTurnActivated = false;
 
 	// invoke a client reliable function to say the next shot is ready unless the server is the client
-	if (auto PaperGolfPawn = GetPaperGolfPawn(); HasAuthority() && !IsLocalPlayerController() && PaperGolfPawn)
+	if (auto PaperGolfPawn = GetPaperGolfPawn(); IsRemoteServer() && PaperGolfPawn)
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Log,
 			TEXT("%s-%s: OnShotFinished - Setting final authoritative position for client pawn: %s"),
@@ -351,7 +352,7 @@ void AGolfPlayerController::DoAdditionalOnShotFinished()
 
 void AGolfPlayerController::DoAdditionalFallThroughFloor()
 {
-	if (auto PaperGolfPawn = GetPaperGolfPawn();  HasAuthority() && !IsLocalController() && PaperGolfPawn)
+	if (auto PaperGolfPawn = GetPaperGolfPawn(); IsRemoteServer() && PaperGolfPawn)
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Log,
 			TEXT("%s-%s: DoAdditionalFallThroughFloor - Setting final authoritative position for client pawn: %s"),

@@ -170,6 +170,10 @@ private:
 	virtual void DoAdditionalOnShotFinished() override;
 	virtual void DoAdditionalFallThroughFloor() override;
 
+	bool IsLocalClient() const;
+	bool IsLocalServer() const;
+	bool IsRemoteServer() const;
+
 private:
 	
 #if ENABLE_VISUAL_LOG
@@ -276,5 +280,19 @@ FORCEINLINE UGolfControllerCommonComponent* AGolfPlayerController::GetGolfContro
 	return GolfControllerCommonComponent;
 }
 
+FORCEINLINE bool AGolfPlayerController::IsLocalClient() const
+{
+	return !HasAuthority() && IsLocalController();
+}
+
+FORCEINLINE bool AGolfPlayerController::IsLocalServer() const
+{
+	return HasAuthority() && IsLocalController();
+}
+
+FORCEINLINE bool AGolfPlayerController::IsRemoteServer() const
+{
+	return HasAuthority() && !IsLocalController();
+}
 
 #pragma endregion Inline Definitions
