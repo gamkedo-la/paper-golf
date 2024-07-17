@@ -98,32 +98,20 @@ void UShotArcPreviewComponent::CalculateShotArc(const APaperGolfPawn& Pawn, cons
 
 	FPredictProjectilePathResult Result;
 
-	const bool bHit = bLastPointIsHit = Pawn.PredictFlick(FlickParams, PredictParams, Result);
-
+	bLastPointIsHit = Pawn.PredictFlick(FlickParams, PredictParams, Result);
 	LastCalculatedTransform = Pawn.GetActorTransform();
 
-	if (!bHit)
+	ArcPoints.Reserve(Result.PathData.Num() + (bLastPointIsHit ? 1 : 0));
+
+	for (const auto& PathDatum : Result.PathData)
 	{
-		UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: CalculateShotArc - No hit found"), *GetName());
-	}
-
-	ArcPoints.Reserve(Result.PathData.Num());
-
-	for (int32 i = 0; const auto& PathDatum : Result.PathData)
-	{
-		UE_VLOG_LOCATION(
-			GetOwner(), LogPGPlayer, Verbose, PathDatum.Location, CollisionRadius, FColor::Green, TEXT("P%d"), i);
-		++i;
-
 		ArcPoints.Add(PathDatum.Location);
 	}
 
 	if (bLastPointIsHit)
 	{
 		ArcPoints.Add(Result.HitResult.ImpactPoint);
-		UE_VLOG_BOX(GetOwner(), LogPGPlayer, Verbose, FBox::BuildAABB(Result.HitResult.ImpactPoint, FVector{ 10.0 }), FColor::Red, TEXT("Hit"));
 	}
-
 }
 
 void UShotArcPreviewComponent::DoShowShotArc()

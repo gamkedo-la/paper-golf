@@ -24,9 +24,11 @@ public:
 protected:
 	virtual void OnPostLogin(AController* NewPlayer) override;
 
-	virtual void OnMatchStateSet() override;
+	virtual void OnGameStart() override;
 
 	virtual void OnBotSpawnedIntoGame(AGolfAIController& AIController, int32 BotNumber) override;
+
+	virtual bool DelayStartWithTimer() const override;
 
 private:
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly)

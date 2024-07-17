@@ -35,6 +35,8 @@ void AGolfAIController::BeginPlay()
 
 	Super::BeginPlay();
 
+	bCanFlick = false;
+
 	DoBeginPlay([this](auto& GolfSubsystem)
 		{
 			GolfSubsystem.OnPaperGolfPawnClippedThroughWorld.AddDynamic(this, &ThisClass::OnFellThroughFloor);
@@ -50,6 +52,14 @@ void AGolfAIController::MarkScored()
 
 bool AGolfAIController::IsReadyForNextShot() const
 {
+	if (bCanFlick)
+	{
+		UE_VLOG_UELOG(this, LogPGAI, VeryVerbose, TEXT("%s: IsReadyForNextShot - FALSE - bCanFlick is TRUE"),
+			*GetName());
+
+		return false;
+	}
+
 	if (!IsActivePlayer())
 	{
 		UE_VLOG_UELOG(this, LogPGAI, VeryVerbose,
@@ -90,6 +100,8 @@ bool AGolfAIController::IsReadyForNextShot() const
 		UE_VLOG_UELOG(this, LogPGAI, VeryVerbose,
 			TEXT("%s: IsReadyForNextShot - Skip - Not at rest"),
 			*GetName());
+
+		return false;
 	}
 
 	return true;
@@ -225,6 +237,11 @@ void AGolfAIController::OnScored()
 		return;
 	}
 
+	// Cancel any outstanding execute timers
+	GetWorldTimerManager().ClearTimer(TurnTimerHandle);
+
+	bCanFlick = false;
+
 	auto GolfPlayerState = GetGolfPlayerState();
 	if (!ensure(GolfPlayerState))
 	{
@@ -263,6 +280,8 @@ void AGolfAIController::ExecuteTurn()
 	{
 		GolfPlayerState->SetReadyForShot(false);
 	}
+
+	bCanFlick = false;
 }
 
 TOptional<FFlickParams> AGolfAIController::CalculateFlickParams() const
@@ -276,7 +295,7 @@ TOptional<FFlickParams> AGolfAIController::CalculateFlickParams() const
 	auto FocusActor = PlayerPawn->GetFocusActor();
 	if (!ensure(FocusActor))
 	{
-		UE_VLOG_UELOG(this, LogPGAI, Error, TEXT("%s: ExecuteTurn - FocusActor is NULL"), *GetName());
+		UE_VLOG_UELOG(this, LogPGAI, Error, TEXT("%s: CalculateFlickParams - FocusActor is NULL"), *GetName());
 		return {};
 	}
 
@@ -284,53 +303,57 @@ TOptional<FFlickParams> AGolfAIController::CalculateFlickParams() const
 
 	// TODO: Refine logic - this is a very basic implementation
 	// Try to hit at approx 45 degree angle
-
-	const auto Box = PG::CollisionUtils::GetAABB(*PlayerPawn);
-	const auto ZExtent = Box.GetExtent().Z;
+	// TODO: Technically this should be done outside this const function as it has a side effect
+	PlayerPawn->AddActorLocalRotation(FRotator(45, 0, 0));
 
 	FPredictProjectilePathResult Result;
 
 	FFlickParams FlickParams;
 	FlickParams.ShotType = ShotType;
-	FlickParams.LocalZOffset = static_cast<float>(-ZExtent * 0.5);
 
 	const bool bHit = PlayerPawn->PredictFlick(FlickParams, {}, Result);
 
 	if(!bHit)
 	{
-		UE_VLOG_UELOG(this, LogPGAI, Warning, TEXT("%s: ExecuteTurn - No hit found for FocusActor=%s"), *GetName(), *FocusActor->GetName());
+		UE_VLOG_UELOG(this, LogPGAI, Warning, TEXT("%s: CalculateFlickParams - No hit found for FocusActor=%s"), *GetName(), *FocusActor->GetName());
 		return {};
 	}
 
 	// determine overshoot via dot product to target
 	const auto& HitLocation = Result.HitResult.ImpactPoint;
 
+	const auto& FocusActorLocation = FocusActor->GetActorLocation();
 	const auto& CurrentLocation = PlayerPawn->GetActorLocation();
-	const auto ToHitLocation = HitLocation - CurrentLocation;
-	const auto FromHitToFocusActor = FocusActor->GetActorLocation() - HitLocation;
+	const auto ToFocusActorLocation = FocusActorLocation - CurrentLocation;
+	const auto FromHitToFocusActor = FocusActorLocation - HitLocation;
 
 	float PowerFraction;
 
-	if ((ToHitLocation | FromHitToFocusActor) > 0)
+	if ((ToFocusActorLocation | FromHitToFocusActor) > 0)
 	{
 		// coming up short - hit full power
-		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ExecuteTurn - DotProduct > 0 - coming up short hit full power"), *GetName());
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateFlickParams - DotProduct > 0 - coming up short hit full power: Distance=%.1fm; TargetDistance=%.1fm"),
+			*GetName(),
+			(HitLocation - CurrentLocation).Size() / 100,
+			ToFocusActorLocation.Size() / 100);
+
 		PowerFraction = 1.0f;
 	}
 	else
 	{
 		const auto OverhitDistance = FromHitToFocusActor.Size();
-		const auto TargetDistance = ToHitLocation.Size();
+		const auto TotalDistance = (HitLocation - CurrentLocation).Size();
 
-		const auto RelativeOverhit = OverhitDistance / TargetDistance + BounceOverhitCorrectionFactor;
+		const auto BounceCorrectionDistance = BounceOverhitCorrectionFactor * TotalDistance;
+		//const auto TotalDistanceWithBounce = TotalDistance + BounceCorrectionDistance;
+		const auto RelativeOverhit = (OverhitDistance + BounceCorrectionDistance) / TotalDistance;
 
 		// Impulse is proportional to sqrt of the distance ratio if overshoot
+		const auto ForceReduction = FMath::Square(RelativeOverhit);
+		PowerFraction = FMath::Max(MinShotPower, 1 - ForceReduction);
 
-		const auto ForceReduction = FMath::Sqrt(RelativeOverhit);
-		PowerFraction = 1 - ForceReduction;
-
-		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ExecuteTurn - DotProduct <= 0 - Over hit by %fm to distance=%fm; RelativeOverhit=%.2f; ForceReduction=%.2f"),
-			*GetName(), OverhitDistance / 100, TargetDistance / 100, RelativeOverhit, ForceReduction);
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateFlickParams - DotProduct <= 0 - Over hit by %.1fm to Distance=%.1fm; TotalDistance=%1.fm; RelativeOverhit=%.2f; BounceCorrectionDistance=%.1fm; ForceReduction=%.2f"),
+			*GetName(), OverhitDistance / 100, ToFocusActorLocation.Size() / 100, TotalDistance / 100, RelativeOverhit, BounceCorrectionDistance / 100, ForceReduction);
 	}
 
 	const auto Accuracy = FMath::FRandRange(-AccuracyDeviation, AccuracyDeviation);
@@ -338,7 +361,7 @@ TOptional<FFlickParams> AGolfAIController::CalculateFlickParams() const
 	FlickParams.PowerFraction = PowerFraction;
 	FlickParams.Accuracy = Accuracy;
 
-	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ExecuteTurn - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f"),
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateFlickParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f"),
 		*GetName(), *LoggingUtils::GetName(FlickParams.ShotType), FlickParams.PowerFraction, FlickParams.Accuracy, FlickParams.LocalZOffset);
 
 	return FlickParams;
@@ -353,7 +376,7 @@ FFlickParams AGolfAIController::CalculateDefaultFlickParams() const
 	const FFlickParams FlickParams =
 	{
 		.ShotType = ShotType,
-		.LocalZOffset = static_cast<float>(-ZExtent * 0.5),
+		.LocalZOffset = 0,
 		.PowerFraction = 1.0f,
 		.Accuracy = FMath::FRandRange(-AccuracyDeviation, AccuracyDeviation)
 	};
@@ -399,7 +422,7 @@ void AGolfAIController::SetupNextShot(bool bSetCanFlick)
 	}
 
 	ResetShot();
-	GolfControllerCommonComponent->SetPaperGolfPawnAimFocus();
+	DetermineShotType();
 	
 	if (ensure(PlayerPawn))
 	{
@@ -408,6 +431,7 @@ void AGolfAIController::SetupNextShot(bool bSetCanFlick)
 
 	if (bSetCanFlick)
 	{
+		bCanFlick = true;
 		const auto ShotDelayTime = FMath::FRandRange(MinFlickReactionTime, MaxFlickReactionTime);
 
 		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: SetupNextShot - Shooting after %.1fs"), *GetName(), ShotDelayTime);
@@ -421,13 +445,13 @@ void AGolfAIController::ResetShot()
 	ShotType = EShotType::Default;
 
 	GolfControllerCommonComponent->ResetShot();
-
-	DetermineShotType();
 }
 
 void AGolfAIController::DetermineShotType()
 {
-	const auto NewShotType = GolfControllerCommonComponent->DetermineShotType();
+	GolfControllerCommonComponent->SetPaperGolfPawnAimFocus();
+
+	const auto NewShotType = GolfControllerCommonComponent->DetermineShotType(EShotFocusType::Focus);
 
 	if (NewShotType != EShotType::Default)
 	{

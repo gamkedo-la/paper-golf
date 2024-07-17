@@ -112,12 +112,11 @@ void APaperGolfPawn::SnapToGround()
 
 	UE_VLOG_SEGMENT_THICK(this, LogPGPawn, Log, StartLocation, EndLocation, FColor::Yellow, 10.0, TEXT("GroundTrace"));
 
-	// TODO: Create ground trace channel
 	if (!World->LineTraceSingleByChannel(
 		HitResult,
 		StartLocation,
 		EndLocation,
-		ECollisionChannel::ECC_Visibility,
+		PG::CollisionChannel::FlickTraceType,
 		QueryParams))
 	{
 		UE_VLOG_UELOG(this,
@@ -610,9 +609,8 @@ bool APaperGolfPawn::PredictFlick(const FFlickParams& FlickParams, const FFlickP
 	Params.StartLocation = GetFlickLocation(FlickParams.LocalZOffset) + FlickDirection * FlickPredictParams.CollisionRadius;
 	Params.ActorsToIgnore.Add(const_cast<APaperGolfPawn*>(this));
 	Params.bTraceWithCollision = true;
-	//Params.bTraceWithChannel = true;
-	//Params.TraceChannel = ECollisionChannel::ECC_Visibility;
-	Params.ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_Pawn));
+	Params.bTraceWithChannel = true;
+	Params.TraceChannel = PG::CollisionChannel::FlickTraceType;
 	Params.ProjectileRadius = FlickPredictParams.CollisionRadius;
 	Params.MaxSimTime = FlickPredictParams.MaxSimTime;
 	Params.SimFrequency = FlickPredictParams.SimFrequency;
@@ -632,10 +630,38 @@ bool APaperGolfPawn::PredictFlick(const FFlickParams& FlickParams, const FFlickP
 		*Params.StartLocation.ToCompactString(),
 		*Params.LaunchVelocity.ToCompactString());
 
-	return UGameplayStatics::PredictProjectilePath(
+	const bool bHit = UGameplayStatics::PredictProjectilePath(
 		GetWorld(),
 		Params,
 		Result);
+
+#if ENABLE_VISUAL_LOG
+	if (FVisualLogger::IsRecording())
+	{
+		if (bHit)
+		{
+			UE_VLOG_UELOG(this, LogPGPawn, Verbose, TEXT("%s: PredictFlick - Hit %s-%s at %s"), 
+				*GetName(),
+				*LoggingUtils::GetName(Result.HitResult.GetActor()), *LoggingUtils::GetName(Result.HitResult.GetComponent()), 
+				*Result.HitResult.ImpactPoint.ToCompactString());
+
+			UE_VLOG_BOX(this, LogPGPawn, Verbose, FBox::BuildAABB(Result.HitResult.ImpactPoint, FVector{ 10.0 }), FColor::Red, TEXT("Hit"));
+		}
+		else
+		{
+			UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: PredictFlick - No hit found"), *GetName());
+		}
+
+		for (int32 i = 0; const auto & PathDatum : Result.PathData)
+		{
+			UE_VLOG_LOCATION(
+				this, LogPGPawn, Verbose, PathDatum.Location, Params.ProjectileRadius, FColor::Green, TEXT("P%d"), i);
+			++i;
+		}
+	}
+#endif
+
+	return bHit;
 }
 
 void APaperGolfPawn::Tick(float DeltaTime)
@@ -697,10 +723,11 @@ void APaperGolfPawn::PostInitializeComponents()
 			return Component != _CameraSpringArm;
 		});
 
-		ensureMsgf(FindResult, TEXT("%s: Cannot find FlickReference"), *GetName());
-
-		_FlickReference = *FindResult;
-		ensureMsgf(_FlickReference, TEXT("%s: FlickReference is NULL"), *GetName());
+		if (ensureMsgf(FindResult, TEXT("%s: Cannot find FlickReference"), *GetName()))
+		{
+			_FlickReference = *FindResult;
+			ensureMsgf(_FlickReference, TEXT("%s: FlickReference is NULL"), *GetName());
+		}
 	}
 }
 

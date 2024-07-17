@@ -11,7 +11,7 @@ class AGolfAIController;
 /**
  * 
  */
-UCLASS()
+UCLASS(Abstract)
 // TODO: Change to AGameMode and use custom match states
 // See https://www.udemy.com/course/unreal-engine-5-cpp-multiplayer-shooter/learn/lecture/31670022
 class PAPERGOLF_API APaperGolfGameModeBase : public AGameMode
@@ -66,6 +66,8 @@ protected:
 
 	virtual void OnBotSpawnedIntoGame(AGolfAIController& AIController, int32 BotNumber) {}
 
+	virtual bool DelayStartWithTimer() const;
+
 protected:
 	virtual void OnPostLogin(AController* NewPlayer) override;
 
@@ -81,6 +83,8 @@ protected:
 	// End Player start selection functions
 
 	virtual bool PlayerCanRestart_Implementation(APlayerController* Player) override;
+
+	virtual void OnGameStart() PURE_VIRTUAL(APaperGolfGameModeBase::OnGameStart, );
 private:
 	bool SetDesiredNumberOfPlayersFromPIESettings();
 
@@ -88,6 +92,9 @@ private:
 	void CreateBot(int32 BotNumber);
 	void InitBot(AGolfAIController& AIController, int32 BotNumber);
 	void SetDefaultPlayerName(AController& Player);
+
+	void StartGame();
+	void StartGameWithDelay();
 
 private:
 	// TODO: Consider making config UPROPERTY versions of these to be set from ini files or overriden from command line on server travel. Maybe can even just add "config" to existing?
@@ -109,6 +116,9 @@ private:
 	*/
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	int32 DefaultMinDesiredNumberOfBotPlayers{ 0 };
+
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	float MatchStartDelayTime{ 1.0f };
 
 	int32 DesiredNumberOfPlayers{};
 	int32 DesiredNumberOfBotPlayers{};

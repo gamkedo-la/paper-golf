@@ -41,23 +41,19 @@ void APGTurnBasedGameMode::OnPostLogin(AController* NewPlayer)
 	TurnBasedDirectorComponent->AddPlayer(NewPlayer);
 }
 
-void APGTurnBasedGameMode::OnMatchStateSet()
+void APGTurnBasedGameMode::OnGameStart()
 {
-	Super::OnMatchStateSet();
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnGameStart"), *GetName());
 
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnMatchStateSet - MatchState=%s"), *GetName(), *MatchState.ToString());
+	check(TurnBasedDirectorComponent);
 
-	if(MatchState == MatchState::InProgress)
+	if (auto GolfState = GetGameState<APaperGolfGameStateBase>(); ensure(GolfState))
 	{
-		check(TurnBasedDirectorComponent);
-
-		if (auto GolfState = GetGameState<APaperGolfGameStateBase>(); ensure(GolfState))
-		{
-			GolfState->SetCurrentHoleNumber(1);
-			TurnBasedDirectorComponent->StartHole();
-		}
+		GolfState->SetCurrentHoleNumber(1);
+		TurnBasedDirectorComponent->StartHole();
 	}
 }
+
 void APGTurnBasedGameMode::OnBotSpawnedIntoGame(AGolfAIController& AIController, int32 BotNumber)
 {
 	// Note that the Login functions are not called when AI controllers are spawned. These are only for player controllers joining the session, so add to the turn component manually here
@@ -66,4 +62,11 @@ void APGTurnBasedGameMode::OnBotSpawnedIntoGame(AGolfAIController& AIController,
 	check(TurnBasedDirectorComponent);
 
 	TurnBasedDirectorComponent->AddPlayer(&AIController);
+}
+
+bool APGTurnBasedGameMode::DelayStartWithTimer() const
+{
+	check(TurnBasedDirectorComponent);
+
+	return Super::DelayStartWithTimer() || TurnBasedDirectorComponent->IsSkippingHumanPlayers();
 }

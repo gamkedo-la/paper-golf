@@ -15,6 +15,7 @@
 
 #include "Utils/ArrayUtils.h"
 
+#include "Utils/CollisionUtils.h"
 #include "PaperGolfTypes.h"
 
 
@@ -79,9 +80,39 @@ void UGolfControllerCommonComponent::DestroyPawn()
 	}
 }
 
-EShotType UGolfControllerCommonComponent::DetermineShotType()
+AActor* UGolfControllerCommonComponent::GetShotFocusActor(EShotFocusType ShotFocusType) const
 {
-	if (!GolfHole)
+	if(ShotFocusType == EShotFocusType::Hole)
+	{
+		return GolfHole;
+	}
+
+	if (!ensure(GolfController))
+	{
+		return GolfHole;
+	}
+
+	auto PaperGolfPawn = GolfController->GetPaperGolfPawn();
+	if (!PaperGolfPawn)
+	{
+		return GolfHole;
+	}
+
+	auto FocusActor = PaperGolfPawn->GetFocusActor();
+
+	if (ensure(FocusActor))
+	{
+		return FocusActor;
+	}
+
+	return GolfHole;
+}
+
+EShotType UGolfControllerCommonComponent::DetermineShotType(EShotFocusType ShotFocusType)
+{
+	const auto FocusActor = GetShotFocusActor(ShotFocusType);
+
+	if (!FocusActor)
 	{
 		return EShotType::Default;
 	}
@@ -97,7 +128,7 @@ EShotType UGolfControllerCommonComponent::DetermineShotType()
 		return EShotType::Default;
 	}
 
-	const auto ShotDistance = PaperGolfPawn->GetDistanceTo(GolfHole);
+	const auto ShotDistance = PaperGolfPawn->GetDistanceTo(FocusActor);
 
 	const EShotType NewShotType = [&]()
 	{
@@ -112,9 +143,9 @@ EShotType UGolfControllerCommonComponent::DetermineShotType()
 		return EShotType::Close;
 	}();
 
-	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: %s - DetermineShotType: %s - Distance=%fm"),
+	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: %s - DetermineShotType(%s): %s - Distance=%fm to FocusActor=%s"),
 		*GetName(), *LoggingUtils::GetName(GetOwner()),
-		*PaperGolfPawn->GetName(), *LoggingUtils::GetName(NewShotType), ShotDistance / 100);
+		*PaperGolfPawn->GetName(), *LoggingUtils::GetName(ShotFocusType), *LoggingUtils::GetName(NewShotType), ShotDistance / 100, *LoggingUtils::GetName(FocusActor));
 
 	return NewShotType;
 }
@@ -520,16 +551,52 @@ bool UGolfControllerCommonComponent::HasLOSToFocus(const FVector& Position, cons
 	QueryParams.AddIgnoredActor(FocusActor);
 
 	// prefer the hole if have LOS
-	// TODO: Use custom trace channel or possibly alternative strategy as this doesn't always work as intended
+	const auto TraceStartLocation = Position + FVector::ZAxisVector * 300.f;
+	const auto TraceEndLocation = FocusActor->GetActorLocation() + FVector::ZAxisVector * 200.f;
+
 	const bool bLOS = !World->LineTraceTestByChannel(
-		Position + 200.f,
-		FocusActor->GetActorLocation() + 200.f,
-		ECollisionChannel::ECC_Visibility,
+		TraceStartLocation,
+		TraceEndLocation,
+		PG::CollisionChannel::FlickTraceType,
 		QueryParams
 	);
 
 	UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position + 200.f, FocusActor->GetActorLocation() + 200.f,
-		bLOS ? FColor::Green : FColor::Red, TEXT("BestFocus: %s"), *FocusActor->GetName());
+		bLOS ? FColor::Green : FColor::Red, TEXT("LOS: %s"), *FocusActor->GetName());
+
+#if !NO_LOGGING
+#if !ENABLE_VISUAL_LOG
+	constexpr bVisualLogger = false;
+#else
+	const bool bVisualLogger = FVisualLogger::IsRecording();
+#endif
+
+	if (bVisualLogger || UE_LOG_ACTIVE(LogPGPawn,Verbose))
+	{
+		if (bLOS)
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s-%s: HasLOSToFocus(%s,%s) = TRUE"),
+				*GetName(), *LoggingUtils::GetName(GetOwner()), *Position.ToCompactString(), *LoggingUtils::GetName(FocusActor));
+		}
+		else
+		{
+			FHitResult HitResult;
+			World->LineTraceSingleByChannel(
+				HitResult,
+				TraceStartLocation,
+				TraceEndLocation,
+				PG::CollisionChannel::FlickTraceType,
+				QueryParams
+			);
+
+			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s-%s: HasLOSToFocus(%s,%s) = FALSE : Hit %s-%s at %s"),
+				*GetName(), *LoggingUtils::GetName(GetOwner()), *Position.ToCompactString(), *LoggingUtils::GetName(FocusActor),
+				*LoggingUtils::GetName(HitResult.GetActor()), *LoggingUtils::GetName(HitResult.GetComponent()),
+				*HitResult.ImpactPoint.ToCompactString());
+			UE_VLOG_LOCATION(GetOwner(), LogPGPawn, Verbose, HitResult.ImpactPoint, 10.f, FColor::Red, TEXT("LOS: %s - Hit"), *LoggingUtils::GetName(FocusActor));
+		}
+	}
+#endif
 
 	return bLOS;
 }

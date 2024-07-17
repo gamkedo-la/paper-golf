@@ -39,7 +39,7 @@ public:
 
 	void DestroyPawn();
 
-	EShotType DetermineShotType();
+	EShotType DetermineShotType(EShotFocusType FocusType = EShotFocusType::Hole);
 
 	void AddToShotHistory(APaperGolfPawn* PaperGolfPawn);
 
@@ -65,6 +65,8 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
+
+	AActor* GetShotFocusActor(EShotFocusType ShotFocusType) const;
 
 	void RegisterShotFinishedTimer();
 	void UnregisterShotFinishedTimer();

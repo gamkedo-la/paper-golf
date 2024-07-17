@@ -85,7 +85,7 @@ TOptional<CollisionUtils::FGroundData> PG::CollisionUtils::GetGroundData(const A
 		HitResult,
 		TraceStart,
 		TraceEnd,
-		ECollisionChannel::ECC_Visibility,
+		PG::CollisionChannel::FlickTraceType,
 		CollisionQueryParams))
 	{
 		return {};

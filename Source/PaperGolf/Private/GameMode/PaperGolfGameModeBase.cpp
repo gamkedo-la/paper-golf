@@ -85,6 +85,13 @@ void APaperGolfGameModeBase::SetDefaultPlayerName(AController& Player)
 	PlayerState->SetPlayerName(FString::Printf(TEXT("Player %d"), HumanPlayerDefaultNameIndex));
 }
 
+void APaperGolfGameModeBase::StartGame()
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: StartGame"), *GetName());
+
+	OnGameStart();
+}
+
 bool APaperGolfGameModeBase::ReadyToStartMatch_Implementation()
 {
 	bool bReady{};
@@ -122,9 +129,35 @@ void APaperGolfGameModeBase::OnMatchStateSet()
 
 void APaperGolfGameModeBase::HandleMatchHasStarted()
 {
+	// This is called when match state transitions to InProgress.
+	// Equivalent to writing logic in OnMatchStateSet checking MatchState == MatchState::InProgress
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: HandleMatchHasStarted"), *GetName());
 
 	Super::HandleMatchHasStarted();
+
+	// If playing standalone then don't have a timer
+	if (DelayStartWithTimer())
+	{
+		StartGameWithDelay();
+	}
+	else
+	{
+		StartGame();
+	}
+}
+
+bool APaperGolfGameModeBase::DelayStartWithTimer() const
+{
+	return GetNetMode() != NM_Standalone;
+}
+
+void APaperGolfGameModeBase::StartGameWithDelay()
+{
+	auto World = GetWorld();
+	check(World);
+
+	FTimerHandle TimerHandle;
+	World->GetTimerManager().SetTimer(TimerHandle, this, &APaperGolfGameModeBase::StartGame, MatchStartDelayTime, false);
 }
 
 void APaperGolfGameModeBase::BeginPlay()

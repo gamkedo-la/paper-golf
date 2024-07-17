@@ -32,6 +32,8 @@ public:
 
 	virtual void InitializeComponent() override;
 
+	bool IsSkippingHumanPlayers() const;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -86,3 +88,12 @@ private:
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	float NextHoleDelay{ 3.0f };
 };
+
+#pragma region Inline Definitions
+
+FORCEINLINE bool UGolfTurnBasedDirectorComponent::IsSkippingHumanPlayers() const
+{
+	return bSkipHumanPlayers;
+}
+
+#pragma endregion Inline Definitions

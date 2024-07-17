@@ -97,12 +97,17 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float AccuracyDeviation{ 0.2f };
 
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	float MinShotPower{ 0.1f };
+
 	UPROPERTY(Transient)
 	TObjectPtr<APaperGolfPawn> PlayerPawn{};
 
 	FTimerHandle TurnTimerHandle{};
 
 	EShotType ShotType{ EShotType::Default };
+
+	bool bCanFlick{ };
 	bool bScored{};
 	bool bTurnActivated{};
 	bool bOutOfBounds{};

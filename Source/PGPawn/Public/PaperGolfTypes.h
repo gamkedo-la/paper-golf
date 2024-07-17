@@ -13,3 +13,10 @@ enum class EShotType : uint8
 	Close,
 	MAX UMETA(Hidden)
 };
+
+UENUM(BlueprintType)
+enum class EShotFocusType : uint8
+{
+	Hole,
+	Focus
+};

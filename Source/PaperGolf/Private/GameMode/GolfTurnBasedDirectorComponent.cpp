@@ -307,6 +307,8 @@ int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 		if (Player->HasScored() || Player->IsSpectatorOnly())
 		{
 			// Exclude finished players or those that are only spectating
+			UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Verbose, TEXT("%s: DetermineNextPlayer - Skip Player=(%d)%s is finished=%s or spectating=%s"),
+				*GetName(), i, *PG::StringUtils::ToString(Player), LoggingUtils::GetBoolString(Player->HasScored()), LoggingUtils::GetBoolString(Player->IsSpectatorOnly()));
 			continue;
 		}
 
@@ -327,6 +329,8 @@ int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 				.Shots = 0,
 				.DistanceToHole = std::numeric_limits<float>::max()
 			};
+
+			UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Verbose, TEXT("%s: DetermineNextPlayer - NextPlayer=(%d)%s - First shot"), *GetName(), i, *PG::StringUtils::ToString(Player));
 			break;
 		}
 
@@ -347,6 +351,12 @@ int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 
 		if(!NextPlayer || CurrentPlayerState < *NextPlayer)
 		{
+			UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Verbose, TEXT("%s: DetermineNextPlayer - Found closer player=(%d)%s - NewDist=%.1fm; PrevDist=%s; PrevPlayer=%s"),
+				*GetName(), i, *PG::StringUtils::ToString(Player), DistanceToHole / 100,
+				NextPlayer ? *FString::Printf(TEXT("%.1fm"), NextPlayer->DistanceToHole / 100) : TEXT("N/A"),
+				NextPlayer ? *FString::Printf(TEXT("(%d)%s"), NextPlayer->Index, *PG::StringUtils::ToString(Players[NextPlayer->Index])) : TEXT("N/A")
+			);
+
 			NextPlayer = CurrentPlayerState;
 		}
 	}
