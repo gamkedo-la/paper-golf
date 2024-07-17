@@ -26,6 +26,8 @@ protected:
 
 	virtual void OnMatchStateSet() override;
 
+	virtual void OnBotSpawnedIntoGame(AGolfAIController& AIController, int32 BotNumber) override;
+
 private:
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly)
 	TObjectPtr<UGolfTurnBasedDirectorComponent> TurnBasedDirectorComponent{};

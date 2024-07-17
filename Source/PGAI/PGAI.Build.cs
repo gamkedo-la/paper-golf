@@ -22,7 +22,8 @@ public class PGAI : ModuleRules
 			"Core",
 			"CoreUObject",
 			"Engine",
-		};
+            "AIModule",
+        };
 
 		PublicDependencyModuleNames.AddRange(enginePublicDependencyModuleNames);
 		PublicDependencyModuleNames.AddRange(modulePublicDependencyModuleNames);

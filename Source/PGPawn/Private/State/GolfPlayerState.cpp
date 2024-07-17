@@ -19,6 +19,7 @@ void AGolfPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(AGolfPlayerState, Shots);
 	DOREPLIFETIME(AGolfPlayerState, bReadyForShot);
 	DOREPLIFETIME(AGolfPlayerState, ScoreByHole);
+	DOREPLIFETIME(AGolfPlayerState, bSpectatorOnly);
 }
 
 int32 AGolfPlayerState::GetTotalShots() const
@@ -50,4 +51,5 @@ void AGolfPlayerState::CopyProperties(APlayerState* PlayerState)
 	ScoreByHole = OtherPlayerState->ScoreByHole;
 	Shots = OtherPlayerState->Shots;
 	bReadyForShot = OtherPlayerState->bReadyForShot;
+	bSpectatorOnly = OtherPlayerState->bSpectatorOnly;
 }

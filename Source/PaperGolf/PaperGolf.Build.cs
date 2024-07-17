@@ -24,6 +24,9 @@ public class PaperGolf : ModuleRules
             "PGAI",
             "PGUI",
             "PGPawn",
+
+            // Engine modules
+            "AIModule",
         });
 
         CppStandard = CppStandardVersion.Cpp20;

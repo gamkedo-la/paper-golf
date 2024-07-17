@@ -43,6 +43,9 @@ public:
 
 	virtual void CopyProperties(APlayerState* PlayerState) override;
 
+	void SetSpectatorOnly() { bSpectatorOnly = true; }
+	bool IsSpectatorOnly() const { return bSpectatorOnly; }
+
 private:
 
 	UPROPERTY(Replicated)
@@ -53,4 +56,7 @@ private:
 
 	UPROPERTY(Replicated)
 	bool bReadyForShot{};
+
+	UPROPERTY(Replicated)
+	bool bSpectatorOnly{};
 };

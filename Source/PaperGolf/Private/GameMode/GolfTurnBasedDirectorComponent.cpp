@@ -70,7 +70,8 @@ void UGolfTurnBasedDirectorComponent::StartHole()
 
 	InitializePlayersForHole();
 
-	ActivePlayerIndex = 0;
+	// Don't start at index 0 as human players may be set to spectate or first player may be set to spectate
+	ActivePlayerIndex = DetermineNextPlayer();
 	ActivateNextPlayer();
 }
 
@@ -82,6 +83,13 @@ void UGolfTurnBasedDirectorComponent::AddPlayer(AController* Player)
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: AddPlayer - Player=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(Player));
 		return;
+	}
+
+	if(bSkipHumanPlayers && Player->IsPlayerController())
+	{
+		GolfPlayer->SetSpectatorOnly();
+
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Display, TEXT("%s: AddPlayer - Player=%s set to spectator only as game mode set to skip human players"), *GetName(), *LoggingUtils::GetName(Player));
 	}
 
 	Players.AddUnique(GolfPlayer);
@@ -292,9 +300,9 @@ int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 		// Ensure that i is incremented in all code paths
 		FIncrementer _(i);
 
-		if (Player->HasScored())
+		if (Player->HasScored() || Player->IsSpectatorOnly())
 		{
-			// Exclude finished players
+			// Exclude finished players or those that are only spectating
 			continue;
 		}
 

@@ -6,6 +6,8 @@
 #include "GameFramework/GameMode.h"
 #include "PaperGolfGameModeBase.generated.h"
 
+class AGolfAIController;
+
 /**
  * 
  */
@@ -40,6 +42,7 @@ public:
 	virtual void HandleMatchHasStarted() override;
 
 	void SetDesiredNumberOfPlayers(int32 InDesiredNumberOfPlayers);
+	void SetDesiredNumberOfBotPlayers(int32 InDesiredNumberOfBotPlayers);
 
 	// Begin Player start selection functions
 	virtual bool ShouldSpawnAtStartSpot(AController* Player) override;
@@ -61,6 +64,8 @@ protected:
 	// TODO: See MustSpectate_Implementation in AGameMode for an idea of how to start players as spectators - possibly default implementation is fine as we can
 	// Set spectating on player state as it expects
 
+	virtual void OnBotSpawnedIntoGame(AGolfAIController& AIController, int32 BotNumber) {}
+
 protected:
 	virtual void OnPostLogin(AController* NewPlayer) override;
 
@@ -79,11 +84,36 @@ protected:
 private:
 	bool SetDesiredNumberOfPlayersFromPIESettings();
 
+	void CreateBots();
+	void CreateBot(int32 BotNumber);
+	void InitBot(AGolfAIController& AIController, int32 BotNumber);
+	void SetDefaultPlayerName(AController& Player);
+
 private:
+	// TODO: Consider making config UPROPERTY versions of these to be set from ini files or overriden from command line on server travel. Maybe can even just add "config" to existing?
+	// Looks like this works but "actor defaults have higher priority then config"
+	// See https://forums.unrealengine.com/t/changing-editable-uproperty-variable-to-be-a-config-variable-is-ignored/413067/6
+	/*
+	*  UPROPERTY(config)
+	*  int32 ConfigNumberOfBotPlayers{};
+	*/
+
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	int32 DefaultDesiredNumberOfPlayers{ 1 };
 
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	TSubclassOf<AGolfAIController> AIControllerClass{};
+
+	/*
+	* Set minimum number of bot players. Mainly for testing.
+	*/
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	int32 DefaultMinDesiredNumberOfBotPlayers{ 0 };
+
 	int32 DesiredNumberOfPlayers{};
+	int32 DesiredNumberOfBotPlayers{};
+
+	int32 HumanPlayerDefaultNameIndex{};
 
 	bool bAllowPlayerSpawn{};
 };
@@ -92,7 +122,12 @@ private:
 
 FORCEINLINE void APaperGolfGameModeBase::SetDesiredNumberOfPlayers(int32 InDesiredNumberOfPlayers)
 {
-	this->DesiredNumberOfPlayers = InDesiredNumberOfPlayers;
+	DesiredNumberOfPlayers = InDesiredNumberOfPlayers;
+}
+
+FORCEINLINE void APaperGolfGameModeBase::SetDesiredNumberOfBotPlayers(int32 InDesiredNumberOfBotPlayers)
+{
+	DesiredNumberOfBotPlayers = InDesiredNumberOfBotPlayers;
 }
 
 FORCEINLINE int32 APaperGolfGameModeBase::GetTotalNumberOfPlayers() const

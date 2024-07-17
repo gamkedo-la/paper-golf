@@ -52,6 +52,9 @@ public:
 
 	virtual AController* AsController() = 0;
 	virtual const AController* AsController() const = 0;
+
+	bool IsSpectatorOnly() const;
+	void SetSpectatorOnly();
 };
 
 #pragma region Inline Definitions

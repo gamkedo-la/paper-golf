@@ -77,6 +77,12 @@ private:
 
 	int32 ActivePlayerIndex{};
 
-	UPROPERTY(EditDefaultsOnly)
+	/*
+	* Skip human players and only spectate the AI. Used for testing.
+	*/
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	bool bSkipHumanPlayers{};
+
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	float NextHoleDelay{ 3.0f };
 };

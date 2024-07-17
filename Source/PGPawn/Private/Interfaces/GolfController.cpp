@@ -29,3 +29,25 @@ void IGolfController::AddStroke()
 
 	GolfPlayerState->AddShot();
 }
+
+bool IGolfController::IsSpectatorOnly() const
+{
+	auto GolfPlayerState = GetGolfPlayerState();
+	if(!ensure(GolfPlayerState))
+	{
+		return false;
+	}
+
+	return GolfPlayerState->IsSpectatorOnly();
+}
+
+void IGolfController::SetSpectatorOnly()
+{
+	auto GolfPlayerState = GetGolfPlayerState();
+	if (!ensure(GolfPlayerState))
+	{
+		return;
+	}
+
+	GolfPlayerState->SetSpectatorOnly();
+}
