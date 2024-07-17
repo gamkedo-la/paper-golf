@@ -306,65 +306,94 @@ TOptional<FFlickParams> AGolfAIController::CalculateFlickParams() const
 	// TODO: Technically this should be done outside this const function as it has a side effect
 	PlayerPawn->AddActorLocalRotation(FRotator(45, 0, 0));
 
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return {};
+	}
+
+	// Hitting at 45 degrees so can simplify the projectile calculation
+	// https://en.wikipedia.org/wiki/Projectile_motion
+
 	FPredictProjectilePathResult Result;
 
 	FFlickParams FlickParams;
 	FlickParams.ShotType = ShotType;
 
-	const bool bHit = PlayerPawn->PredictFlick(FlickParams, {}, Result);
+	const auto& FlickLocation = PlayerPawn->GetFlickLocation(FlickParams.LocalZOffset);
+	const auto FlickMaxForce = PlayerPawn->GetFlickMaxForce(FlickParams.ShotType);
+	const auto FlickMaxSpeed = FlickMaxForce / PlayerPawn->GetMass();
 
-	if(!bHit)
-	{
-		UE_VLOG_UELOG(this, LogPGAI, Warning, TEXT("%s: CalculateFlickParams - No hit found for FocusActor=%s"), *GetName(), *FocusActor->GetName());
-		return {};
-	}
-
-	// determine overshoot via dot product to target
-	const auto& HitLocation = Result.HitResult.ImpactPoint;
-
+	// See https://en.wikipedia.org/wiki/Range_of_a_projectile
+	// Using wolfram alpha to solve the equation when theta is 45 for v, we get
+	// v = d * sqrt(g) / sqrt(d + y)
+	// where d is the horizontal distance (XY) and y is the vertical distance and v is vxy
 	const auto& FocusActorLocation = FocusActor->GetActorLocation();
-	const auto& CurrentLocation = PlayerPawn->GetActorLocation();
-	const auto ToFocusActorLocation = FocusActorLocation - CurrentLocation;
-	const auto FromHitToFocusActor = FocusActorLocation - HitLocation;
+
+	const auto PositionDelta = FocusActorLocation - FlickLocation;
+	const auto HorizontalDistance = PositionDelta.Size2D();
+	const auto VerticalDistance = PositionDelta.Z;
+	const auto DistSum = HorizontalDistance + VerticalDistance;
 
 	float PowerFraction;
 
-	if ((ToFocusActorLocation | FromHitToFocusActor) > 0)
+	// if TotalHorizontalDistance + VerticalDistance <= 0 then we use minimum power as so far above the target
+	if (DistSum <= 0)
 	{
-		// coming up short - hit full power
-		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateFlickParams - DotProduct > 0 - coming up short hit full power: Distance=%.1fm; TargetDistance=%.1fm"),
-			*GetName(),
-			(HitLocation - CurrentLocation).Size() / 100,
-			ToFocusActorLocation.Size() / 100);
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateFlickParams - Way above target, using min force. HorizontalDistance=%.1fm; VerticalDistance=%.1fm"),
+			*GetName(), HorizontalDistance / 100, VerticalDistance / 100);
 
-		PowerFraction = 1.0f;
+		PowerFraction = MinShotPower;
 	}
 	else
 	{
-		const auto OverhitDistance = FromHitToFocusActor.Size();
-		const auto TotalDistance = (HitLocation - CurrentLocation).Size();
+		const auto Gravity = FMath::Abs(World->GetGravityZ());
+		const auto Speed = HorizontalDistance * FMath::Sqrt(Gravity) / FMath::Sqrt(DistSum);
 
-		const auto BounceCorrectionDistance = BounceOverhitCorrectionFactor * TotalDistance;
-		//const auto TotalDistanceWithBounce = TotalDistance + BounceCorrectionDistance;
-		const auto RelativeOverhit = (OverhitDistance + BounceCorrectionDistance) / TotalDistance;
-
+		// Compare speed to max flick speed
 		// Impulse is proportional to sqrt of the distance ratio if overshoot
-		const auto ForceReduction = FMath::Square(RelativeOverhit);
-		PowerFraction = FMath::Max(MinShotPower, 1 - ForceReduction);
 
-		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateFlickParams - DotProduct <= 0 - Over hit by %.1fm to Distance=%.1fm; TotalDistance=%1.fm; RelativeOverhit=%.2f; BounceCorrectionDistance=%.1fm; ForceReduction=%.2f"),
-			*GetName(), OverhitDistance / 100, ToFocusActorLocation.Size() / 100, TotalDistance / 100, RelativeOverhit, BounceCorrectionDistance / 100, ForceReduction);
+		if (Speed >= FlickMaxSpeed)
+		{
+			UE_VLOG_UELOG(this, LogPGAI, Log, 
+				TEXT("%s: CalculateFlickParams - Coming up short hit full power - Speed=%.1f; FlickMaxSpeed=%.1f, HorizontalDistance=%.1fm; VerticalDistance=%.1fm"),
+				*GetName(), Speed, FlickMaxSpeed, HorizontalDistance / 100, VerticalDistance / 100);
+
+			PowerFraction = 1.0f;
+		}
+		else
+		{
+			// also account for bounce distance
+			const auto ReductionRatio = Speed / FlickMaxSpeed * (1 - BounceOverhitCorrectionFactor);
+
+			// Impulse is proportional to sqrt of the velocity ratio
+			const auto RawPowerFraction = FMath::Sqrt(ReductionRatio);
+			PowerFraction = FMath::Max(MinShotPower, RawPowerFraction);
+
+			UE_VLOG_UELOG(this, LogPGAI, Log,
+				TEXT("%s: CalculateFlickParams - Overhit - Speed=%.1f; FlickMaxSpeed=%.1f, HorizontalDistance=%.1fm; VerticalDistance=%.1fm; RawPowerFraction=%.2f; PowerFraction=%.2f"),
+				*GetName(), Speed, FlickMaxSpeed, HorizontalDistance / 100, VerticalDistance / 100, RawPowerFraction, PowerFraction);
+		}
 	}
 
-	const auto Accuracy = FMath::FRandRange(-AccuracyDeviation, AccuracyDeviation);
-
-	FlickParams.PowerFraction = PowerFraction;
-	FlickParams.Accuracy = Accuracy;
+	// Add error to power calculation and accuracy
+	FlickParams.PowerFraction = GeneratePowerFraction(PowerFraction);
+	FlickParams.Accuracy = GenerateAccuracy();
 
 	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateFlickParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f"),
 		*GetName(), *LoggingUtils::GetName(FlickParams.ShotType), FlickParams.PowerFraction, FlickParams.Accuracy, FlickParams.LocalZOffset);
 
 	return FlickParams;
+}
+
+float AGolfAIController::GenerateAccuracy() const
+{
+	return FMath::FRandRange(-AccuracyDeviation, AccuracyDeviation);
+}
+
+float AGolfAIController::GeneratePowerFraction(float InPowerFraction) const
+{
+	return FMath::Clamp(InPowerFraction * (1 + FMath::RandRange(-PowerDeviation, PowerDeviation)), MinShotPower, 1.0f);
 }
 
 FFlickParams AGolfAIController::CalculateDefaultFlickParams() const
@@ -378,7 +407,7 @@ FFlickParams AGolfAIController::CalculateDefaultFlickParams() const
 		.ShotType = ShotType,
 		.LocalZOffset = 0,
 		.PowerFraction = 1.0f,
-		.Accuracy = FMath::FRandRange(-AccuracyDeviation, AccuracyDeviation)
+		.Accuracy = GenerateAccuracy()
 	};
 
 	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateDefaultFlickParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f"),

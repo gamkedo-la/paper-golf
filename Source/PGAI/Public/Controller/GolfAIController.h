@@ -77,6 +77,9 @@ private:
 	virtual void DoAdditionalOnShotFinished() override;
 	virtual void DoAdditionalFallThroughFloor() override;
 
+	float GenerateAccuracy() const;
+	float GeneratePowerFraction(float InPowerFraction) const;
+
 private:
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly)
 	TObjectPtr<UGolfControllerCommonComponent> GolfControllerCommonComponent{};
@@ -91,11 +94,14 @@ private:
 	float OutOfBoundsDelayTime{ 3.0f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
-	float BounceOverhitCorrectionFactor{ 0.05f };
+	float BounceOverhitCorrectionFactor{ 0.075f };
 
 	// TODO: Use curve table
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
-	float AccuracyDeviation{ 0.2f };
+	float AccuracyDeviation{ 0.3f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	float PowerDeviation{ 0.1f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float MinShotPower{ 0.1f };
