@@ -77,6 +77,8 @@ void UGolfTurnBasedDirectorComponent::StartHole()
 
 void UGolfTurnBasedDirectorComponent::AddPlayer(AController* Player)
 {
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: AddPlayer - Player=%s"), *GetName(), *LoggingUtils::GetName(Player));
+
 	const TScriptInterface<IGolfController> GolfPlayer{ Player };
 
 	if(!ensureMsgf(GolfPlayer, TEXT("%s: AddPlayer - Player=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(Player)))
@@ -97,6 +99,8 @@ void UGolfTurnBasedDirectorComponent::AddPlayer(AController* Player)
 
 void UGolfTurnBasedDirectorComponent::RemovePlayer(AController* Player)
 {
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: RemovePlayer - Player=%s"), *GetName(), *LoggingUtils::GetName(Player));
+
 	const TScriptInterface<IGolfController> GolfPlayer{ Player };
 	if(!ensureMsgf(GolfPlayer, TEXT("%s: RemovePlayer - Player=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(Player)))
 	{
@@ -346,6 +350,8 @@ int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 			NextPlayer = CurrentPlayerState;
 		}
 	}
+
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: DetermineNextPlayer - NextPlayer=%d"), *GetName(), NextPlayer ? NextPlayer->Index : INDEX_NONE);
 
 	return NextPlayer ? NextPlayer->Index : INDEX_NONE;
 }

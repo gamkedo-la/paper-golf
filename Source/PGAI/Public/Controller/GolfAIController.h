@@ -52,9 +52,11 @@ public:
 
 protected:
 	virtual AController* AsController() override { return this; }
-	virtual const AController* AsController() const override { return this; }
+
+	virtual void BeginPlay() override;
 
 private:
+
 	void OnScored();
 	void ExecuteTurn();
 	void DestroyPawn();
@@ -66,6 +68,14 @@ private:
 
 	TOptional<FFlickParams> CalculateFlickParams() const;
 	FFlickParams CalculateDefaultFlickParams() const;
+
+	UFUNCTION()
+	void OnFellThroughFloor(APaperGolfPawn* InPaperGolfPawn);
+
+	// Inherited via IGolfController
+	virtual UGolfControllerCommonComponent* GetGolfControllerCommonComponent() override;
+	virtual void DoAdditionalOnShotFinished() override;
+	virtual void DoAdditionalFallThroughFloor() override;
 
 private:
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly)
@@ -113,6 +123,11 @@ FORCEINLINE bool AGolfAIController::HasScored() const
 FORCEINLINE bool AGolfAIController::IsActivePlayer() const
 {
 	return bTurnActivated;
+}
+
+FORCEINLINE UGolfControllerCommonComponent* AGolfAIController::GetGolfControllerCommonComponent()
+{
+	return GolfControllerCommonComponent;
 }
 
 #pragma endregion Inline Definitions

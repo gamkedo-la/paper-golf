@@ -16,6 +16,8 @@
 
 #include "Utils/CollisionUtils.h"
 
+#include "Subsystems/GolfEventsSubsystem.h"
+
 #include "PGAILogging.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GolfAIController)
@@ -25,6 +27,18 @@ AGolfAIController::AGolfAIController()
 	bWantsPlayerState = true;
 
 	GolfControllerCommonComponent = CreateDefaultSubobject<UGolfControllerCommonComponent>(TEXT("GolfControllerCommon"));
+}
+
+void AGolfAIController::BeginPlay()
+{
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: BeginPlay"), *GetName());
+
+	Super::BeginPlay();
+
+	DoBeginPlay([this](auto& GolfSubsystem)
+		{
+			GolfSubsystem.OnPaperGolfPawnClippedThroughWorld.AddDynamic(this, &ThisClass::OnFellThroughFloor);
+		});
 }
 
 void AGolfAIController::MarkScored()
@@ -83,6 +97,8 @@ bool AGolfAIController::IsReadyForNextShot() const
 
 void AGolfAIController::ActivateTurn()
 {
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ActivateTurn"), *GetName());
+
 	GolfControllerCommonComponent->BeginTurn();
 
 	if (bTurnActivated)
@@ -110,8 +126,9 @@ void AGolfAIController::ActivateTurn()
 		PaperGolfPawn->SetUpForNextShot();
 	}
 
-	SetupNextShot(true);
+	// Turn must be activated before Setup can happen as it requires the player to be active
 	bTurnActivated = true;
+	SetupNextShot(true);
 
 	PaperGolfPawn->SetReadyForShot(true);
 }
@@ -190,6 +207,11 @@ void AGolfAIController::SetPawn(APawn* InPawn)
 	{
 		ActivateTurn();
 	}
+}
+
+void AGolfAIController::OnFellThroughFloor(APaperGolfPawn* InPaperGolfPawn)
+{
+	DoOnFellThroughFloor(InPaperGolfPawn);
 }
 
 void AGolfAIController::OnScored()
@@ -340,6 +362,16 @@ FFlickParams AGolfAIController::CalculateDefaultFlickParams() const
 		*GetName(), *LoggingUtils::GetName(FlickParams.ShotType), FlickParams.PowerFraction, FlickParams.Accuracy, FlickParams.LocalZOffset);
 
 	return FlickParams;
+}
+
+void AGolfAIController::DoAdditionalOnShotFinished()
+{
+	bTurnActivated = false;
+}
+
+void AGolfAIController::DoAdditionalFallThroughFloor()
+{
+	// Nothing to do
 }
 
 void AGolfAIController::DestroyPawn()

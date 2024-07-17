@@ -11,6 +11,8 @@
 
 class APaperGolfPawn;
 class AGolfPlayerState;
+class UGolfControllerCommonComponent;
+class UGolfEventsSubsystem;
 
 // This class does not need to be modified.
 UINTERFACE(BlueprintType, NotBlueprintable, MinimalAPI)
@@ -51,10 +53,32 @@ public:
 	void AddStroke();
 
 	virtual AController* AsController() = 0;
-	virtual const AController* AsController() const = 0;
+	const AController* AsController() const;
 
 	bool IsSpectatorOnly() const;
 	void SetSpectatorOnly();
+
+protected:
+	void DoBeginPlay(const TFunction<void(UGolfEventsSubsystem&)>& ClippedThroughWorldRegistrator);
+
+	virtual UGolfControllerCommonComponent* GetGolfControllerCommonComponent() = 0;
+	UGolfControllerCommonComponent* GetGolfControllerCommonComponent() const; 
+
+	virtual void DoAdditionalOnShotFinished() = 0;
+	virtual void DoAdditionalFallThroughFloor() = 0;
+
+	/*
+	* Invoke from derived class in DoBeginPlay registered UFUNCTION() that handles the initial event
+	*/
+	void DoOnFellThroughFloor(APaperGolfPawn* InPaperGolfPawn);
+
+
+private:
+	void RegisterGolfSubsystemEvents(const TFunction<void(UGolfEventsSubsystem&)>& ClippedThroughWorldRegistrator);
+
+	void OnShotFinished();
+
+	void HandleFallThroughFloor();
 };
 
 #pragma region Inline Definitions
@@ -67,6 +91,16 @@ FORCEINLINE FString IGolfController::ToString() const
 FORCEINLINE const APaperGolfPawn* IGolfController::GetPaperGolfPawn() const
 {
 	return const_cast<IGolfController*>(this)->GetPaperGolfPawn();
+}
+
+FORCEINLINE const AController* IGolfController::AsController() const
+{
+	return const_cast<IGolfController*>(this)->AsController();
+}
+
+FORCEINLINE UGolfControllerCommonComponent* IGolfController::GetGolfControllerCommonComponent() const
+{
+	return const_cast<IGolfController*>(this)->GetGolfControllerCommonComponent();
 }
 
 #pragma endregion Inline Definitions

@@ -156,6 +156,9 @@ void UGolfControllerCommonComponent::AddToShotHistory(APaperGolfPawn* PaperGolfP
 
 void UGolfControllerCommonComponent::SetPaperGolfPawnAimFocus()
 {
+	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: SetPaperGolfPawnAimFocus"),
+		*GetName(), *LoggingUtils::GetName(GetOwner()));
+
 	if (!ensure(GolfController))
 	{
 		return;
@@ -533,10 +536,16 @@ bool UGolfControllerCommonComponent::HasLOSToFocus(const FVector& Position, cons
 
 void UGolfControllerCommonComponent::BeginTurn()
 {
+	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: BeginTurn"),
+		*GetName(), *LoggingUtils::GetName(GetOwner()));
+
 	RegisterShotFinishedTimer();
 }
 
 void UGolfControllerCommonComponent::EndTurn()
 {
+	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: EndTurn"),
+		*GetName(), *LoggingUtils::GetName(GetOwner()));
+
 	UnregisterShotFinishedTimer();
 }

@@ -307,23 +307,6 @@ void AGolfPlayerController::SetupNextShot(bool bSetCanFlick)
 	}
 }
 
-void AGolfPlayerController::HandleFallThroughFloor()
-{
-	UE_VLOG_UELOG(this, LogPGPlayer, Log,
-		TEXT("%s-%s: HandleFallThroughFloor"),
-		*GetName(), *LoggingUtils::GetName(GetPawn()));
-
-	if (!GolfControllerCommonComponent->HandleFallThroughFloor())
-	{
-		return;
-	}
-
-	if (auto PaperGolfPawn = GetPaperGolfPawn();  HasAuthority() && !IsLocalController() && PaperGolfPawn)
-	{
-		ClientSetTransformTo(PaperGolfPawn->GetActorLocation(), PaperGolfPawn->GetActorRotation());
-	}
-}
-
 void AGolfPlayerController::SetPositionTo(const FVector& Position, const TOptional<FRotator>& OptionalRotation)
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log,
@@ -351,7 +334,7 @@ void AGolfPlayerController::ClientSetTransformTo_Implementation(const FVector_Ne
 	SetPositionTo(Position, Rotation);
 }
 
-void AGolfPlayerController::OnShotFinished()
+void AGolfPlayerController::DoAdditionalOnShotFinished()
 {
 	bTurnActivated = false;
 
@@ -359,11 +342,22 @@ void AGolfPlayerController::OnShotFinished()
 	if (auto PaperGolfPawn = GetPaperGolfPawn(); HasAuthority() && !IsLocalPlayerController() && PaperGolfPawn)
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Log,
-			TEXT("%s-%s: CheckForNextShot - Setting final authoritative position for pawn: %s"),
+			TEXT("%s-%s: OnShotFinished - Setting final authoritative position for client pawn: %s"),
 			*GetName(), *PaperGolfPawn->GetName(), *PaperGolfPawn->GetActorLocation().ToCompactString());
 
 		ClientSetTransformTo(PaperGolfPawn->GetActorLocation(), PaperGolfPawn->GetActorRotation());
-		PaperGolfPawn->MulticastReliableSetTransform(PaperGolfPawn->GetActorLocation(), true, PaperGolfPawn->GetActorRotation());
+	}
+}
+
+void AGolfPlayerController::DoAdditionalFallThroughFloor()
+{
+	if (auto PaperGolfPawn = GetPaperGolfPawn();  HasAuthority() && !IsLocalController() && PaperGolfPawn)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log,
+			TEXT("%s-%s: DoAdditionalFallThroughFloor - Setting final authoritative position for client pawn: %s"),
+			*GetName(), *PaperGolfPawn->GetName(), *PaperGolfPawn->GetActorLocation().ToCompactString());
+
+		ClientSetTransformTo(PaperGolfPawn->GetActorLocation(), PaperGolfPawn->GetActorRotation());
 	}
 }
 
@@ -565,7 +559,17 @@ void AGolfPlayerController::BeginPlay()
 
 	Super::BeginPlay();
 
+	DoBeginPlay([this](auto& GolfSubsystem)
+	{
+		GolfSubsystem.OnPaperGolfPawnClippedThroughWorld.AddDynamic(this, &ThisClass::OnFellThroughFloor);
+	});
+
 	Init();
+}
+
+void AGolfPlayerController::OnFellThroughFloor(APaperGolfPawn* InPaperGolfPawn)
+{
+	DoOnFellThroughFloor(InPaperGolfPawn);
 }
 
 void AGolfPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -578,51 +582,11 @@ void AGolfPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 }
 
 void AGolfPlayerController::Init()
-{
-	GolfControllerCommonComponent->Initialize(FSimpleDelegate::CreateUObject(this, &ThisClass::OnShotFinished));
-	
+{	
 	// turn is activated manually so we set this to false initially
 	bCanFlick = false;
 
-	RegisterGolfSubsystemEvents();
-
 	InitDebugDraw();
-}
-
-
-void AGolfPlayerController::RegisterGolfSubsystemEvents()
-{
-	auto World = GetWorld();
-	if (!ensure(World))
-	{
-		return;
-	}
-
-	auto GolfSubsystem = World->GetSubsystem<UGolfEventsSubsystem>();
-	if (!ensure(GolfSubsystem))
-	{
-		return;
-	}
-
-	// Only handle this on server
-	if (HasAuthority())
-	{
-		GolfSubsystem->OnPaperGolfPawnClippedThroughWorld.AddDynamic(this, &ThisClass::OnFellThroughFloor);
-	}
-}
-
-void AGolfPlayerController::OnFellThroughFloor(APaperGolfPawn* InPaperGolfPawn)
-{
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnFellThroughFloor: InPaperGolfPawn=%s"), *GetName(), *LoggingUtils::GetName(InPaperGolfPawn));
-
-	auto PaperGolfPawn = GetPaperGolfPawn();
-
-	if (PaperGolfPawn != InPaperGolfPawn)
-	{
-		return;
-	}
-
-	HandleFallThroughFloor();
 }
 
 void AGolfPlayerController::OnPossess(APawn* InPawn)

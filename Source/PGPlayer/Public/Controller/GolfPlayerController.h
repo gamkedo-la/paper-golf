@@ -117,15 +117,11 @@ private:
 
 	void ResetShotAfterOutOfBounds();
 
-	void RegisterGolfSubsystemEvents();
-
 	UFUNCTION(Client, Reliable)
 	void ClientHandleOutOfBounds();
 
 	UFUNCTION()
 	void OnFellThroughFloor(APaperGolfPawn* InPaperGolfPawn);
-
-	void HandleFallThroughFloor();
 
 	void SetupNextShot(bool bSetCanFlick);
 
@@ -140,8 +136,6 @@ private:
 
 	UFUNCTION(Client, Reliable)
 	void ClientResetShotAfterOutOfBounds(const FVector_NetQuantize& Position);
-
-	void OnShotFinished();
 
 	UFUNCTION(Client, Reliable)
 	void ClientActivateTurn();
@@ -170,7 +164,11 @@ private:
 	float GetFlickZ() const;
 
 	virtual AController* AsController() override { return this; }
-	virtual const AController* AsController() const override { return this; }
+
+	// Inherited via IGolfController
+	virtual UGolfControllerCommonComponent* GetGolfControllerCommonComponent() override;
+	virtual void DoAdditionalOnShotFinished() override;
+	virtual void DoAdditionalFallThroughFloor() override;
 
 private:
 	
@@ -272,5 +270,11 @@ FORCEINLINE float AGolfPlayerController::GetFlickZ() const
 {
 	return FlickZ;
 }
+
+FORCEINLINE UGolfControllerCommonComponent* AGolfPlayerController::GetGolfControllerCommonComponent()
+{
+	return GolfControllerCommonComponent;
+}
+
 
 #pragma endregion Inline Definitions
