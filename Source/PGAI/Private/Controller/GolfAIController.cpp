@@ -12,8 +12,6 @@
 #include "VisualLogger/VisualLogger.h"
 #include "Logging/LoggingUtils.h"
 
-#include "Kismet/GameplayStatics.h"
-
 #include "Utils/CollisionUtils.h"
 
 #include "Subsystems/GolfEventsSubsystem.h"
@@ -315,30 +313,28 @@ TOptional<FFlickParams> AGolfAIController::CalculateFlickParams() const
 	// Hitting at 45 degrees so can simplify the projectile calculation
 	// https://en.wikipedia.org/wiki/Projectile_motion
 
-	FPredictProjectilePathResult Result;
-
 	FFlickParams FlickParams;
 	FlickParams.ShotType = ShotType;
 
-	const auto& FlickLocation = PlayerPawn->GetFlickLocation(FlickParams.LocalZOffset);
+	const auto FlickLocation = PlayerPawn->GetFlickLocation(FlickParams.LocalZOffset);
 	const auto FlickMaxForce = PlayerPawn->GetFlickMaxForce(FlickParams.ShotType);
 	const auto FlickMaxSpeed = FlickMaxForce / PlayerPawn->GetMass();
 
 	// See https://en.wikipedia.org/wiki/Range_of_a_projectile
 	// Using wolfram alpha to solve the equation when theta is 45 for v, we get
 	// v = d * sqrt(g) / sqrt(d + y)
-	// where d is the horizontal distance (XY) and y is the vertical distance and v is vxy
+	// where d is the horizontal distance XY and y is the vertical distance Z and v is vxy
 	const auto& FocusActorLocation = FocusActor->GetActorLocation();
 
 	const auto PositionDelta = FocusActorLocation - FlickLocation;
 	const auto HorizontalDistance = PositionDelta.Size2D();
 	const auto VerticalDistance = PositionDelta.Z;
-	const auto DistSum = HorizontalDistance + VerticalDistance;
+	const auto DistanceSum = HorizontalDistance + VerticalDistance;
 
 	float PowerFraction;
 
 	// if TotalHorizontalDistance + VerticalDistance <= 0 then we use minimum power as so far above the target
-	if (DistSum <= 0)
+	if (DistanceSum <= 0)
 	{
 		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateFlickParams - Way above target, using min force. HorizontalDistance=%.1fm; VerticalDistance=%.1fm"),
 			*GetName(), HorizontalDistance / 100, VerticalDistance / 100);
@@ -348,7 +344,7 @@ TOptional<FFlickParams> AGolfAIController::CalculateFlickParams() const
 	else
 	{
 		const auto Gravity = FMath::Abs(World->GetGravityZ());
-		const auto Speed = HorizontalDistance * FMath::Sqrt(Gravity) / FMath::Sqrt(DistSum);
+		const auto Speed = HorizontalDistance * FMath::Sqrt(Gravity) / FMath::Sqrt(DistanceSum);
 
 		// Compare speed to max flick speed
 		// Impulse is proportional to sqrt of the distance ratio if overshoot
