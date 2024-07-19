@@ -8,7 +8,7 @@
 #include "Utils/CollisionUtils.h"
 #include "VisualLogger/VisualLogger.h"
 
-void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, const UStaticMeshComponent& Component)
+void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, const UStaticMeshComponent& Component, const FColor& Color)
 {
 	const auto Mesh = Component.GetStaticMesh();
 	if (!IsValid(Mesh) || !Mesh->GetBodySetup())
@@ -38,7 +38,7 @@ void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, c
 				ConvexElm.IndexData,
 				CategoryName,
 				ELogVerbosity::Log,
-				FColor::Blue);
+				Color);
 		}
 	}
 	if (!AggGeom.BoxElems.IsEmpty())
@@ -51,7 +51,7 @@ void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, c
 				(BoxElem.GetTransform() * Transform).ToMatrixWithScale(),
 				CategoryName,
 				ELogVerbosity::Log,
-				FColor::Blue
+				Color
 			);
 		}
 	}
@@ -64,7 +64,7 @@ void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, c
 				SphereElem.Radius,
 				CategoryName,
 				ELogVerbosity::Log,
-				FColor::Blue
+				Color
 			);
 		}
 	}
@@ -79,7 +79,7 @@ void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, c
 				Transform.GetRotation() * SphylElm.Rotation.Quaternion(),
 				CategoryName,
 				ELogVerbosity::Log,
-				FColor::Blue);
+				Color);
 		}
 	}
 	if (!AggGeom.TaperedCapsuleElems.IsEmpty())
@@ -93,7 +93,7 @@ void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, c
 				Transform.GetRotation() * CapsuleElm.Rotation.Quaternion(),
 				CategoryName,
 				ELogVerbosity::Log,
-				FColor::Blue);
+				Color);
 		}
 	}
 }

@@ -357,11 +357,20 @@ void APaperGolfPawn::DoFlick(FFlickParams FlickParams)
 
 	RefreshMass();
 
-	_PaperGolfMesh->AddImpulseAtLocation(
-		GetFlickForce(FlickParams.ShotType, FlickParams.Accuracy, FlickParams.PowerFraction),
-		GetFlickLocation(FlickParams.LocalZOffset, FlickParams.Accuracy, FlickParams.PowerFraction)
-	);
+	const auto& Impulse = GetFlickForce(FlickParams.ShotType, FlickParams.Accuracy, FlickParams.PowerFraction);
+	const auto& Location = GetFlickLocation(FlickParams.LocalZOffset, FlickParams.Accuracy, FlickParams.PowerFraction);
 
+#if ENABLE_VISUAL_LOG
+	UE_VLOG_LOCATION(this, LogPGPawn, Log, Location, 5.0f, FColor::Green, TEXT("Flick"));
+	UE_VLOG_ARROW(this, LogPGPawn, Log, Location, Location + Impulse, FColor::Green, TEXT("Flick"));
+
+	if (FVisualLogger::IsRecording())
+	{
+		DrawPawn(FColor::Cyan);
+	}
+#endif
+
+	_PaperGolfMesh->AddImpulseAtLocation(Impulse, Location);
 	_PaperGolfMesh->SetEnableGravity(true);
 }
 
@@ -861,19 +870,24 @@ void APaperGolfPawn::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 	Category.Add(TEXT("Location"), GetActorLocation().ToCompactString());
 	Category.Add(TEXT("Rotation"), GetActorRotation().ToCompactString());
 
-	DrawPawn(Snapshot);
+	DrawPawn(FColor::Blue, Snapshot);
 
 	Snapshot->Status.Add(Category);
 }
 
-void APaperGolfPawn::DrawPawn(FVisualLogEntry* Snapshot) const
+void APaperGolfPawn::DrawPawn(const FColor& Color, FVisualLogEntry* Snapshot) const
 {
 	if(!IsValid(_PaperGolfMesh))
 	{
 		return;
 	}
 
-	PG::VisualLoggerUtils::DrawStaticMeshComponent(*Snapshot, LogPGPawn.GetCategoryName(), *_PaperGolfMesh);
+	if (!Snapshot)
+	{
+		Snapshot = FVisualLogger::GetEntryToWrite(this, LogPGPawn);
+	}
+
+	PG::VisualLoggerUtils::DrawStaticMeshComponent(*Snapshot, LogPGPawn.GetCategoryName(), *_PaperGolfMesh, Color);
 }
 
 void APaperGolfPawn::InitDebugDraw()

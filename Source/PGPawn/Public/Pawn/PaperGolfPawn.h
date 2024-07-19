@@ -165,7 +165,7 @@ private:
 	void DoNetworkFlick(const FNetworkFlickParams& Params);
 
 #if ENABLE_VISUAL_LOG
-	void DrawPawn(FVisualLogEntry* Snapshot) const;
+	void DrawPawn(const FColor& Color, FVisualLogEntry* Snapshot = nullptr) const;
 #endif
 
 	void SetCameraForFlick();
