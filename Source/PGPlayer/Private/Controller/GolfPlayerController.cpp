@@ -832,50 +832,21 @@ void AGolfPlayerController::SetCameraToViewPawn(APawn* InPawn)
 {
 	if (!IsValid(InPawn))
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: SetCameraToViewPawn: NULL - skipping directly to spectator controls"),
+		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: SetCameraToViewPawn: NULL - using default player controller view target"),
 			*GetName()
 		);
-
-		SetCameraOwnedBySpectatorPawn(nullptr);
-		return;
 	}
-
-	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: SetCameraToViewPawn: Tracking player pawn %s"),
-		*GetName(),
-		*InPawn->GetName()
-	);
+	else
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: SetCameraToViewPawn: Tracking player pawn %s"),
+			*GetName(),
+			*InPawn->GetName()
+		);
+	}
 
 	// TODO: Consider using SetViewTargetWithBlend
 	// Whatever the InPawn player is seeing, we will also see
-	check(InPawn);
 	SetViewTarget(InPawn);
-
-	GetWorldTimerManager().SetTimer(SpectatorCameraDelayTimer,
-		FTimerDelegate::CreateWeakLambda(this, [this, SpectatorPawn = MakeWeakObjectPtr(InPawn)]()
-		{
-			SetCameraOwnedBySpectatorPawn(SpectatorPawn.Get());
-		}), SpectatorCameraControlsDelay, false);
-}
-
-// TODO: Don't think this does anything as AutoManageActiveCameraTarget needs to be true
-void AGolfPlayerController::SetCameraOwnedBySpectatorPawn(APawn* InPawn)
-{
-	auto MySpectatorPawn = GetSpectatorPawn();
-
-	if (!MySpectatorPawn)
-	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: SetCameraOwnedBySpectatorPawn: InPawn=%s Spectator Pawn is NULL"),
-			*GetName(), *LoggingUtils::GetName(InPawn));
-		return;
-	}
-
-	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: Managing camera target to InPawn=%s with SpectatorPawn=%s"),
-		*GetName(),
-		*LoggingUtils::GetName(InPawn),
-		*LoggingUtils::GetName(MySpectatorPawn)
-	);
-
-	AutoManageActiveCameraTarget(InPawn);
 }
 
 #pragma endregion Turn and spectator logic
@@ -905,7 +876,6 @@ void AGolfPlayerController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 	Category.Add(TEXT("FlickZ"), FString::Printf(TEXT("%.2f"), FlickZ));
 	Category.Add(TEXT("ShotType"), LoggingUtils::GetName(ShotType));
 	Category.Add(TEXT("NextShotTimer"), LoggingUtils::GetBoolString(NextShotTimerHandle.IsValid()));
-	Category.Add(TEXT("SpectatorCameraDelayTimer"), LoggingUtils::GetBoolString(SpectatorCameraDelayTimer.IsValid()));
 
 	Snapshot->Status.Add(Category);
 

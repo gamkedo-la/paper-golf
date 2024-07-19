@@ -127,7 +127,6 @@ private:
 
 	void AddSpectatorPawn(APawn* PawnToSpectate);
 	void SetCameraToViewPawn(APawn* InPawn);
-	void SetCameraOwnedBySpectatorPawn(APawn* InPawn);
 
 	void SetPositionTo(const FVector& Position, const TOptional<FRotator>& OptionalRotation = {});
 
@@ -208,12 +207,6 @@ private:
 	EShotType ShotType{ EShotType::Default };
 
 	FTimerHandle NextShotTimerHandle{};
-
-	FTimerHandle SpectatorCameraDelayTimer{};
-
-	// TODO: Do we want to allow the player to change the camera controls when spectating?
-	UPROPERTY(Category = "Camera | Spectator", EditDefaultsOnly)
-	float SpectatorCameraControlsDelay{ 3.0f };
 
 	UPROPERTY(Transient)
 	TObjectPtr<APaperGolfPawn> PlayerPawn{};
