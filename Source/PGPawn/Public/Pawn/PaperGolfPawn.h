@@ -95,7 +95,7 @@ public:
 	FVector GetFlickDirection() const;
 
 	UFUNCTION(BlueprintPure)
-	FVector GetFlickLocation(float LocationZ, float Accuracy = 1.0f, float Power = 1.0f) const;
+	FVector GetFlickLocation(float LocationZ, float Accuracy = 0.0f, float Power = 1.0f) const;
 
 	UFUNCTION(BlueprintPure)
 	FVector GetFlickForce(EShotType ShotType, float Accuracy, float Power) const;
@@ -237,7 +237,7 @@ private:
 	float PowerAccuracyExp{ 2.0f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty", meta=(ClampMin="0.0"))
-	float LocationAccuracyMultiplier{ 2.0f };
+	float LocationAccuracyMultiplier{ 1.0f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty", meta = (ClampMin = "1.0"))
 	float FlickOffsetZTraceSize{ 5.0f };

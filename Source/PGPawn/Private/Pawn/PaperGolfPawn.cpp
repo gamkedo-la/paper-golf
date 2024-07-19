@@ -175,8 +175,9 @@ FVector APaperGolfPawn::GetFlickLocation(float LocationZ, float Accuracy, float 
 {
 	check(_FlickReference);
 
-	const auto RawLocationAccuracyOffset = (LocationZ <= 0 ? 1.0 : -1.0) * (1 - FMath::Abs(Accuracy)) * LocationAccuracyMultiplier;
-	const auto AccuracyAdjustedLocationZ = LocationZ * (1 + RawLocationAccuracyOffset);
+	const auto RawLocationAccuracyOffset = FMath::Abs(Accuracy) * LocationAccuracyMultiplier;
+	const auto AccuracyAdjustedLocationZ = LocationZ * (1 - 2 * RawLocationAccuracyOffset);
+
 	const auto& FlickTransform = _FlickReference->GetComponentTransform();
 
 	return FlickTransform.TransformPosition(
