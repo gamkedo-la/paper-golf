@@ -1,2 +1,2 @@
-// Copyright Game Salutes. All Rights Reserved.
+// Copyright 2024 Game Salutes and HomeTeam GameDev contributors under GPL-3.0-only.
 

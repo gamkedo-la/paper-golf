@@ -38,4 +38,7 @@ See this great [video](https://www.youtube.com/watch?v=DqqQ_wiWYOw&t=1s) from Ar
 4. Make sure the base generated module builds in VS
 5. Add the module name in the `PrivateDependencyModuleNames` or `PublicDependencyModuleNames` of the Build.cs file of other modules that need to reference this.  Use private unless the module has a public header that includes a header in the dependent module.
 6. Be sure to use `[MODULENAME]_API` on any functions or classes or other symbols that need to be exported in the Public folder in order to be able to reference them from other modules.  If the function or variable is inline then the export declaration is not needed.
-7. 
+
+## License
+
+GPL-3.0-only. See [COPYING](./COPYING)
