@@ -11,6 +11,8 @@
 
 #include "State/GolfPlayerState.h"
 
+#include "Utils/VisualLoggerUtils.h"
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PaperGolfGameModeBase)
 
 APaperGolfGameModeBase::APaperGolfGameModeBase()
@@ -25,6 +27,9 @@ APaperGolfGameModeBase::APaperGolfGameModeBase()
 
 void APaperGolfGameModeBase::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
+	// TODO: May want to do this from the GameInstance Init but then there will only be one giant visual log for whole session
+	PG::VisualLoggerUtils::StartAutomaticRecording();
+
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: InitGame - MapName=%s, Options=%s; DefaultDesiredNumberOfPlayers=%d"), *GetName(), *MapName, *Options, DefaultDesiredNumberOfPlayers);
 
 	Super::InitGame(MapName, Options, ErrorMessage);
@@ -165,6 +170,15 @@ void APaperGolfGameModeBase::BeginPlay()
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: BeginPlay"), *GetName());
 
 	Super::BeginPlay();
+}
+
+void APaperGolfGameModeBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: EndPlay - EndPlayReason=%s"), *GetName(), *UEnum::GetValueAsString(EndPlayReason));
+
+	Super::EndPlay(EndPlayReason);
+
+	PG::VisualLoggerUtils::StopAutomaticRecording();
 }
 
 void APaperGolfGameModeBase::NotifyHoleAboutToStart()

@@ -10,5 +10,6 @@
 namespace PG
 {
 	extern PGCORE_API TAutoConsoleVariable<bool> CShowForces;
+	extern PGCORE_API TAutoConsoleVariable<bool> CAutomaticVisualLoggerRecording;
 }
 #endif

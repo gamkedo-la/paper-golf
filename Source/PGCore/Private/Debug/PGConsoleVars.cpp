@@ -11,6 +11,12 @@ namespace PG
 		false,
 		TEXT("Toggle on/off"),
 		ECVF_Scalability | ECVF_RenderThreadSafe);
+
+	TAutoConsoleVariable<bool> CAutomaticVisualLoggerRecording(
+		TEXT("pg.vislog.autorecord"),
+		true,
+		TEXT("Toggle on/off"),
+		ECVF_Scalability | ECVF_RenderThreadSafe);
 }
 
 #endif

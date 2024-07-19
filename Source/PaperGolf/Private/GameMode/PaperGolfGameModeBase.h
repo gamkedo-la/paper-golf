@@ -55,6 +55,7 @@ public:
 protected:
 	virtual void OnMatchStateSet() override;
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	/*
 	* Called by derived classes to notify when the hole is about to start

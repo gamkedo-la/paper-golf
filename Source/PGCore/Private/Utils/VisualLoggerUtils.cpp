@@ -8,6 +8,16 @@
 #include "Utils/CollisionUtils.h"
 #include "VisualLogger/VisualLogger.h"
 
+#include "Debug/PGConsoleVars.h"
+#include "PGConstants.h"
+
+#include <atomic>
+
+namespace
+{
+	std::atomic_bool bStartedAutomaticVisualLoggerRecording(false);
+}
+
 void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, const UStaticMeshComponent& Component, const FColor& Color)
 {
 	const auto Mesh = Component.GetStaticMesh();
@@ -98,4 +108,26 @@ void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, c
 	}
 }
 
+void PG::VisualLoggerUtils::StartAutomaticRecording()
+{
+#if PG_DEBUG_ENABLED
+
+	const bool bStartRecord = bStartedAutomaticVisualLoggerRecording = CAutomaticVisualLoggerRecording.GetValueOnGameThread();
+
+	if (bStartRecord)
+	{
+		FVisualLogger::Get().SetIsRecordingToFile(true);
+	}
+
+#endif
+}
+
+void PG::VisualLoggerUtils::StopAutomaticRecording()
+{
+	if(bStartedAutomaticVisualLoggerRecording)
+	{
+		FVisualLogger::Get().SetIsRecordingToFile(false);
+		bStartedAutomaticVisualLoggerRecording = false;
+	}
+}
 #endif
