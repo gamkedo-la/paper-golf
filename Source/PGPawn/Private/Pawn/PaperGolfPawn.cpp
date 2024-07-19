@@ -188,7 +188,8 @@ FVector APaperGolfPawn::GetFlickForce(EShotType ShotType, float Accuracy, float 
 	const auto& PerfectShotFlickDirection = GetFlickDirection();
 
 	// Apply accuracy offsets
-	const auto AccuracyOffset = FMath::Sign(Accuracy) * FMath::Pow(Accuracy, PowerAccuracyExp);
+	// It's inverted to get the correct hook and slice behavior
+	const auto AccuracyOffset = -FMath::Sign(Accuracy) * FMath::Pow(Accuracy, PowerAccuracyExp);
 
 	// Transform only the yaw
 	const auto FlickDirectionDeviation = GetActorTransform().TransformVectorNoScale(
