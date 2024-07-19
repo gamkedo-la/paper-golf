@@ -60,6 +60,22 @@ void APaperGolfPawn::DebugDrawCenterOfMass(float DrawTime)
 #endif
 }
 
+FVector APaperGolfPawn::GetCenterOfMassPosition() const
+{
+	if (!ensure(_PaperGolfMesh))
+	{
+		return FVector::ZeroVector;
+	}
+
+	FBodyInstance* Body = _PaperGolfMesh->GetBodyInstance();
+	if (!ensure(Body))
+	{
+		return FVector::ZeroVector;
+	}
+
+	return Body->GetCOMPosition();
+}
+
 bool APaperGolfPawn::IsStuckInPerpetualMotion() const
 {
 	if (States.Num() < NumSamples)
@@ -363,8 +379,10 @@ void APaperGolfPawn::DoFlick(FFlickParams FlickParams)
 	const auto& Location = GetFlickLocation(FlickParams.LocalZOffset, FlickParams.Accuracy, FlickParams.PowerFraction);
 
 #if ENABLE_VISUAL_LOG
+
 	UE_VLOG_LOCATION(this, LogPGPawn, Log, Location, 5.0f, FColor::Green, TEXT("Flick"));
 	UE_VLOG_ARROW(this, LogPGPawn, Log, Location, Location + Impulse, FColor::Green, TEXT("Flick"));
+	UE_VLOG_LOCATION(this, LogPGPawn, Log, GetCenterOfMassPosition(), 5.0f, FColor::Yellow, TEXT("COM"));
 
 	if (FVisualLogger::IsRecording())
 	{

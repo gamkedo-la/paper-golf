@@ -154,6 +154,8 @@ private:
 	void InitDebugDraw();
 	void CleanupDebugDraw();
 
+	FVector GetCenterOfMassPosition() const;
+
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerFlick(const FNetworkFlickParams& Params);
 
