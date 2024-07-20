@@ -27,6 +27,7 @@ public class PaperGolf : ModuleRules
 
             // Engine modules
             "AIModule",
+            "MoviePlayer", // Loading Screen
         });
 
         CppStandard = CppStandardVersion.Cpp20;
