@@ -1,0 +1,3 @@
+Begin Object Class=/Script/Engine.SoundAttenuation Name="ATN_Default" ExportPath="/Script/Engine.SoundAttenuation'/Game/Audio/ATN_Default.ATN_Default'"
+   Attenuation=(DistanceAlgorithm=Logarithmic,AttenuationShapeExtents=(X=1000.000000,Y=0.000000,Z=0.000000),FalloffDistance=50000.000000)
+End Object
