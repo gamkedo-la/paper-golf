@@ -99,6 +99,15 @@ protected:
 	// Called on both clients and server via a rep notify
 	virtual void SetPawn(APawn* InPawn) override;
 
+	UFUNCTION(BlueprintImplementableEvent)
+	void BlueprintActivateTurn();
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void BlueprintSpectate(APaperGolfPawn* InPawn);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void BlueprintResetShot();
+
 private:
 
 	void DetermineShotType();

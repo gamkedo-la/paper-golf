@@ -76,8 +76,9 @@ void AGolfPlayerController::ResetShot()
 
 	ResetFlickZ();
 	DetermineShotType();
-}
 
+	BlueprintResetShot();
+}
 
 void AGolfPlayerController::DetermineShotType()
 {
@@ -732,6 +733,8 @@ void AGolfPlayerController::DoActivateTurn()
 	bTurnActivated = true;
 
 	PaperGolfPawn->SetReadyForShot(true);
+
+	BlueprintActivateTurn();
 }
 
 bool AGolfPlayerController::ShouldEnableInputForActivateTurn() const
@@ -803,6 +806,8 @@ void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn
 	SetInputEnabled(false);
 	bTurnActivated = false;
 	GolfControllerCommonComponent->EndTurn();
+
+	BlueprintSpectate(InPawn);
 }
 
 void AGolfPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
