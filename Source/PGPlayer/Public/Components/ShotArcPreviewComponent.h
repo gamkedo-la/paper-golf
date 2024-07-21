@@ -77,8 +77,14 @@ private:
 	UPROPERTY(Category = "Shot Arc", EditDefaultsOnly)
 	float HitRadiusSize{ 100.0f };
 
+	/*
+	* Minimum Z distance above player to display the shot power text.
+	*/
 	UPROPERTY(Category = "Shot Arc | Power", EditDefaultsOnly)
-	float ShotPowerZLocationOffset{ 200.0f };
+	float ShotPowerZMinLocationOffset{ 200.0f };
+
+	UPROPERTY(Category = "Shot Arc | Power", EditDefaultsOnly)
+	int32 ShotPowerDesiredTextPointIndex{ 4 };
 
 	UPROPERTY(Category = "Shot Arc | Power", EditDefaultsOnly)
 	float ShotPowerTextSize{ 50.0f };

@@ -138,7 +138,7 @@ void UShotArcPreviewComponent::RegisterPowerText(const APaperGolfPawn& Pawn)
 
 	PowerText->RegisterComponent();
 	PowerText->SetTextRenderColor(ShotPowerColor.ToFColor(true));
-	PowerText->SetWorldSize(50.0f);
+	PowerText->SetWorldSize(ShotPowerTextSize);
 	PowerText->AttachToComponent(NewParent, FAttachmentTransformRules::KeepRelativeTransform);
 }
 
@@ -197,21 +197,18 @@ FVector UShotArcPreviewComponent::GetPowerFractionTextLocation(const APaperGolfP
 	const auto& PathData = PredictResult.PathData;
 	const auto& PawnLocation = Pawn.GetActorLocation();
 
-	FVector Location;
+	const auto MinZ = PawnLocation.Z + ShotPowerZMinLocationOffset;
 
-	if (!PathData.IsEmpty())
+	if (PathData.IsEmpty())
 	{
-		// Place at midpoint
-		const auto Index = PathData.Num() >> 1;
-		Location = PathData[Index].Location;
-	}
-	else
-	{
-		Location = PawnLocation;
+		// Set Z height to be PawnLocation + fixed value
+		return FVector{ PawnLocation.X, PawnLocation.Y, MinZ };
 	}
 
-	// Set Z height to be PawnLocation + fixed value
-	Location.Z = PawnLocation.Z + ShotPowerZLocationOffset;
+	// Place at desired index with Z offseted
+	const auto Index = FMath::Min(ShotPowerDesiredTextPointIndex, PathData.Num() - 1);
+	FVector Location = PathData[Index].Location;
+	Location.Z = FMath::Max(Location.Z * 0.5f, MinZ);
 
 	return Location;
 }
