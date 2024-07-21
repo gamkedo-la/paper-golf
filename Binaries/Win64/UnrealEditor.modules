@@ -1,0 +1,13 @@
+{
+	"BuildId": "33043543",
+	"Modules": 
+	{
+		"PGAI": "UnrealEditor-PGAI.dll",
+		"PGCore": "UnrealEditor-PGCore.dll",
+		"PGGameplay": "UnrealEditor-PGGameplay.dll",
+		"PGPawn": "UnrealEditor-PGPawn.dll",
+		"PGPlayer": "UnrealEditor-PGPlayer.dll",
+		"PGUI": "UnrealEditor-PGUI.dll",
+		"PaperGolf": "UnrealEditor-PaperGolf.dll"
+	}
+}
