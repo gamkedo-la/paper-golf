@@ -29,4 +29,7 @@ public:
 	
 	UFUNCTION(BlueprintPure, BlueprintImplementableEvent, Category = "Shot")
 	float GetMeterPower() const;
+
+	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = "Shot")
+	void SetTargetPower(float PowerFraction);
 };

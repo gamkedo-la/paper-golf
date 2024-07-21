@@ -17,8 +17,9 @@
 
 #include "Kismet/GameplayStatics.h"
 
-#include UE_INLINE_GENERATED_CPP_BY_NAME(ShotArcPreviewComponent)
+#include "Components/TextRenderComponent.h"
 
+#include UE_INLINE_GENERATED_CPP_BY_NAME(ShotArcPreviewComponent)
 
 UShotArcPreviewComponent::UShotArcPreviewComponent()
 {
@@ -48,7 +49,17 @@ void UShotArcPreviewComponent::ShowShotArc(const FFlickParams& FlickParams)
 
 void UShotArcPreviewComponent::BeginPlay()
 {
+	UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: BeginPlay"), *GetName());
 	Super::BeginPlay();
+}
+
+void UShotArcPreviewComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: EndPlay"), *GetName());
+
+	Super::EndPlay(EndPlayReason);
+
+	UnregisterPowerText();
 }
 
 void UShotArcPreviewComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -78,10 +89,71 @@ void UShotArcPreviewComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 
 bool UShotArcPreviewComponent::NeedsToRecalculateArc(const APaperGolfPawn& Pawn, const FFlickParams& FlickParams) const
 {
-	// Not using accuracy or power at moment, both are at 100%
 	return ShotType != FlickParams.ShotType ||
 		   !FMath::IsNearlyEqual(LocalZOffset, FlickParams.LocalZOffset) ||
+		   !FMath::IsNearlyEqual(PowerFraction, FlickParams.PowerFraction) ||
 		   !Pawn.GetActorTransform().EqualsNoScale(LastCalculatedTransform);
+}
+
+void UShotArcPreviewComponent::HidePowerText()
+{
+	if (!PowerText)
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: HidePowerText"), *GetName());
+
+	PowerText->SetVisibility(false);
+}
+
+void UShotArcPreviewComponent::ShowPowerText()
+{
+	if (!ensure(PowerText))
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: ShowPowerText: %s"), *GetName(), *PowerText->Text.ToString());
+
+	PowerText->SetVisibility(true);
+}
+
+void UShotArcPreviewComponent::RegisterPowerText(const APaperGolfPawn& Pawn)
+{
+	auto NewParent = Pawn.GetRootComponent();
+
+	// Seems need to create it with the right parent component from the start; otherwise, it doesn't show up
+	if (PowerText)
+	{
+		if (PowerText->GetAttachmentRoot() == NewParent)
+		{
+			return;
+		}
+
+		UnregisterPowerText();
+	}
+
+	PowerText = NewObject<UTextRenderComponent>(const_cast<APaperGolfPawn*>(&Pawn));
+
+	PowerText->RegisterComponent();
+	PowerText->SetTextRenderColor(ShotPowerColor.ToFColor(true));
+	PowerText->SetWorldSize(50.0f);
+	PowerText->AttachToComponent(NewParent, FAttachmentTransformRules::KeepRelativeTransform);
+}
+
+void UShotArcPreviewComponent::UnregisterPowerText()
+{
+	if (!PowerText)
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: UnregisterPowerText"), *GetName());
+
+	PowerText->DetachFromParent();
+	PowerText->UnregisterComponent();
+	PowerText = nullptr;
 }
 
 void UShotArcPreviewComponent::CalculateShotArc(const APaperGolfPawn& Pawn, const FFlickParams& FlickParams)
@@ -112,6 +184,57 @@ void UShotArcPreviewComponent::CalculateShotArc(const APaperGolfPawn& Pawn, cons
 	{
 		ArcPoints.Add(Result.HitResult.ImpactPoint);
 	}
+
+	ShotType = FlickParams.ShotType;
+	LocalZOffset = FlickParams.LocalZOffset;
+	PowerFraction = FlickParams.PowerFraction;
+
+	UpdatePowerText(Pawn, Result);
+}
+
+FVector UShotArcPreviewComponent::GetPowerFractionTextLocation(const APaperGolfPawn& Pawn, const FPredictProjectilePathResult& PredictResult) const
+{
+	const auto& PathData = PredictResult.PathData;
+	const auto& PawnLocation = Pawn.GetActorLocation();
+
+	FVector Location;
+
+	if (!PathData.IsEmpty())
+	{
+		// Place at midpoint
+		const auto Index = PathData.Num() >> 1;
+		Location = PathData[Index].Location;
+	}
+	else
+	{
+		Location = PawnLocation;
+	}
+
+	// Set Z height to be PawnLocation + fixed value
+	Location.Z = PawnLocation.Z + ShotPowerZLocationOffset;
+
+	return Location;
+}
+
+void UShotArcPreviewComponent::UpdatePowerText(const APaperGolfPawn& Pawn, const FPredictProjectilePathResult& PredictResult)
+{
+	RegisterPowerText(Pawn);
+
+	const auto Location = GetPowerFractionTextLocation(Pawn, PredictResult);
+
+	// Face Camera
+	if (auto PlayerController = Cast<APlayerController>(Pawn.GetController()); PlayerController && PlayerController->PlayerCameraManager)
+	{
+		const auto CameraLocation = PlayerController->PlayerCameraManager->GetCameraLocation();
+
+		// This is backwards from what is expected but doing it to Location makes the text backwards
+		const auto ToCamera = CameraLocation - Location;
+
+		PowerText->SetWorldRotation(ToCamera.ToOrientationRotator());
+	}
+
+	PowerText->SetWorldLocation(Location);
+	PowerText->SetText(FText::FromString(FString::Printf(TEXT("%d %%"), FMath::RoundToInt32(PowerFraction * 100))));
 }
 
 void UShotArcPreviewComponent::DoShowShotArc()
@@ -120,6 +243,8 @@ void UShotArcPreviewComponent::DoShowShotArc()
 
 	bVisible = true;
 	SetComponentTickEnabled(true);
+
+	ShowPowerText();
 }
 
 void UShotArcPreviewComponent::HideShotArc()
@@ -128,4 +253,6 @@ void UShotArcPreviewComponent::HideShotArc()
 
 	bVisible = false;
 	SetComponentTickEnabled(false);
+
+	HidePowerText();
 }
