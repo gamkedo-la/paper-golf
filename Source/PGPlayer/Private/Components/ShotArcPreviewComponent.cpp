@@ -151,7 +151,7 @@ void UShotArcPreviewComponent::UnregisterPowerText()
 
 	UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: UnregisterPowerText"), *GetName());
 
-	PowerText->DetachFromParent();
+	PowerText->DetachFromComponent( FDetachmentTransformRules { EDetachmentRule::KeepRelative, false });
 	PowerText->UnregisterComponent();
 	PowerText = nullptr;
 }

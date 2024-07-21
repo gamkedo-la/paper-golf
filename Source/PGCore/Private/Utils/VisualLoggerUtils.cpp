@@ -55,7 +55,7 @@ void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, c
 	{
 		for (const auto& BoxElem : AggGeom.BoxElems)
 		{
-			Snapshot.AddElement(
+			Snapshot.AddBox(
 				FBox::BuildAABB(FVector::ZeroVector, FVector{ BoxElem.X, BoxElem.Y, BoxElem.Z }),
 				// BoxElem transform includes the center
 				(BoxElem.GetTransform() * Transform).ToMatrixWithScale(),

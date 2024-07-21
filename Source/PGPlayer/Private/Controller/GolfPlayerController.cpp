@@ -648,6 +648,25 @@ void AGolfPlayerController::SetShotType(EShotType InShotType)
 	ShotType = InShotType;
 }
 
+void AGolfPlayerController::DestroyPawn()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DestroyPawn: %s"), *GetName(), *LoggingUtils::GetName(PlayerPawn));
+
+	if (!IsValid(PlayerPawn))
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: DestroyPawn - PlayerPawn is NULL"), *GetName());
+		return;
+	}
+
+	GolfControllerCommonComponent->DestroyPawn();
+
+	PlayerPawn = nullptr;
+}
+
 #pragma region Turn and spectator logic
 
 void AGolfPlayerController::ActivateTurn()
@@ -854,6 +873,7 @@ void AGolfPlayerController::SetCameraToViewPawn(APawn* InPawn)
 	SetViewTarget(InPawn);
 }
 
+
 #pragma endregion Turn and spectator logic
 
 #pragma region Visual Logger
@@ -922,25 +942,6 @@ void AGolfPlayerController::InitDebugDraw()
 void AGolfPlayerController::CleanupDebugDraw()
 {
 	GetWorldTimerManager().ClearTimer(VisualLoggerTimer);
-}
-
-void AGolfPlayerController::DestroyPawn()
-{
-	if (!HasAuthority())
-	{
-		return;
-	}
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DestroyPawn: %s"), *GetName(), *LoggingUtils::GetName(PlayerPawn));
-
-	if (!IsValid(PlayerPawn))
-	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: DestroyPawn - PlayerPawn is NULL"), *GetName());
-		return;
-	}
-
-	GolfControllerCommonComponent->DestroyPawn();
-
-	PlayerPawn = nullptr;
 }
 
 #else
