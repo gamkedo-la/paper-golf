@@ -50,6 +50,8 @@ private:
 	void RegisterPowerText(const APaperGolfPawn& Pawn);
 	void UnregisterPowerText();
 
+	TOptional<FVector> GetCameraLocation(const APaperGolfPawn& Pawn) const;
+
 private:
 
 	TArray<FVector> ArcPoints;

@@ -156,6 +156,16 @@ void UShotArcPreviewComponent::UnregisterPowerText()
 	PowerText = nullptr;
 }
 
+TOptional<FVector> UShotArcPreviewComponent::GetCameraLocation(const APaperGolfPawn& Pawn) const
+{
+	if (auto PlayerController = Cast<APlayerController>(Pawn.GetController()); PlayerController && PlayerController->PlayerCameraManager)
+	{
+		return PlayerController->PlayerCameraManager->GetCameraLocation();
+	}
+
+	return {};
+}
+
 void UShotArcPreviewComponent::CalculateShotArc(const APaperGolfPawn& Pawn, const FFlickParams& FlickParams)
 {
 	ArcPoints.Reset();
@@ -197,18 +207,26 @@ FVector UShotArcPreviewComponent::GetPowerFractionTextLocation(const APaperGolfP
 	const auto& PathData = PredictResult.PathData;
 	const auto& PawnLocation = Pawn.GetActorLocation();
 
-	const auto MinZ = PawnLocation.Z + ShotPowerZMinLocationOffset;
+	const auto CameraZ = [&]()
+	{
+		if (auto CameraLocationOptional = GetCameraLocation(Pawn); CameraLocationOptional)
+		{
+			return CameraLocationOptional->Z;
+		}
+		
+		return PawnLocation.Z + ShotPowerZMinLocationOffset;
+	}();
 
 	if (PathData.IsEmpty())
 	{
 		// Set Z height to be PawnLocation + fixed value
-		return FVector{ PawnLocation.X, PawnLocation.Y, MinZ };
+		return FVector{ PawnLocation.X, PawnLocation.Y, CameraZ };
 	}
 
 	// Place at desired index with Z offseted
 	const auto Index = FMath::Min(ShotPowerDesiredTextPointIndex, PathData.Num() - 1);
 	FVector Location = PathData[Index].Location;
-	Location.Z = FMath::Max(Location.Z * 0.5f, MinZ);
+	Location.Z = CameraZ;
 
 	return Location;
 }
@@ -220,13 +238,10 @@ void UShotArcPreviewComponent::UpdatePowerText(const APaperGolfPawn& Pawn, const
 	const auto Location = GetPowerFractionTextLocation(Pawn, PredictResult);
 
 	// Face Camera
-	if (auto PlayerController = Cast<APlayerController>(Pawn.GetController()); PlayerController && PlayerController->PlayerCameraManager)
+	if (auto CameraLocationOptional = GetCameraLocation(Pawn); CameraLocationOptional)
 	{
-		const auto CameraLocation = PlayerController->PlayerCameraManager->GetCameraLocation();
-
 		// This is backwards from what is expected but doing it to Location makes the text backwards
-		const auto ToCamera = CameraLocation - Location;
-
+		const auto ToCamera = *CameraLocationOptional - Location;
 		PowerText->SetWorldRotation(ToCamera.ToOrientationRotator());
 	}
 
