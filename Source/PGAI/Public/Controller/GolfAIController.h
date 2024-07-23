@@ -50,6 +50,8 @@ public:
 
 	virtual void SetPawn(APawn* InPawn) override;
 
+	virtual void ResetForNextHole() override;
+
 protected:
 	virtual AController* AsController() override { return this; }
 

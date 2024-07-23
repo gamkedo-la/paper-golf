@@ -41,6 +41,14 @@ void AGolfAIController::BeginPlay()
 		});
 }
 
+void AGolfAIController::ResetForNextHole()
+{
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ResetForNextHole"), *GetName());
+
+	// TODO: Perform similar logic to begin play to set up the state for a new hole
+	// Will likely call Reset() as part of this function
+}
+
 void AGolfAIController::MarkScored()
 {
 	bScored = true;

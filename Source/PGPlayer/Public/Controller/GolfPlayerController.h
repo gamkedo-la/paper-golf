@@ -70,6 +70,8 @@ public:
 	UFUNCTION(BlueprintPure)
 	virtual EShotType GetShotType() const override;
 
+	virtual void ResetForNextHole() override;
+
 	// TODO: Can we remove UFUNCTION on some of these
 protected:
 	virtual void BeginPlay() override;

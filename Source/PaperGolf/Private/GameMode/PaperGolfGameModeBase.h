@@ -7,6 +7,7 @@
 #include "PaperGolfGameModeBase.generated.h"
 
 class AGolfAIController;
+class UHoleTransitionComponent;
 
 /**
  * 
@@ -53,6 +54,9 @@ public:
 	int32 GetTotalNumberOfPlayers() const;
 
 protected:
+
+	virtual void StartHole(int32 HoleNumber) PURE_VIRTUAL(APaperGolfGameModeBase::StartHole, );
+
 	virtual void OnMatchStateSet() override;
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -97,7 +101,15 @@ private:
 	void StartGame();
 	void StartGameWithDelay();
 
+	UFUNCTION()
+	void OnStartHole(int32 HoleNumber);
+
 private:
+
+private:
+	UPROPERTY(Category = "Components", VisibleDefaultsOnly)
+	TObjectPtr<UHoleTransitionComponent> HoleTransitionComponent{};
+
 	// TODO: Consider making config UPROPERTY versions of these to be set from ini files or overriden from command line on server travel. Maybe can even just add "config" to existing?
 	// Looks like this works but "actor defaults have higher priority then config"
 	// See https://forums.unrealengine.com/t/changing-editable-uproperty-variable-to-be-a-config-variable-is-ignored/413067/6

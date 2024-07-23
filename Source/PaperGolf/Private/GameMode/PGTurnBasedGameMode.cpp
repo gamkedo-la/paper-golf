@@ -45,11 +45,16 @@ void APGTurnBasedGameMode::OnGameStart()
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnGameStart"), *GetName());
 
+	StartHole(1);
+}
+
+void APGTurnBasedGameMode::StartHole(int32 HoleNumber)
+{
 	check(TurnBasedDirectorComponent);
 
 	if (auto GolfState = GetGameState<APaperGolfGameStateBase>(); ensure(GolfState))
 	{
-		GolfState->SetCurrentHoleNumber(1);
+		GolfState->SetCurrentHoleNumber(HoleNumber);
 		TurnBasedDirectorComponent->StartHole();
 	}
 }

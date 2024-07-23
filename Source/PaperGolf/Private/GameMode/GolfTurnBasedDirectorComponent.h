@@ -84,9 +84,6 @@ private:
 	*/
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	bool bSkipHumanPlayers{};
-
-	UPROPERTY(Category = "Config", EditDefaultsOnly)
-	float NextHoleDelay{ 3.0f };
 };
 
 #pragma region Inline Definitions

@@ -11,7 +11,11 @@
 
 #include "State/GolfPlayerState.h"
 
+#include "GameMode/HoleTransitionComponent.h"
+
 #include "Utils/VisualLoggerUtils.h"
+
+#include "Subsystems/GolfEventsSubsystem.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PaperGolfGameModeBase)
 
@@ -23,6 +27,8 @@ APaperGolfGameModeBase::APaperGolfGameModeBase()
 	bStartPlayersAsSpectators = true;
 	
 	AIControllerClass = AGolfAIController::StaticClass();
+
+	HoleTransitionComponent = CreateDefaultSubobject<UHoleTransitionComponent>(TEXT("HoleTransition"));
 }
 
 void APaperGolfGameModeBase::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -165,11 +171,29 @@ void APaperGolfGameModeBase::StartGameWithDelay()
 	World->GetTimerManager().SetTimer(TimerHandle, this, &APaperGolfGameModeBase::StartGame, MatchStartDelayTime, false);
 }
 
+void APaperGolfGameModeBase::OnStartHole(int32 HoleNumber)
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnStartHole - HoleNumber=%d"), *GetName(), HoleNumber);
+
+	StartHole(HoleNumber);
+}
+
 void APaperGolfGameModeBase::BeginPlay()
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: BeginPlay"), *GetName());
 
 	Super::BeginPlay();
+
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return;
+	}
+
+	if (auto GolfEventSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventSubsystem))
+	{
+		GolfEventSubsystem->OnPaperGolfStartHole.AddDynamic(this, &ThisClass::OnStartHole);
+	}
 }
 
 void APaperGolfGameModeBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -212,6 +236,8 @@ AActor* APaperGolfGameModeBase::ChoosePlayerStart_Implementation(AController* Pl
 	// If we wanted to do the latter, we may not even need to override this as can just use tag names like "Amateur, Pro, Expert" and then use
 	// FindPlayerStart("Amateur") which returns an AActor* that we can pass to RestartPlayer(AController*, AActor*) so it uses that player start
 	const auto Actor = Super::ChoosePlayerStart_Implementation(Player);
+
+	// TODO: Use HoleTransitionComponent to choose the player start appropriate to the hole
 
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: ChoosePlayerStart_Implementation - Player=%s; PlayerStart=%s"),
 		*GetName(), *LoggingUtils::GetName(Player), *LoggingUtils::GetName(Actor));

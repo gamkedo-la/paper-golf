@@ -154,7 +154,7 @@ void UGolfTurnBasedDirectorComponent::RegisterEventHandlers()
 		return;
 	}
 
-	if(auto GolfEventSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); GolfEventSubsystem)
+	if(auto GolfEventSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventSubsystem))
 	{
 		GolfEventSubsystem->OnPaperGolfShotFinished.AddDynamic(this, &ThisClass::OnPaperGolfShotFinished);
 		GolfEventSubsystem->OnPaperGolfPawnScored.AddDynamic(this, &ThisClass::OnPaperGolfPlayerScored);
@@ -366,7 +366,6 @@ int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 	return NextPlayer ? NextPlayer->Index : INDEX_NONE;
 }
 
-// TODO: This belongs in a separate component or should instead fire an event that is picked up by the game mode or another component on the game mode
 void UGolfTurnBasedDirectorComponent::NextHole()
 {
 	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Display, TEXT("%s: NextHole"), *GetName());
@@ -376,23 +375,16 @@ void UGolfTurnBasedDirectorComponent::NextHole()
 
 	MarkPlayersFinishedHole();
 
-	// TODO: Adjust once have multiple holes and a way to transition between them
 	auto World = GetWorld();
 	if (!ensure(World))
 	{
 		return;
 	}
 
-	auto Delegate = FTimerDelegate::CreateWeakLambda(this, [this]()
+	if (auto GolfEventSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventSubsystem))
 	{
-		if (auto World = GetWorld(); ensure(World))
-		{
-			World->ServerTravel("?Restart");
-		}
-	});
-
-	FTimerHandle Handle;
-	World->GetTimerManager().SetTimer(Handle, Delegate, NextHoleDelay, false);
+		GolfEventSubsystem->OnPaperGolfNextHole.Broadcast();
+	}
 }
 
 void UGolfTurnBasedDirectorComponent::InitializePlayersForHole()

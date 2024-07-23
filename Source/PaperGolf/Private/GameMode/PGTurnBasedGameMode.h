@@ -22,6 +22,9 @@ public:
 	virtual void Logout(AController* Exiting) override;
 
 protected:
+
+	virtual void StartHole(int32 HoleNumber) override;
+
 	virtual void OnPostLogin(AController* NewPlayer) override;
 
 	virtual void OnGameStart() override;
@@ -33,4 +36,5 @@ protected:
 private:
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly)
 	TObjectPtr<UGolfTurnBasedDirectorComponent> TurnBasedDirectorComponent{};
+
 };
