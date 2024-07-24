@@ -36,17 +36,28 @@ void AGolfAIController::BeginPlay()
 	bCanFlick = false;
 
 	DoBeginPlay([this](auto& GolfSubsystem)
-		{
-			GolfSubsystem.OnPaperGolfPawnClippedThroughWorld.AddDynamic(this, &ThisClass::OnFellThroughFloor);
-		});
+	{
+		GolfSubsystem.OnPaperGolfPawnClippedThroughWorld.AddDynamic(this, &ThisClass::OnFellThroughFloor);
+	});
 }
 
-void AGolfAIController::ResetForNextHole()
+void AGolfAIController::Reset()
 {
-	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ResetForNextHole"), *GetName());
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: Reset"), *GetName());
 
-	// TODO: Perform similar logic to begin play to set up the state for a new hole
-	// Will likely call Reset() as part of this function
+	Super::Reset();
+
+	ShotType = EShotType::Default;
+	PlayerPawn = nullptr;
+
+	bTurnActivated = false;
+	bCanFlick = false;
+	bOutOfBounds = false;
+	bScored = false;
+
+	check(GolfControllerCommonComponent);
+
+	GolfControllerCommonComponent->Reset();
 }
 
 void AGolfAIController::MarkScored()

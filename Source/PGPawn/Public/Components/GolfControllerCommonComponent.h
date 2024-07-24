@@ -59,6 +59,8 @@ public:
 
 	void EndTurn();
 
+	void Reset();
+
 	// TODO: Visual Logger grab debug snapshot function to be called from controllers
 
 protected:

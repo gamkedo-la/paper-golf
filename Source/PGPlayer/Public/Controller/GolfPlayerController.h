@@ -70,7 +70,7 @@ public:
 	UFUNCTION(BlueprintPure)
 	virtual EShotType GetShotType() const override;
 
-	virtual void ResetForNextHole() override;
+	virtual void Reset() override;
 
 	// TODO: Can we remove UFUNCTION on some of these
 protected:
@@ -109,6 +109,8 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void BlueprintResetShot();
+
+	virtual void ClientReset_Implementation() override;
 
 private:
 
@@ -179,6 +181,8 @@ private:
 	virtual UGolfControllerCommonComponent* GetGolfControllerCommonComponent() override;
 	virtual void DoAdditionalOnShotFinished() override;
 	virtual void DoAdditionalFallThroughFloor() override;
+
+	void DoReset();
 
 	bool IsLocalClient() const;
 	bool IsLocalServer() const;

@@ -45,8 +45,6 @@ public:
 
 	virtual EShotType GetShotType() const = 0;
 
-	virtual void ResetForNextHole() = 0;
-
 	FString ToString() const;
 
 	AGolfPlayerState* GetGolfPlayerState();

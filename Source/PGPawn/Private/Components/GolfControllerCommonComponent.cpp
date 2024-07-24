@@ -616,3 +616,12 @@ void UGolfControllerCommonComponent::EndTurn()
 
 	UnregisterShotFinishedTimer();
 }
+
+void UGolfControllerCommonComponent::Reset()
+{
+	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: Reset"),
+		*GetName(), *LoggingUtils::GetName(GetOwner()));
+
+	ShotHistory.Reset();
+	InitFocusableActors();
+}

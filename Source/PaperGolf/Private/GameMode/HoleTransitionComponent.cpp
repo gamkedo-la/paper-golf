@@ -184,7 +184,13 @@ void UHoleTransitionComponent::ResetGameStateForNextHole()
 {
 	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: ResetGameStateForNextHole"), *GetName());
 
-	// TODO: Call appropriate reset functions on game state, player state, and controllers to prepare the next hole to launch
+	if (!ensure(GameMode))
+	{
+		return;
+	}
+
+	// This will call reset on all the appropriate actors
+	GameMode->ResetLevel();
 }
 
 AActor* UHoleTransitionComponent::ChoosePlayerStart(AController* Player)

@@ -50,12 +50,24 @@ AGolfPlayerController::AGolfPlayerController()
 	GolfControllerCommonComponent = CreateDefaultSubobject<UGolfControllerCommonComponent>(TEXT("GolfControllerCommon"));
 }
 
-void AGolfPlayerController::ResetForNextHole()
+void AGolfPlayerController::DoReset()
 {
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ResetForNextHole"), *GetName());
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DoReset"), *GetName());
 
-	// TODO: Perform similar logic to begin play to set up the state for a new hole
-	// Will likely call Reset() as part of this function
+	FlickZ = 0.f;
+	ShotType = EShotType::Default;
+	TotalRotation = FRotator::ZeroRotator;
+	PlayerPawn = nullptr;
+
+	bTurnActivated = false;
+	bCanFlick = false;
+	bOutOfBounds = false;
+	bScored = false;
+	bInputEnabled = true; // this is the default constructor value
+
+	check(GolfControllerCommonComponent);
+
+	GolfControllerCommonComponent->Reset();
 }
 
 void AGolfPlayerController::ResetForCamera()
@@ -368,6 +380,27 @@ void AGolfPlayerController::DoAdditionalFallThroughFloor()
 			*GetName(), *PaperGolfPawn->GetName(), *PaperGolfPawn->GetActorLocation().ToCompactString());
 
 		ClientSetTransformTo(PaperGolfPawn->GetActorLocation(), PaperGolfPawn->GetActorRotation());
+	}
+}
+
+void AGolfPlayerController::Reset()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: Reset"), *GetName());
+
+	Super::Reset();
+
+	DoReset();
+}
+
+void AGolfPlayerController::ClientReset_Implementation()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: Reset"), *GetName());
+	
+	Super::ClientReset_Implementation();
+
+	if (IsLocalServer())
+	{
+		return;
 	}
 }
 
