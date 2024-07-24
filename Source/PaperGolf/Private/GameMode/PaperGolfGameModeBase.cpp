@@ -184,10 +184,7 @@ void APaperGolfGameModeBase::OnCourseComplete()
 	{
 		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnCourseComplete - bRestartGameOnCourseComplete = TRUE - Restarting the map"), *GetName());
 
-		if (auto World = GetWorld(); ensure(World))
-		{
-			World->ServerTravel("?Restart");
-		}
+		RestartGame();
 	}
 	else
 	{
