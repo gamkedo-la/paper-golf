@@ -104,6 +104,9 @@ private:
 	UFUNCTION()
 	void OnStartHole(int32 HoleNumber);
 
+	UFUNCTION()
+	void OnCourseComplete();
+
 private:
 
 private:
@@ -132,6 +135,12 @@ private:
 
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	float MatchStartDelayTime{ 1.0f };
+
+	/*
+	* Indicates if the game should cycle back to hole 1 when the course is complete.
+	*/
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	bool bRestartGameOnCourseComplete{ true };
 
 	int32 DesiredNumberOfPlayers{};
 	int32 DesiredNumberOfBotPlayers{};

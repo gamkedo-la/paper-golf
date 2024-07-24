@@ -178,6 +178,25 @@ void APaperGolfGameModeBase::OnStartHole(int32 HoleNumber)
 	StartHole(HoleNumber);
 }
 
+void APaperGolfGameModeBase::OnCourseComplete()
+{
+	if (bRestartGameOnCourseComplete)
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnCourseComplete - bRestartGameOnCourseComplete = TRUE - Restarting the map"), *GetName());
+
+		if (auto World = GetWorld(); ensure(World))
+		{
+			World->ServerTravel("?Restart");
+		}
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnCourseComplete - Returning to Main Menu Host"), *GetName());
+
+		ReturnToMainMenuHost();
+	}
+}
+
 void APaperGolfGameModeBase::BeginPlay()
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: BeginPlay"), *GetName());
@@ -193,6 +212,7 @@ void APaperGolfGameModeBase::BeginPlay()
 	if (auto GolfEventSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventSubsystem))
 	{
 		GolfEventSubsystem->OnPaperGolfStartHole.AddDynamic(this, &ThisClass::OnStartHole);
+		GolfEventSubsystem->OnPaperGolfCourseComplete.AddDynamic(this, &ThisClass::OnCourseComplete);
 	}
 }
 

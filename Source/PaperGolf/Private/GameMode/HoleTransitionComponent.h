@@ -8,7 +8,7 @@
 
 class APaperGolfGameStateBase;
 class AGolfPlayerStart;
-
+class AGolfHole;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class UHoleTransitionComponent : public UActorComponent
@@ -28,10 +28,16 @@ private:
 
 	void Init();
 	void InitCachedData();
+	void InitPlayerStarts();
+	void InitHoles();
 	void RegisterEventHandlers();
+
+	void ResetGameStateForNextHole();
 
 	UFUNCTION()
 	void OnNextHole();
+
+	void OnNextHoleTimer();
 
 #if WITH_EDITOR
 	APlayerStart* FindPlayFromHereStart(AController* Player);
@@ -49,4 +55,10 @@ private:
 
 	UPROPERTY(Transient)
 	TArray<AGolfPlayerStart*> RelevantPlayerStarts{};
+
+	UPROPERTY(Transient)
+	TArray<AGolfHole*> GolfHoles{};
+
+	// Start at 0 since the first hole loads automatically from the game mode
+	int32 LastHoleIndex{};
 };

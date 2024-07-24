@@ -21,6 +21,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPaperGolfPawnClippedThroughWorld,
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPaperGolfPawnScored, APaperGolfPawn*, PaperGolfPawn);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPaperGolfShotFinished, APaperGolfPawn*, PaperGolfPawn);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPaperGolfNextHole);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPaperGolfCourseComplete);
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPaperGolfStartHole, int32, HoleNumber);
 
 /**
@@ -49,4 +51,7 @@ public:
 
 	UPROPERTY(Category = "Notification", Transient, BlueprintAssignable)
 	FOnPaperGolfStartHole OnPaperGolfStartHole;
+
+	UPROPERTY(Category = "Notification", Transient, BlueprintAssignable)
+	FOnPaperGolfCourseComplete OnPaperGolfCourseComplete;
 };

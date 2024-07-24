@@ -22,6 +22,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Hole", meta = (DefaultToSelf = "WorldContextObject"))
 	static AGolfHole* GetCurrentHole(const UObject* WorldContextObject);
 
+	UFUNCTION(BlueprintPure, Category = "Hole", meta = (DefaultToSelf = "WorldContextObject"))
+	static TArray<AGolfHole*> GetAllWorldHoles(const UObject* WorldContextObject, bool bSort = true);
+
 protected:
 	UFUNCTION(BlueprintCallable)
 	void SetCollider(UPrimitiveComponent* Collider);

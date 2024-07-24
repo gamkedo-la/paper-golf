@@ -43,23 +43,7 @@ AGolfHole* AGolfHole::GetCurrentHole(const UObject* WorldContextObject)
 		return nullptr;
 	}
 
-	TArray<AActor*> Actors;
-	UGameplayStatics::GetAllActorsOfClass(World, AGolfHole::StaticClass(), Actors);
-
-	TArray<AGolfHole*> GolfHoles;
-	GolfHoles.Reserve(Actors.Num());
-
-	for(auto Actor : Actors)
-	{
-		auto GolfHole = Cast<AGolfHole>(Actor);
-		if(GolfHole)
-		{
-			GolfHoles.Add(GolfHole);
-		}
-	}
-
-	UE_VLOG_UELOG(WorldContextObject, LogPGGameplay, Log, TEXT("%s: GetCurrentHole: Found %d golf hole%s: %s"),
-		*LoggingUtils::GetName(WorldContextObject), GolfHoles.Num(), LoggingUtils::Pluralize(GolfHoles.Num()), *PG::ToStringObjectElements(GolfHoles));
+	const auto GolfHoles = GetAllWorldHoles(WorldContextObject, false);
 
 	check(GameState);
 
@@ -89,6 +73,43 @@ AGolfHole* AGolfHole::GetCurrentHole(const UObject* WorldContextObject)
 	}
 
 	return MatchedGolfHole;
+}
+
+TArray<AGolfHole*> AGolfHole::GetAllWorldHoles(const UObject* WorldContextObject, bool bSort)
+{
+	TArray<AActor*> Actors;
+	UGameplayStatics::GetAllActorsOfClass(WorldContextObject, AGolfHole::StaticClass(), Actors);
+
+	TArray<AGolfHole*> GolfHoles;
+	GolfHoles.Reserve(Actors.Num());
+
+	for (auto Actor : Actors)
+	{
+		auto GolfHole = Cast<AGolfHole>(Actor);
+		if (GolfHole)
+		{
+			GolfHoles.Add(GolfHole);
+		}
+	}
+
+	UE_VLOG_UELOG(WorldContextObject, LogPGGameplay, Log, TEXT("%s: GetAllWorldHoles: Found %d golf hole%s: %s"),
+		*LoggingUtils::GetName(WorldContextObject), GolfHoles.Num(), LoggingUtils::Pluralize(GolfHoles.Num()), *PG::ToStringObjectElements(GolfHoles));
+
+	if (!bSort)
+	{
+		return GolfHoles;
+	}
+
+	// Sort by hole number
+	GolfHoles.Sort([](const AGolfHole& First, const AGolfHole& Second)
+	{
+		return AGolfHole::Execute_GetHoleNumber(&First) < AGolfHole::Execute_GetHoleNumber(&Second);
+	});
+
+	UE_VLOG_UELOG(WorldContextObject, LogPGGameplay, Log, TEXT("%s: GetAllWorldHoles: Sorted Golf holes=%s"),
+		*LoggingUtils::GetName(WorldContextObject), *PG::ToStringObjectElements(GolfHoles));
+
+	return GolfHoles;
 }
 
 void AGolfHole::SetCollider(UPrimitiveComponent* Collider)

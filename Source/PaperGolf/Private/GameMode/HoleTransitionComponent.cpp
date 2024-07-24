@@ -26,6 +26,8 @@
 #include "State/GolfPlayerState.h"
 #include "State/PaperGolfGameStateBase.h"
 
+#include "Golf/GolfHole.h"
+
 #include "PlayerStart/GolfPlayerStart.h"
 #include "GameFramework/PlayerStart.h"
 
@@ -81,6 +83,12 @@ void UHoleTransitionComponent::Init()
 
 void UHoleTransitionComponent::InitCachedData()
 {
+	InitPlayerStarts();
+	InitHoles();
+}
+
+void UHoleTransitionComponent::InitPlayerStarts()
+{
 	RelevantPlayerStarts.Reset();
 
 	for (TObjectIterator<AGolfPlayerStart> Itr; Itr; ++Itr)
@@ -97,12 +105,65 @@ void UHoleTransitionComponent::InitCachedData()
 		RelevantPlayerStarts.Add(*Itr);
 	}
 
-	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: InitCacheddata - Found %d relevant player start%s: %s"),
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: InitPlayerStarts - Found %d relevant player start%s: %s"),
 		*GetName(),
 		RelevantPlayerStarts.Num(),
 		LoggingUtils::Pluralize(RelevantPlayerStarts.Num()),
 		*PG::ToStringObjectElements(RelevantPlayerStarts)
 	);
+}
+
+void UHoleTransitionComponent::InitHoles()
+{
+	GolfHoles = AGolfHole::GetAllWorldHoles(this, true);
+
+	// Make sure all holes are unique and sequential
+
+#if !UE_BUILD_SHIPPING
+
+	AGolfHole* PreviousHole{};
+	int32 PreviousHoleNumber{};
+
+	for(auto It = GolfHoles.CreateIterator(); It; ++It)
+	{
+		auto Hole = *It;
+		if (!ensureMsgf(Hole, TEXT("%s: InitHoles - Found null hole in GolfHoles"), *GetName()))
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: InitHoles - Found null hole in GolfHoles"), *GetName());
+
+			It.RemoveCurrent();
+			continue;
+		}
+
+		const auto HoleNumber = AGolfHole::Execute_GetHoleNumber(Hole);
+		if (!ensureMsgf(HoleNumber > 0, TEXT("%s: InitHoles - Hole %s has invalid hole number %d"), *GetName(), *LoggingUtils::GetName(Hole), HoleNumber))
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: InitHoles - Hole %s has invalid hole number %d"), *GetName(), *LoggingUtils::GetName(Hole), HoleNumber);
+
+			It.RemoveCurrent();
+			continue;
+		}
+
+		if (PreviousHole)
+		{
+			if (!ensureMsgf(HoleNumber == PreviousHoleNumber + 1, TEXT("%s: InitHoles - Hole %s has hole number %d but previous hole %s has hole number %d"),
+				*GetName(), *LoggingUtils::GetName(Hole), HoleNumber, *LoggingUtils::GetName(PreviousHole), PreviousHoleNumber))
+			{
+				UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: InitHoles - Hole %s has hole number %d but previous hole %s has hole number %d"),
+					*GetName(), *LoggingUtils::GetName(Hole), HoleNumber, *LoggingUtils::GetName(PreviousHole), PreviousHoleNumber);
+				// remove duplicate holes but allow gaps
+				if (HoleNumber == PreviousHoleNumber)
+				{
+					It.RemoveCurrent();
+					continue;
+				}
+			}
+		}
+
+		PreviousHole = Hole;
+		PreviousHoleNumber = HoleNumber;
+	} // for
+#endif
 }
 
 void UHoleTransitionComponent::RegisterEventHandlers()
@@ -117,6 +178,13 @@ void UHoleTransitionComponent::RegisterEventHandlers()
 	{
 		GolfEventSubsystem->OnPaperGolfNextHole.AddDynamic(this, &ThisClass::OnNextHole);
 	}
+}
+
+void UHoleTransitionComponent::ResetGameStateForNextHole()
+{
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: ResetGameStateForNextHole"), *GetName());
+
+	// TODO: Call appropriate reset functions on game state, player state, and controllers to prepare the next hole to launch
 }
 
 AActor* UHoleTransitionComponent::ChoosePlayerStart(AController* Player)
@@ -186,17 +254,52 @@ void UHoleTransitionComponent::OnNextHole()
 		return;
 	}
 
-	auto Delegate = FTimerDelegate::CreateWeakLambda(this, [this]()
-		{
-			if (auto World = GetWorld(); ensure(World))
-			{
-				// TODO: broadcast start hole event once find next hole
-				World->ServerTravel("?Restart");
-			}
-		});
+	FTimerHandle TimerHandle;
+	World->GetTimerManager().SetTimer(TimerHandle, this, &ThisClass::OnNextHoleTimer, NextHoleDelay);
+}
 
-	FTimerHandle Handle;
-	World->GetTimerManager().SetTimer(Handle, Delegate, NextHoleDelay, false);
+void UHoleTransitionComponent::OnNextHoleTimer()
+{
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: OnNextHoleTimer"), *GetName());
+
+	// Determine next hole and if we are at the end, broadcast the course complete event
+	if (!ensure(IsValid(GameState)))
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: OnNextHoleTimer - GameState not valid"), *GetName());
+		return;
+	}
+
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return;
+	}
+
+	auto GolfEventSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); 
+	
+	if (!ensure(GolfEventSubsystem))
+	{
+		return;
+	}
+
+	++LastHoleIndex;
+
+	if (LastHoleIndex >= GolfHoles.Num())
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Display, TEXT("%s: OnNextHoleTimer - Course complete"), *GetName());
+
+		GolfEventSubsystem->OnPaperGolfCourseComplete.Broadcast();
+
+		return;
+	}
+
+	const auto NextHoleNumber = AGolfHole::Execute_GetHoleNumber(GolfHoles[LastHoleIndex]);
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Display, TEXT("%s: OnNextHoleTimer - Transitioning to Hole Number=%d"), *GetName(), NextHoleNumber);
+
+	GameState->SetCurrentHoleNumber(NextHoleNumber);
+	ResetGameStateForNextHole();
+
+	GolfEventSubsystem->OnPaperGolfStartHole.Broadcast(NextHoleNumber);
 }
 
 #if WITH_EDITOR
