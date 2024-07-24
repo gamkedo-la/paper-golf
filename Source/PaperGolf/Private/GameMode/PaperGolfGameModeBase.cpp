@@ -235,9 +235,16 @@ AActor* APaperGolfGameModeBase::ChoosePlayerStart_Implementation(AController* Pl
 	// Unless we implement difficulties with different player starts, we can just use the single player start location
 	// If we wanted to do the latter, we may not even need to override this as can just use tag names like "Amateur, Pro, Expert" and then use
 	// FindPlayerStart("Amateur") which returns an AActor* that we can pass to RestartPlayer(AController*, AActor*) so it uses that player start
-	const auto Actor = Super::ChoosePlayerStart_Implementation(Player);
 
-	// TODO: Use HoleTransitionComponent to choose the player start appropriate to the hole
+	check(HoleTransitionComponent);
+	auto Actor = HoleTransitionComponent->ChoosePlayerStart(Player);
+
+	if (!Actor)
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Warning, TEXT("%s: ChoosePlayerStart_Implementation - Player=%s - Using default implementation"),
+			*GetName(), *LoggingUtils::GetName(Player), *LoggingUtils::GetName(Actor));
+		Actor = Super::ChoosePlayerStart_Implementation(Player);
+	}
 
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: ChoosePlayerStart_Implementation - Player=%s; PlayerStart=%s"),
 		*GetName(), *LoggingUtils::GetName(Player), *LoggingUtils::GetName(Actor));

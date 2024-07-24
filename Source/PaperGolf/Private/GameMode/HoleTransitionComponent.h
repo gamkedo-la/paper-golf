@@ -6,6 +6,9 @@
 #include "Components/ActorComponent.h"
 #include "HoleTransitionComponent.generated.h"
 
+class APaperGolfGameStateBase;
+class AGolfPlayerStart;
+
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class UHoleTransitionComponent : public UActorComponent
@@ -19,12 +22,31 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void InitializeComponent() override;
 
 private:
+
+	void Init();
+	void InitCachedData();
+	void RegisterEventHandlers();
+
 	UFUNCTION()
 	void OnNextHole();
+
+#if WITH_EDITOR
+	APlayerStart* FindPlayFromHereStart(AController* Player);
+#endif
 
 private:
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	float NextHoleDelay{ 3.0f };
+
+	UPROPERTY(Transient)
+	TObjectPtr<AGameModeBase> GameMode{};
+
+	UPROPERTY(Transient)
+	TObjectPtr<APaperGolfGameStateBase> GameState{};
+
+	UPROPERTY(Transient)
+	TArray<AGolfPlayerStart*> RelevantPlayerStarts{};
 };

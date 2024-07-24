@@ -26,18 +26,154 @@
 #include "State/GolfPlayerState.h"
 #include "State/PaperGolfGameStateBase.h"
 
+#include "PlayerStart/GolfPlayerStart.h"
+#include "GameFramework/PlayerStart.h"
+
+#include "Engine/PlayerStartPIE.h"
+#include "EngineUtils.h"
+
 
 UHoleTransitionComponent::UHoleTransitionComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
+	bWantsInitializeComponent = true;
+}
+
+void UHoleTransitionComponent::BeginPlay()
+{
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: BeginPlay"), *GetName());
+
+	Super::BeginPlay();
+}
+
+void UHoleTransitionComponent::InitializeComponent()
+{
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: InitializeComponent"), *GetName());
+
+	Super::InitializeComponent();
+
+	Init();
+}
+
+void UHoleTransitionComponent::Init()
+{
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: Init"), *GetName());
+
+	GameMode = Cast<AGameModeBase>(GetOwner());
+	if (!ensureMsgf(GameMode, TEXT("%s: Owner=%s is not AGameModeBase"), *GetName(), *LoggingUtils::GetName(GetOwner())))
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: Owner=%s is not a game mode"), *GetName(), *LoggingUtils::GetName(GetOwner()));
+		return;
+	}
+
+	GameState = Cast<APaperGolfGameStateBase>(GameMode->GameState);
+	if (!ensureMsgf(GameState, TEXT("%s: GameState=%s is not APaperGolfGameStateBase"), *GetName(), *LoggingUtils::GetName(GameMode->GameState)))
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: GameState=%s is not APaperGolfGameStateBase"), *GetName(), *LoggingUtils::GetName(GameMode->GameState));
+		return;
+	}
+
+	check(GetOwner()->HasAuthority());
+
+	InitCachedData();
+	RegisterEventHandlers();
+}
+
+void UHoleTransitionComponent::InitCachedData()
+{
+	RelevantPlayerStarts.Reset();
+
+	for (TObjectIterator<AGolfPlayerStart> Itr; Itr; ++Itr)
+	{
+		// Take first game world - only one instance should exist
+		UWorld* InstanceWorld = Itr->GetWorld();
+
+		//World Check to avoid getting objects from the editor world when doing PIE
+		if (Itr->GetWorld() != GetWorld())
+		{
+			continue;
+		}
+
+		RelevantPlayerStarts.Add(*Itr);
+	}
+
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: InitCacheddata - Found %d relevant player start%s: %s"),
+		*GetName(),
+		RelevantPlayerStarts.Num(),
+		LoggingUtils::Pluralize(RelevantPlayerStarts.Num()),
+		*PG::ToStringObjectElements(RelevantPlayerStarts)
+	);
+}
+
+void UHoleTransitionComponent::RegisterEventHandlers()
+{
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return;
+	}
+
+	if (auto GolfEventSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventSubsystem))
+	{
+		GolfEventSubsystem->OnPaperGolfNextHole.AddDynamic(this, &ThisClass::OnNextHole);
+	}
 }
 
 AActor* UHoleTransitionComponent::ChoosePlayerStart(AController* Player)
 {
-	// TODO: Use GolfPlayerStart and follow implementations in LyraPlayerSpawningManagerComponent.cpp and LyraGameMode for examples of how player starts customized
-	// Also can see ShooterGameMode as well
+	if (!Player)
+	{
+		return nullptr;
+	}
 
-	return nullptr;
+#if WITH_EDITOR
+	if (auto PlayerStart = FindPlayFromHereStart(Player); PlayerStart)
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: ChoosePlayerStart - Using PIE PlayerFromHere PlayerStart=%s"),
+			*GetName(), *LoggingUtils::GetName(PlayerStart));
+		return PlayerStart;
+	}
+#endif
+
+	if (!ensureAlwaysMsgf(GameState, TEXT("%s: ChoosePlayerStart - GameState not initialized - returning nullptr!"), *GetName()))
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: ChoosePlayerStart - GameState not initialized - returning nullptr!"), *GetName());
+		return nullptr;
+	}
+
+	const auto HoleNumber = GameState->GetCurrentHoleNumber();
+
+	auto MatchedPlayerStart = RelevantPlayerStarts.FindByPredicate([HoleNumber](const AGolfPlayerStart* PlayerStart)
+	{
+		return PlayerStart->GetHoleNumber() == HoleNumber;
+	});
+
+	if (!MatchedPlayerStart)
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Warning, TEXT("%s: ChoosePlayerStart - No matching player start found for hole %d out of %d candidate%s - returning nullptr!"),
+			*GetName(), HoleNumber, RelevantPlayerStarts.Num(), LoggingUtils::Pluralize(RelevantPlayerStarts.Num()));
+		return nullptr;
+	}
+
+#if WITH_EDITOR
+	// ensure single match
+	const auto Matches = RelevantPlayerStarts.FilterByPredicate([HoleNumber](const AGolfPlayerStart* PlayerStart)
+	{
+		return PlayerStart->GetHoleNumber() == HoleNumber;
+	});
+
+	if (Matches.Num() != 1)
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Warning, TEXT("%s: ChoosePlayerStart - Multiple matching player starts found for hole %d: %s - returning first match!"),
+			*GetName(), HoleNumber, *PG::ToStringObjectElements(Matches));
+	}
+
+#endif
+
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: ChoosePlayerStart - Matched player start=%s hole %d"),
+		*GetName(), *LoggingUtils::GetName(*MatchedPlayerStart), HoleNumber);
+
+	return *MatchedPlayerStart;
 }
 
 void UHoleTransitionComponent::OnNextHole()
@@ -63,20 +199,29 @@ void UHoleTransitionComponent::OnNextHole()
 	World->GetTimerManager().SetTimer(Handle, Delegate, NextHoleDelay, false);
 }
 
-void UHoleTransitionComponent::BeginPlay()
+#if WITH_EDITOR
+// See LyraPlayerStartComponent.cpp in the Lyra project
+APlayerStart* UHoleTransitionComponent::FindPlayFromHereStart(AController* Player)
 {
-	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: BeginPlay"), *GetName());
-
-	Super::BeginPlay();
-
-	auto World = GetWorld();
-	if (!ensure(World))
+	// Only 'Play From Here' for a player controller, bots etc. should all spawn from normal spawn points.
+	if (Player->IsA<APlayerController>())
 	{
-		return;
+		if (auto World = GetWorld(); ensure(World))
+		{
+			for (TActorIterator<APlayerStart> It(World); It; ++It)
+			{
+				if (auto PlayerStart = *It; PlayerStart)
+				{
+					if (PlayerStart->IsA<APlayerStartPIE>())
+					{
+						// Always prefer the first "Play from Here" PlayerStart, if we find one while in PIE mode
+						return PlayerStart;
+					}
+				}
+			}
+		}
 	}
 
-	if (auto GolfEventSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventSubsystem))
-	{
-		GolfEventSubsystem->OnPaperGolfNextHole.AddDynamic(this, &ThisClass::OnNextHole);
-	}
+	return nullptr;
 }
+#endif
