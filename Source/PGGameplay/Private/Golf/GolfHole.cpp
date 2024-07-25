@@ -16,6 +16,7 @@
 #include "Utils/ArrayUtils.h"
 #include "PGGameplayLogging.h"
 
+
 AGolfHole::AGolfHole()
 {
 	PrimaryActorTick.bCanEverTick = false;
@@ -112,21 +113,27 @@ TArray<AGolfHole*> AGolfHole::GetAllWorldHoles(const UObject* WorldContextObject
 	return GolfHoles;
 }
 
-void AGolfHole::SetCollider(UPrimitiveComponent* Collider)
+void AGolfHole::Reset()
 {
-	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: SetCollider - %s"), *GetName(), *LoggingUtils::GetName(Collider));
+	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: Reset"), *GetName());
 
-	if (!ensureMsgf(Collider, TEXT("%s: SetCollider - Collider is null"), *GetName()))
+	Super::Reset();
+
+	UpdateColliderRegistration();
+}
+
+void AGolfHole::SetCollider(UPrimitiveComponent* InCollider)
+{
+	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: SetCollider - %s"), *GetName(), *LoggingUtils::GetName(InCollider));
+
+	if (!ensureMsgf(InCollider, TEXT("%s: SetCollider - Collider is null"), *GetName()))
 	{
 		return;
 	}
 
-	// Only register ovents on server
-	if (HasAuthority())
-	{
-		Collider->OnComponentBeginOverlap.AddDynamic(this, &AGolfHole::OnComponentBeginOverlap);
-		Collider->OnComponentEndOverlap.AddDynamic(this, &AGolfHole::OnComponentEndOverlap);
-	}
+	Collider = InCollider;
+
+	UpdateColliderRegistration();
 }
 
 void AGolfHole::OnComponentBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -210,4 +217,68 @@ void AGolfHole::ClearTimer()
 	{
 		World->GetTimerManager().ClearTimer(CheckScoredTimerHandle);
 	}
+}
+
+void AGolfHole::UpdateColliderRegistration()
+{
+	// Only register ovents on server
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return;
+	}
+
+	auto GameState = World->GetGameState<APaperGolfGameStateBase>();
+
+	if (!ensureAlwaysMsgf(GameState, TEXT("%s: UpdateColliderRegistration: GameState=%s is not APaperGolfGameStateBase"),
+	   *GetName(), *LoggingUtils::GetName(World->GetGameState())))
+	{
+		UE_VLOG_UELOG(this, LogPGGameplay, Error, TEXT("%s: UpdateColliderRegistration: GameState=%s is not APaperGolfGameStateBase"),
+			*GetName(), *LoggingUtils::GetName(World->GetGameState()));
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: UpdateColliderRegistration: CurrentHole=%d; MyHoleNumber=%d"), *GetName(), GameState->GetCurrentHoleNumber(), HoleNumber);
+ 
+	if (GameState->GetCurrentHoleNumber() == HoleNumber)
+	{
+		RegisterCollider();
+	}
+	else
+	{
+		UnregisterCollider();
+	}
+}
+
+void AGolfHole::RegisterCollider()
+{
+	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: RegisterCollider: %s"), *GetName(), *LoggingUtils::GetName(Collider));
+
+	if (!ensure(IsValid(Collider)))
+	{
+		return;
+	}
+
+	Collider->OnComponentBeginOverlap.AddUniqueDynamic(this, &AGolfHole::OnComponentBeginOverlap);
+	Collider->OnComponentEndOverlap.AddUniqueDynamic(this, &AGolfHole::OnComponentEndOverlap);
+}
+
+void AGolfHole::UnregisterCollider()
+{
+	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: UnregisterCollider: %s"), *GetName(), *LoggingUtils::GetName(Collider));
+
+	ClearTimer();
+
+	if (!IsValid(Collider))
+	{
+		return;
+	}
+
+	Collider->OnComponentBeginOverlap.RemoveDynamic(this, &AGolfHole::OnComponentBeginOverlap);
+	Collider->OnComponentEndOverlap.RemoveDynamic(this, &AGolfHole::OnComponentEndOverlap);
 }

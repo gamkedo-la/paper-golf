@@ -9,3 +9,11 @@ UTutorialTrackingSubsystem::UTutorialTrackingSubsystem()
 {
 	HoleFlybySeen.SetNum(MaxHoles);
 }
+
+void UTutorialTrackingSubsystem::MarkAllHoleFlybysSeen(bool bSeen)
+{
+	for (auto& seen : HoleFlybySeen)
+	{
+		seen = bSeen;
+	}
+}

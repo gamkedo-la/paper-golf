@@ -4,6 +4,10 @@
 #include "State/PaperGolfGameStateBase.h"
 #include "Net/UnrealNetwork.h"
 
+#include "VisualLogger/VisualLogger.h"
+#include "Logging/LoggingUtils.h"
+#include "PGPawnLogging.h"
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PaperGolfGameStateBase)
 
 void APaperGolfGameStateBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -12,4 +16,11 @@ void APaperGolfGameStateBase::GetLifetimeReplicatedProps(TArray<FLifetimePropert
 
 	DOREPLIFETIME(APaperGolfGameStateBase, CurrentHoleNumber);
 	DOREPLIFETIME(APaperGolfGameStateBase, ActivePlayer);
+}
+
+void APaperGolfGameStateBase::OnRep_CurrentHoleNumber()
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_CurrentHoleNumber - CurrentHoleNumber=%d"), *GetName(), CurrentHoleNumber);
+
+	OnHoleChanged.Broadcast(CurrentHoleNumber);
 }

@@ -28,7 +28,12 @@ public:
 	void MarkTutorialSeen();
 
 	UFUNCTION(BlueprintCallable)
-	void MarkHoleFlybySeen(int32 HoleNumber);
+	void MarkHoleFlybySeen(int32 HoleNumber, bool bSeen = true);
+
+	UFUNCTION(BlueprintCallable)
+	void MarkAllHoleFlybysSeen(bool bSeen);
+
+private:
 
 private:
 
@@ -59,14 +64,14 @@ FORCEINLINE void UTutorialTrackingSubsystem::MarkTutorialSeen()
 	bTutorialSeen = true;
 }
 
-FORCEINLINE void UTutorialTrackingSubsystem::MarkHoleFlybySeen(int32 HoleNumber)
+FORCEINLINE void UTutorialTrackingSubsystem::MarkHoleFlybySeen(int32 HoleNumber, bool bSeen)
 {
 	if (!ensureAlwaysMsgf(HoleNumber > 0 && HoleNumber <= MaxHoles, TEXT("HoleNumber=%d must be between 1 and 18"), HoleNumber))
 	{
 		HoleNumber = FMath::Clamp(HoleNumber, 1, MaxHoles);
 	}
 
-	HoleFlybySeen[HoleNumber - 1] = true;
+	HoleFlybySeen[HoleNumber - 1] = bSeen;
 }
 
 #pragma endregion Inline Definitions

@@ -53,6 +53,20 @@ void UGolfControllerCommonComponent::BeginPlay()
 	{
 		FTimerHandle InitTimerHandle;
 		World->GetTimerManager().SetTimer(InitTimerHandle, this, &ThisClass::InitFocusableActors, 0.2f);
+
+		// If not server, then have to listen for when game state changes holes so that we can init the focus actors correctly
+		if (!GetOwner()->HasAuthority())
+		{
+			auto GameState = World->GetGameState<APaperGolfGameStateBase>();
+			if (!ensureAlwaysMsgf(GameState, TEXT("%s-%s - BeginPlay: GameState=%s is not APaperGolfGameStateBase"),
+				*GetName(), *LoggingUtils::GetName(GetOwner()), *LoggingUtils::GetName(World->GetGameState())))
+			{
+				UE_VLOG_UELOG(GetOwner(), LogPGPawn, Error, TEXT("%s-%s - BeginPlay: GameState=%s is not APaperGolfGameStateBase"),
+					*GetName(), *LoggingUtils::GetName(GetOwner()), *LoggingUtils::GetName(World->GetGameState()));
+			}
+
+			GameState->OnHoleChanged.AddUObject(this, &ThisClass::OnHoleChanged);
+		}
 	}
 }
 
@@ -468,6 +482,15 @@ void UGolfControllerCommonComponent::InitFocusableActors()
 		return;
 	}
 
+	const auto HoleNumber = GameState->GetCurrentHoleNumber();
+
+	if (HoleNumber == LastHoleNumber)
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: InitFocusableActors - HoleNumber=%d is unchanged. Skipping."),
+			*GetName(), *LoggingUtils::GetName(GetOwner()), HoleNumber);
+		return;
+	}
+
 	FocusableActors.Reset();
 	GolfHole = nullptr;
 
@@ -477,7 +500,6 @@ void UGolfControllerCommonComponent::InitFocusableActors()
 	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: InitFocusableActors - Found %d instances of UFocusableActor in world: %s"),
 		*GetName(), *LoggingUtils::GetName(GetOwner()), InterfaceActors.Num(), *PG::ToStringObjectElements(InterfaceActors));
 
-	const auto HoleNumber = GameState->GetCurrentHoleNumber();
 
 	for (auto Actor : InterfaceActors)
 	{
@@ -532,6 +554,8 @@ void UGolfControllerCommonComponent::InitFocusableActors()
 
 	ensureMsgf(GolfHole, TEXT("%s: InitFocusableActors - No relevant AGolfHole in world for hole focus. No aim targeting will occur."),
 		*GetName());
+
+	LastHoleNumber = HoleNumber;
 }
 
 bool UGolfControllerCommonComponent::HasLOSToFocus(const FVector& Position, const AActor* FocusActor) const
@@ -599,6 +623,14 @@ bool UGolfControllerCommonComponent::HasLOSToFocus(const FVector& Position, cons
 #endif
 
 	return bLOS;
+}
+
+void UGolfControllerCommonComponent::OnHoleChanged(int32 HoleNumber)
+{
+	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: OnHoleChanged - HoleNumber=%d"),
+		*GetName(), *LoggingUtils::GetName(GetOwner()), HoleNumber);
+
+	InitFocusableActors();
 }
 
 void UGolfControllerCommonComponent::BeginTurn()

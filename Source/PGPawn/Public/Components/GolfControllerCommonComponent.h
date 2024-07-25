@@ -79,6 +79,8 @@ private:
 
 	bool HasLOSToFocus(const FVector& Position, const AActor* FocusActor) const;
 
+	void OnHoleChanged(int32 HoleNumber);
+
 private:
 	TArray<FShotHistory> ShotHistory{};
 
@@ -102,6 +104,8 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Correction")
 	float FallThroughFloorCorrectionTestZ{ 1000.0f };
+
+	int32 LastHoleNumber{};
 
 	FTimerHandle NextShotTimerHandle{};
 

@@ -401,7 +401,7 @@ void AGolfPlayerController::Reset()
 
 void AGolfPlayerController::ClientReset_Implementation()
 {
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: Reset"), *GetName());
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientReset_Implementation"), *GetName());
 	
 	Super::ClientReset_Implementation();
 
@@ -409,6 +409,8 @@ void AGolfPlayerController::ClientReset_Implementation()
 	{
 		return;
 	}
+
+	DoReset();
 }
 
 void AGolfPlayerController::ProcessShootInput()

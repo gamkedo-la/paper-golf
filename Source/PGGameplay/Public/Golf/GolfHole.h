@@ -25,9 +25,11 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Hole", meta = (DefaultToSelf = "WorldContextObject"))
 	static TArray<AGolfHole*> GetAllWorldHoles(const UObject* WorldContextObject, bool bSort = true);
 
+	virtual void Reset() override;
+
 protected:
 	UFUNCTION(BlueprintCallable)
-	void SetCollider(UPrimitiveComponent* Collider);
+	void SetCollider(UPrimitiveComponent* InCollider);
 
 private:
 
@@ -46,10 +48,18 @@ private:
 
 	void ClearTimer();
 
+	void UpdateColliderRegistration();
+
+	void RegisterCollider();
+	void UnregisterCollider();
+
 private:
 	FTimerHandle CheckScoredTimerHandle{};
 
 	TWeakObjectPtr<APaperGolfPawn> OverlappingPaperGolfPawn{};
+
+	UPROPERTY(Transient)
+	TObjectPtr<UPrimitiveComponent> Collider{};
 
 	UPROPERTY(EditAnywhere, Category = "Config")
 	int32 HoleNumber{};
