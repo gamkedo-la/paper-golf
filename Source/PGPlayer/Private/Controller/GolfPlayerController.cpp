@@ -68,6 +68,14 @@ void AGolfPlayerController::DoReset()
 	check(GolfControllerCommonComponent);
 
 	GolfControllerCommonComponent->Reset();
+
+	if (IsLocalController())
+	{
+		if (auto HUD = GetHUD<APGHUD>(); ensure(HUD))
+		{
+			HUD->RemoveActiveMessageWidget();
+		}
+	}
 }
 
 void AGolfPlayerController::ResetForCamera()
@@ -167,7 +175,6 @@ void AGolfPlayerController::OnScored()
 	{
 		if (auto HUD = GetHUD<APGHUD>(); ensure(HUD))
 		{
-			// Won't be present on non-locally controlled player
 			HUD->DisplayMessageWidget(EMessageWidgetType::HoleFinished);
 		}
 	}
