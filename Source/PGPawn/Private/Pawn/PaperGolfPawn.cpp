@@ -392,6 +392,8 @@ void APaperGolfPawn::DoFlick(FFlickParams FlickParams)
 
 	_PaperGolfMesh->AddImpulseAtLocation(Impulse, Location);
 	_PaperGolfMesh->SetEnableGravity(true);
+
+	OnFlick.Broadcast();
 }
 
 void APaperGolfPawn::DoNetworkFlick(const FNetworkFlickParams& Params)

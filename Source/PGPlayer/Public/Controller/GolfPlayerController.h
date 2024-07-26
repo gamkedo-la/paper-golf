@@ -35,7 +35,7 @@ public:
 #endif
 
 	UFUNCTION(BlueprintCallable)
-	void ResetShot();
+	virtual void ResetShot() override;
 
 	UFUNCTION(BlueprintPure)
 	bool IsReadyForShot() const;

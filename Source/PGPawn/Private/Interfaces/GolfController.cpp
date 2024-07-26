@@ -122,8 +122,12 @@ void IGolfController::AddStroke()
 	auto GolfPlayerState = GetGolfPlayerState();
 	if (!ensure(GolfPlayerState))
 	{
+		UE_VLOG_UELOG(AsController(), LogPGPawn, Error, TEXT("%s: AddStroke: GolfPlayerState is null"), *ToString());
 		return;
 	}
+
+	UE_VLOG_UELOG(AsController(), LogPGPawn, Log, TEXT("%s: AddStroke: %d -> %d"), *ToString(),
+		GolfPlayerState->GetShots(), GolfPlayerState->GetShots() + 1);
 
 	GolfPlayerState->AddShot();
 }

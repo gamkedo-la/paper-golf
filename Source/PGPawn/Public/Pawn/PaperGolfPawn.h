@@ -70,7 +70,12 @@ class PGPAWN_API APaperGolfPawn : public APawn, public IVisualLoggerDebugSnapsho
 	GENERATED_BODY()
 
 public:
+
+	DECLARE_MULTICAST_DELEGATE(FOnFlick);
+
 	APaperGolfPawn();
+
+	FOnFlick OnFlick{};
 
 #if ENABLE_VISUAL_LOG
 	virtual void GrabDebugSnapshot(FVisualLogEntry* Snapshot) const override;

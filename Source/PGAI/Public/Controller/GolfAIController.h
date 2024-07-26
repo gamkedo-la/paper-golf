@@ -28,6 +28,10 @@ public:
 
 	AGolfAIController();
 
+#if ENABLE_VISUAL_LOG
+	virtual void GrabDebugSnapshot(FVisualLogEntry* Snapshot) const override;
+#endif
+
 	// Inherited via IGolfController
 	using IGolfController::GetPaperGolfPawn;
 	virtual APaperGolfPawn* GetPaperGolfPawn() override;
@@ -52,10 +56,13 @@ public:
 
 	virtual void Reset() override;
 
+	virtual void ResetShot() override;
+
 protected:
 	virtual AController* AsController() override { return this; }
 
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
 
@@ -63,7 +70,6 @@ private:
 	void ExecuteTurn();
 	void DestroyPawn();
 	void SetupNextShot(bool bSetCanFlick);
-	void ResetShot();
 	void DetermineShotType();
 	void ResetShotAfterOutOfBounds();
 	void SetPositionTo(const FVector& Position, const TOptional<FRotator>& OptionalRotation = {});
@@ -82,15 +88,18 @@ private:
 	float GenerateAccuracy() const;
 	float GeneratePowerFraction(float InPowerFraction) const;
 
+	void InitDebugDraw();
+	void CleanupDebugDraw();
+
 private:
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly)
 	TObjectPtr<UGolfControllerCommonComponent> GolfControllerCommonComponent{};
 
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
-	float MinFlickReactionTime{ 2.0f };
+	float MinFlickReactionTime{ 1.5f };
 
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
-	float MaxFlickReactionTime{ 2.0f };
+	float MaxFlickReactionTime{ 3.0f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float OutOfBoundsDelayTime{ 3.0f };
@@ -112,6 +121,10 @@ private:
 	TObjectPtr<APaperGolfPawn> PlayerPawn{};
 
 	FTimerHandle TurnTimerHandle{};
+
+#if ENABLE_VISUAL_LOG
+	FTimerHandle VisualLoggerTimer{};
+#endif
 
 	EShotType ShotType{ EShotType::Default };
 

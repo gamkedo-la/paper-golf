@@ -39,6 +39,17 @@ void AGolfAIController::BeginPlay()
 	{
 		GolfSubsystem.OnPaperGolfPawnClippedThroughWorld.AddDynamic(this, &ThisClass::OnFellThroughFloor);
 	});
+
+	InitDebugDraw();
+}
+
+void AGolfAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: EndPlay - EndPlayReason=%s"), *GetName(), *UEnum::GetValueAsString(EndPlayReason));
+
+	Super::EndPlay(EndPlayReason);
+
+	CleanupDebugDraw();
 }
 
 void AGolfAIController::Reset()
@@ -63,6 +74,8 @@ void AGolfAIController::Reset()
 void AGolfAIController::MarkScored()
 {
 	bScored = true;
+	GolfControllerCommonComponent->OnScored();
+
 	OnScored();
 	DestroyPawn();
 }
@@ -84,6 +97,7 @@ bool AGolfAIController::IsReadyForNextShot() const
 			*GetName());
 		return false;
 	}
+
 	if (HasScored())
 	{
 		UE_VLOG_UELOG(this, LogPGAI, VeryVerbose,
@@ -128,8 +142,6 @@ void AGolfAIController::ActivateTurn()
 {
 	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ActivateTurn"), *GetName());
 
-	GolfControllerCommonComponent->BeginTurn();
-
 	if (bTurnActivated)
 	{
 		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: DoActivateTurn - Turn already activated"), *GetName());
@@ -154,6 +166,8 @@ void AGolfAIController::ActivateTurn()
 		// Force reset of physics state to avoid triggering assertion
 		PaperGolfPawn->SetUpForNextShot();
 	}
+
+	GolfControllerCommonComponent->BeginTurn();
 
 	// Turn must be activated before Setup can happen as it requires the player to be active
 	bTurnActivated = true;
@@ -275,6 +289,12 @@ void AGolfAIController::OnScored()
 
 void AGolfAIController::ExecuteTurn()
 {
+	if(!bCanFlick)
+	{
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ExecuteTurn - bCanFlick is FALSE - Skipping"), *GetName());
+		return;
+	}
+
 	auto PaperGolfPawn = GetPaperGolfPawn();
 	if (!PaperGolfPawn)
 	{
@@ -541,3 +561,57 @@ void AGolfAIController::SetPositionTo(const FVector& Position, const TOptional<F
 	GolfControllerCommonComponent->SetPositionTo(Position, OptionalRotation);
 	SetupNextShot(false);
 }
+
+#pragma region Visual Logger
+#if ENABLE_VISUAL_LOG
+void AGolfAIController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
+{
+	Super::GrabDebugSnapshot(Snapshot);
+
+	FVisualLogStatusCategory& Category = Snapshot->Status[0];
+
+	Category.Add(TEXT("TurnActivated"), LoggingUtils::GetBoolString(bTurnActivated));
+	Category.Add(TEXT("CanFlick"), LoggingUtils::GetBoolString(bCanFlick));
+	Category.Add(TEXT("OutOfBounds"), LoggingUtils::GetBoolString(bOutOfBounds));
+	Category.Add(TEXT("Scored"), LoggingUtils::GetBoolString(bScored));
+	Category.Add(TEXT("ShotType"), LoggingUtils::GetName(ShotType));
+	Category.Add(TEXT("TurnTimer"), LoggingUtils::GetBoolString(TurnTimerHandle.IsValid()));
+
+	// TODO: Consider moving logic to PlayerState itself
+	if (auto GolfPlayerState = GetGolfPlayerState(); GolfPlayerState)
+	{
+		FVisualLogStatusCategory PlayerStateCategory;
+		PlayerStateCategory.Category = FString::Printf(TEXT("PlayerState"));
+
+		PlayerStateCategory.Add(TEXT("Shots"), FString::Printf(TEXT("%d"), GolfPlayerState->GetShots()));
+		PlayerStateCategory.Add(TEXT("TotalShots"), FString::Printf(TEXT("%d"), GolfPlayerState->GetTotalShots()));
+		PlayerStateCategory.Add(TEXT("IsReadyForShot"), LoggingUtils::GetBoolString(GolfPlayerState->IsReadyForShot()));
+
+		Category.AddChild(PlayerStateCategory);
+	}
+}
+void AGolfAIController::InitDebugDraw()
+{
+	// Ensure that state logged regularly so we see the updates in the visual logger
+
+	FTimerDelegate DebugDrawDelegate = FTimerDelegate::CreateWeakLambda(this, [this]()
+	{
+		UE_VLOG(this, LogPGAI, Log, TEXT("Get Player State"));
+	});
+
+	GetWorldTimerManager().SetTimer(VisualLoggerTimer, DebugDrawDelegate, 0.05f, true);
+}
+
+void AGolfAIController::CleanupDebugDraw()
+{
+	GetWorldTimerManager().ClearTimer(VisualLoggerTimer);
+}
+
+#else
+
+void AGolfPlayerController::InitDebugDraw() {}
+void AGolfPlayerController::CleanupDebugDraw() {}
+
+#endif
+
+#pragma endregion Visual Logger

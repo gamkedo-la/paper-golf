@@ -58,6 +58,8 @@ public:
 	bool IsSpectatorOnly() const;
 	void SetSpectatorOnly();
 
+	virtual void ResetShot() = 0;
+
 protected:
 	void DoBeginPlay(const TFunction<void(UGolfEventsSubsystem&)>& ClippedThroughWorldRegistrator);
 

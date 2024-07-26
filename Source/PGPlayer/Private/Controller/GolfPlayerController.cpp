@@ -122,6 +122,8 @@ void AGolfPlayerController::MarkScored()
 {
 	bScored = true;
 
+	GolfControllerCommonComponent->OnScored();
+
 	// Rep notifies are not called on the server so we need to invoke the function manually if the server is also a client
 	if (HasAuthority())
 	{
@@ -771,8 +773,6 @@ void AGolfPlayerController::DoActivateTurn()
 		SetInputEnabled(true);
 	}
 
-	GolfControllerCommonComponent->BeginTurn();
-
 	if (bTurnActivated)
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DoActivateTurn - Turn already activated"), *GetName());
@@ -789,6 +789,8 @@ void AGolfPlayerController::DoActivateTurn()
 			*GetName(), *LoggingUtils::GetName(GetPawn()));
 		return;
 	}
+
+	GolfControllerCommonComponent->BeginTurn();
 
 	if (!PaperGolfPawn->IsAtRest())
 	{
@@ -932,12 +934,6 @@ void AGolfPlayerController::SetCameraToViewPawn(APawn* InPawn)
 
 void AGolfPlayerController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 {
-	auto World = GetWorld();
-	if (!World)
-	{
-		return;
-	}
-
 	FVisualLogStatusCategory Category;
 	Category.Category = FString::Printf(TEXT("GolfPlayerController (%s)"), *GetName());
 

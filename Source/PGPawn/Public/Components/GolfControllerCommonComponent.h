@@ -61,6 +61,8 @@ public:
 
 	void Reset();
 
+	void OnScored();
+
 	// TODO: Visual Logger grab debug snapshot function to be called from controllers
 
 protected:
@@ -96,6 +98,9 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Timer")
 	float RestCheckTickRate{ 0.5f };
 
+	UPROPERTY(EditDefaultsOnly, Category = "Timer")
+	float MinFlickElapsedTimeForShotFinished{ 1.0f };
+
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Type")
 	float CloseShotThreshold{ 1000.0f };
 
@@ -106,8 +111,10 @@ private:
 	float FallThroughFloorCorrectionTestZ{ 1000.0f };
 
 	int32 LastHoleNumber{};
-
+	float LastFlickTime{};
+	TWeakObjectPtr<APaperGolfPawn> WeakPaperGolfPawn{};
 	FTimerHandle NextShotTimerHandle{};
+	FDelegateHandle OnFlickHandle{};
 
 	DECLARE_DELEGATE(FOnControllerShotFinished);
 

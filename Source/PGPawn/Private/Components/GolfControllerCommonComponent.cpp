@@ -63,6 +63,8 @@ void UGolfControllerCommonComponent::BeginPlay()
 			{
 				UE_VLOG_UELOG(GetOwner(), LogPGPawn, Error, TEXT("%s-%s - BeginPlay: GameState=%s is not APaperGolfGameStateBase"),
 					*GetName(), *LoggingUtils::GetName(GetOwner()), *LoggingUtils::GetName(World->GetGameState()));
+
+				return;
 			}
 
 			GameState->OnHoleChanged.AddUObject(this, &ThisClass::OnHoleChanged);
@@ -282,20 +284,52 @@ void UGolfControllerCommonComponent::SetPaperGolfPawnAimFocus()
 
 void UGolfControllerCommonComponent::RegisterShotFinishedTimer()
 {
+	if (NextShotTimerHandle.IsValid())
+	{
+		return;
+	}
+
 	auto World = GetWorld();
 	if (!ensure(World))
 	{
 		return;
 	}
 
+	auto PaperGolfPawn = GolfController->GetPaperGolfPawn();
+	if (!PaperGolfPawn)
+	{
+		return;
+	}
+
+	OnFlickHandle = PaperGolfPawn->OnFlick.AddWeakLambda(this, [this, World, Pawn = MakeWeakObjectPtr(PaperGolfPawn)]()
+	{
+		LastFlickTime = World->GetTimeSeconds();
+		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: OnFlick - Time=%fs"), *GetName(), *LoggingUtils::GetName(Pawn), LastFlickTime);
+	});
+	WeakPaperGolfPawn = PaperGolfPawn;
+
 	World->GetTimerManager().SetTimer(NextShotTimerHandle, this, &ThisClass::CheckForNextShot, RestCheckTickRate, true);
 }
 
 void UGolfControllerCommonComponent::UnregisterShotFinishedTimer()
 {
+	if (!NextShotTimerHandle.IsValid())
+	{
+		return;
+	}
+
+	if (auto PaperGolfPawn = WeakPaperGolfPawn.Get(); PaperGolfPawn && OnFlickHandle.IsValid())
+	{
+		PaperGolfPawn->OnFlick.Remove(OnFlickHandle);
+	}
+
+	OnFlickHandle.Reset();
+	WeakPaperGolfPawn.Reset();
+
 	auto World = GetWorld();
 	if (!World)
 	{
+		NextShotTimerHandle.Invalidate();
 		return;
 	}
 
@@ -431,6 +465,21 @@ void UGolfControllerCommonComponent::CheckForNextShot()
 		return;
 	}
 
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return;
+	}
+
+	// Check that enough time has elapsed
+	if (World->GetTimeSeconds() - LastFlickTime < MinFlickElapsedTimeForShotFinished)
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGPawn, VeryVerbose,
+			TEXT("%s-%s: CheckForNextShot - Skip - Flick in progress: time remaining=%fs"),
+			*GetName(), *LoggingUtils::GetName(GetOwner()), MinFlickElapsedTimeForShotFinished - (World->GetTimeSeconds() - LastFlickTime));
+		return;
+	}
+
 	if (GolfController->HasScored())
 	{
 		UnregisterShotFinishedTimer();
@@ -438,12 +487,6 @@ void UGolfControllerCommonComponent::CheckForNextShot()
 	}
 
 	if (!GolfController->IsReadyForNextShot())
-	{
-		return;
-	}
-
-	auto World = GetWorld();
-	if (!ensure(World))
 	{
 		return;
 	}
@@ -631,6 +674,15 @@ void UGolfControllerCommonComponent::OnHoleChanged(int32 HoleNumber)
 		*GetName(), *LoggingUtils::GetName(GetOwner()), HoleNumber);
 
 	InitFocusableActors();
+
+	// Make sure we immediately reset the aim focus if we are the active player after the hole changed
+	// If we are not the active player, then it will happen when it is our turn
+	check(GolfController);
+	if (GolfController->IsActivePlayer())
+	{
+		// SetPaperGolfPawnAimFocus();
+		GolfController->ResetShot();
+	}
 }
 
 void UGolfControllerCommonComponent::BeginTurn()
@@ -655,5 +707,15 @@ void UGolfControllerCommonComponent::Reset()
 		*GetName(), *LoggingUtils::GetName(GetOwner()));
 
 	ShotHistory.Reset();
+	LastFlickTime = 0.f;
+
 	InitFocusableActors();
+}
+
+void UGolfControllerCommonComponent::OnScored()
+{
+	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: OnScored"),
+		*GetName(), *LoggingUtils::GetName(GetOwner()));
+
+	UnregisterShotFinishedTimer();
 }
