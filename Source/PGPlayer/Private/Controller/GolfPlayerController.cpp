@@ -636,9 +636,17 @@ void AGolfPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 }
 
 void AGolfPlayerController::Init()
-{	
+{
 	// turn is activated manually so we set this to false initially
 	bCanFlick = false;
+
+	if (auto World = GetWorld(); ensure(World))
+	{
+		if (auto GolfGameState = World->GetGameState<APaperGolfGameStateBase>(); ensure(GolfGameState))
+		{
+			GolfGameState->OnScoresSynced.AddUObject(this, &ThisClass::OnScoresSynced);
+		}
+	}
 
 	InitDebugDraw();
 }
@@ -927,6 +935,26 @@ void AGolfPlayerController::SetCameraToViewPawn(APawn* InPawn)
 
 
 #pragma endregion Turn and spectator logic
+
+void AGolfPlayerController::OnScoresSynced(APaperGolfGameStateBase& GameState)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnScoresSynced: %s"), *GetName(), *LoggingUtils::GetName(GameState));
+
+	if (IsLocalController())
+	{
+		if (auto HUD = GetHUD<APGHUD>(); ensure(HUD))
+		{
+			// TODO: Call function on HUD to update the scores and show them for the first time if they weren't showing before
+		}
+	}
+
+	// TODO: Implement client broadcasting of game event subsystem events through game state rep notifies so that 
+	// we can listen for start hole, next hole, course complete from here to show the appropriate widgets
+	// For example, hole finishes - we show the score card for players and current rankings and then also update the HUD 
+	// - which is actually equivalent to what we are doing in this function
+	// We may just want to use the combo of scores synced and then course complete, next hole (previous hole finished) to determine how to display the results
+	// Start Hole could be used to trigger the hole flyby and maybe show the updated player rankings from last hole
+}
 
 #pragma region Visual Logger
 

@@ -76,6 +76,18 @@ namespace PG
 		return ToString(Array, [](const auto& elm) -> decltype(auto) { return elm; });
 	}
 
+	template<std::floating_point T, typename InAllocatorType>
+	inline FString ToString(const TArray<T, InAllocatorType>& Array)
+	{
+		return ToString(Array, [](auto elm) -> decltype(auto) { return FString::SanitizeFloat(elm); });
+	}
+
+	template<std::integral T, typename InAllocatorType>
+	inline FString ToString(const TArray<T, InAllocatorType>& Array)
+	{
+		return ToString(Array, [](auto elm) -> decltype(auto) { return FString::FromInt(static_cast<int32>(elm)); });
+	}
+
 	template<typename T, BaseContainerConcept<T> TCont, ForwardIteratorT<T> TIt>
 	TIt StdCopy(const TCont& Cont, TIt Begin, TIt End);
 

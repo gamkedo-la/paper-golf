@@ -5,6 +5,11 @@
 
 #include "Net/UnrealNetwork.h"
 
+#include "VisualLogger/VisualLogger.h"
+#include "Logging/LoggingUtils.h"
+#include "PGPawnLogging.h"
+#include "Utils/ArrayUtils.h"
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GolfPlayerState)
 
 AGolfPlayerState::AGolfPlayerState()
@@ -36,6 +41,9 @@ int32 AGolfPlayerState::GetTotalShots() const
 void AGolfPlayerState::FinishHole()
 {
 	ScoreByHole.Add(Shots);
+
+	// Broadcast immediately on the server
+	OnTotalShotsUpdated.Broadcast(*this);
 }
 
 void AGolfPlayerState::CopyProperties(APlayerState* PlayerState)
@@ -52,4 +60,10 @@ void AGolfPlayerState::CopyProperties(APlayerState* PlayerState)
 	Shots = OtherPlayerState->Shots;
 	bReadyForShot = OtherPlayerState->bReadyForShot;
 	bSpectatorOnly = OtherPlayerState->bSpectatorOnly;
+}
+
+void AGolfPlayerState::OnRep_ScoreByHole()
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_ScoreByHole - ScoreByHole=%s"), *GetName(), *PG::ToString(ScoreByHole));
+	OnTotalShotsUpdated.Broadcast(*this);
 }

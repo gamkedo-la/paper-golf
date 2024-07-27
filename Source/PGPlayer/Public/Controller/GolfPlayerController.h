@@ -18,6 +18,7 @@ class APaperGolfPawn;
 class AGolfHole;
 class UShotArcPreviewComponent;
 class UGolfControllerCommonComponent;
+class APaperGolfGameStateBase;
 
 /**
  * 
@@ -187,6 +188,8 @@ private:
 	bool IsLocalClient() const;
 	bool IsLocalServer() const;
 	bool IsRemoteServer() const;
+
+	void OnScoresSynced(APaperGolfGameStateBase& GameState);
 
 private:
 	

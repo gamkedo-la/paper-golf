@@ -19,8 +19,10 @@ class PGPAWN_API APaperGolfGameStateBase : public AGameState
 public:
 
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnHoleChanged, int32 /*Current Hole Number*/);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnScoresSynced, APaperGolfGameStateBase& /*GameState*/);
 
 	FOnHoleChanged OnHoleChanged{};
+	FOnScoresSynced OnScoresSynced{};
 
 	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const override;
 
@@ -32,11 +34,19 @@ public:
 	UFUNCTION(BlueprintPure)
 	AGolfPlayerState* GetActivePlayer() const { return ActivePlayer; }
 
-	void SetActivePlayer(AGolfPlayerState* Player) { ActivePlayer = Player; }
+	void SetActivePlayer(AGolfPlayerState* Player);
+
+	/** Add PlayerState to the PlayerArray - called on both clients and server */
+	virtual void AddPlayerState(APlayerState* PlayerState) override;
+
+	/** Remove PlayerState from the PlayerArray - called on both clients and server */
+	virtual void RemovePlayerState(APlayerState* PlayerState) override;
 
 private:
 	UFUNCTION()
 	void OnRep_CurrentHoleNumber();
+
+	void OnTotalShotsUpdated(AGolfPlayerState& PlayerState);
 
 private:
 
@@ -45,4 +55,7 @@ private:
 
 	UPROPERTY(Transient, Replicated)
 	TObjectPtr<AGolfPlayerState> ActivePlayer{};
+
+	UPROPERTY(Transient)
+	TArray<AGolfPlayerState*> UpdatedPlayerStates{};
 };

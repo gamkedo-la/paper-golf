@@ -10,11 +10,9 @@ class AGolfAIController;
 class UHoleTransitionComponent;
 
 /**
- * 
+ * Base game mode for all paper golf game modes.
  */
 UCLASS(Abstract)
-// TODO: Change to AGameMode and use custom match states
-// See https://www.udemy.com/course/unreal-engine-5-cpp-multiplayer-shooter/learn/lecture/31670022
 class PAPERGOLF_API APaperGolfGameModeBase : public AGameMode
 {
 	GENERATED_BODY()
@@ -90,6 +88,20 @@ protected:
 	virtual bool PlayerCanRestart_Implementation(APlayerController* Player) override;
 
 	virtual void OnGameStart() PURE_VIRTUAL(APaperGolfGameModeBase::OnGameStart, );
+
+
+	/*
+	* Called immediately after the hole is complete.  The hole transition component will invoke start hole after its configured hole delay time.
+	* This is an opportunity to do additional processing before the next hole starts.  An example would be to signal the player controllers to display the results
+	* from the last hole since the player state has been updated, though clients will need to wait for the appropriate rep notifies to fire with the updated fields.
+	*/
+	virtual void DoAdditionalHoleComplete() {}
+
+	/*
+	* Called when the course is complete. Returns the time to wait before restarting the game or returning to the main menu.
+	*/
+	virtual float DoAdditionalCourseComplete() { return 0.0f; }
+
 private:
 	bool SetDesiredNumberOfPlayersFromPIESettings();
 
@@ -105,7 +117,12 @@ private:
 	void OnStartHole(int32 HoleNumber);
 
 	UFUNCTION()
+	void OnHoleComplete();
+
+	UFUNCTION()
 	void OnCourseComplete();
+
+	void DoCourseComplete();
 
 private:
 

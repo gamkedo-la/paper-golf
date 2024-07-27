@@ -16,7 +16,11 @@ class PGPAWN_API AGolfPlayerState : public APlayerState
 
 public:
 
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnTotalShotsUpdated, AGolfPlayerState& /*PlayerState*/);
+
 	AGolfPlayerState();
+
+	FOnTotalShotsUpdated OnTotalShotsUpdated{};
 	
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
 
@@ -45,10 +49,14 @@ public:
 
 	void SetSpectatorOnly() { bSpectatorOnly = true; }
 	bool IsSpectatorOnly() const { return bSpectatorOnly; }
+		
+private:
+	UFUNCTION()
+	void OnRep_ScoreByHole();
 
 private:
 
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing = OnRep_ScoreByHole)
 	TArray<uint8> ScoreByHole{};
 
 	UPROPERTY(Replicated)

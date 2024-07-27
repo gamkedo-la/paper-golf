@@ -178,17 +178,42 @@ void APaperGolfGameModeBase::OnStartHole(int32 HoleNumber)
 	StartHole(HoleNumber);
 }
 
+void APaperGolfGameModeBase::OnHoleComplete()
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnHoleComplete"), *GetName());
+
+	DoAdditionalHoleComplete();
+}
+
 void APaperGolfGameModeBase::OnCourseComplete()
+{	
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Verbose, TEXT("%s: OnCourseComplete - Enter"), *GetName());
+
+	const auto ActionDelayTime = DoAdditionalCourseComplete();
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Verbose, TEXT("%s: OnCourseComplete - ActionDelayTime=%f"), *GetName(), ActionDelayTime);
+
+	if (ActionDelayTime > 0)
+	{
+		FTimerHandle TimerHandle;
+		GetWorldTimerManager().SetTimer(TimerHandle, this, &ThisClass::DoCourseComplete, ActionDelayTime);
+	}
+	else
+	{
+		DoCourseComplete();
+	}
+}
+
+void APaperGolfGameModeBase::DoCourseComplete()
 {
 	if (bRestartGameOnCourseComplete)
 	{
-		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnCourseComplete - bRestartGameOnCourseComplete = TRUE - Restarting the map"), *GetName());
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: DoCourseComplete - bRestartGameOnCourseComplete = TRUE - Restarting the map"), *GetName());
 
 		RestartGame();
 	}
 	else
 	{
-		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnCourseComplete - Returning to Main Menu Host"), *GetName());
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: DoCourseComplete - Returning to Main Menu Host"), *GetName());
 
 		ReturnToMainMenuHost();
 	}
@@ -210,6 +235,7 @@ void APaperGolfGameModeBase::BeginPlay()
 	{
 		GolfEventSubsystem->OnPaperGolfStartHole.AddDynamic(this, &ThisClass::OnStartHole);
 		GolfEventSubsystem->OnPaperGolfCourseComplete.AddDynamic(this, &ThisClass::OnCourseComplete);
+		GolfEventSubsystem->OnPaperGolfNextHole.AddDynamic(this, &ThisClass::OnHoleComplete);
 	}
 }
 
