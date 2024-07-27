@@ -13,6 +13,12 @@
 
 #include "Engine/AssetManager.h"
 
+#include "Subsystems/GolfEventsSubsystem.h"
+#include "State/GolfPlayerState.h"
+#include "State/PaperGolfGameStateBase.h"
+
+#include "Pawn/PaperGolfPawn.h"
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PGHUD)
 
 void APGHUD::ShowHUD()
@@ -64,6 +70,26 @@ void APGHUD::RemoveActiveMessageWidget()
 
 	ActiveMessageWidget->RemoveFromParent();
 	ActiveMessageWidget = nullptr;
+}
+
+void APGHUD::SpectatePlayer_Implementation(APaperGolfPawn* PlayerPawn)
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log,
+		TEXT("%s: SpectatePlayer: PlayerPawn=%s"), *GetName(), *LoggingUtils::GetName(PlayerPawn));
+}
+
+void APGHUD::BeginTurn_Implementation()
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: BeginTurn"), *GetName());
+}
+
+void APGHUD::BeginPlay()
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: BeginPlay"), *GetName());
+
+	Super::BeginPlay();
+
+	Init();
 }
 
 void APGHUD::DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& WidgetClass)
@@ -131,3 +157,69 @@ void APGHUD::DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& Widge
 		ActiveMessageWidget->AddToViewport();
 	});
 }
+
+void APGHUD::Init()
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: Init"), *GetName());
+
+	if (auto World = GetWorld(); ensure(World))
+	{
+		if (auto GolfGameState = World->GetGameState<APaperGolfGameStateBase>(); ensure(GolfGameState))
+		{
+			GolfGameState->OnScoresSynced.AddUObject(this, &ThisClass::OnScoresSynced);
+		}
+
+		if (auto GolfEventsSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventsSubsystem))
+		{
+			GolfEventsSubsystem->OnPaperGolfPawnScored.AddUniqueDynamic(this, &ThisClass::OnPlayerScored);
+			GolfEventsSubsystem->OnPaperGolfStartHole.AddUniqueDynamic(this, &ThisClass::OnStartHole);
+			GolfEventsSubsystem->OnPaperGolfCourseComplete.AddUniqueDynamic(this, &ThisClass::OnCourseComplete);
+			GolfEventsSubsystem->OnPaperGolfNextHole.AddUniqueDynamic(this, &ThisClass::OnHoleComplete);
+		}
+	}
+}
+
+#pragma region Event Handlers for HUD State
+
+void APGHUD::OnScoresSynced(APaperGolfGameStateBase& GameState)
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnScoresSynced"), *GetName());
+
+	// TODO: Call function  to update the scores and show them for the first time if they weren't showing before
+	// 
+	// TODO: OnStartHole for HoleNumber 1 doesn't get called because the event happens before we can subscribe
+	// We could just do what we normally would on BeginPlay to cover that case
+	// 
+	// we can listen for start hole, next hole, course complete from here to show the appropriate widgets
+	// For example, hole finishes - we show the score card for players and current rankings and then also update the HUD 
+	// - which is actually equivalent to what we are doing in this function
+	// We may just want to use the combo of scores synced and then course complete, next hole (previous hole finished) to determine how to display the results
+	// Start Hole could be used to trigger the hole flyby and maybe show the updated player rankings from last hole
+
+	const auto& GolfPlayerScores = GameState.GetSortedPlayerStatesByScore();
+
+	ShowScoresHUD(GolfPlayerScores);
+}
+
+void APGHUD::OnPlayerScored(APaperGolfPawn* PaperGolfPawn)
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnPaperGolfPawnScored: %s"),
+		*GetName(), *LoggingUtils::GetName(PaperGolfPawn));
+}
+
+void APGHUD::OnStartHole(int32 HoleNumber)
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnStartHole: HoleNumber=%d"), *GetName(), HoleNumber);
+}
+
+void APGHUD::OnCourseComplete()
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnCourseComplete"), *GetName());
+}
+
+void APGHUD::OnHoleComplete()
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnHoleComplete"), *GetName());
+}
+
+#pragma endregion Event Handlers for HUD State

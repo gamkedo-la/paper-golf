@@ -10,6 +10,8 @@
 #include "PGPawnLogging.h"
 #include "Utils/ArrayUtils.h"
 
+#include <tuple>
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GolfPlayerState)
 
 AGolfPlayerState::AGolfPlayerState()
@@ -60,6 +62,12 @@ void AGolfPlayerState::CopyProperties(APlayerState* PlayerState)
 	Shots = OtherPlayerState->Shots;
 	bReadyForShot = OtherPlayerState->bReadyForShot;
 	bSpectatorOnly = OtherPlayerState->bSpectatorOnly;
+}
+
+bool AGolfPlayerState::CompareByScore(const AGolfPlayerState& Other) const
+{
+	return std::make_tuple(GetTotalShots(), GetPlayerName()) < 
+		   std::make_tuple(Other.GetTotalShots(), Other.GetPlayerName());
 }
 
 void AGolfPlayerState::OnRep_ScoreByHole()

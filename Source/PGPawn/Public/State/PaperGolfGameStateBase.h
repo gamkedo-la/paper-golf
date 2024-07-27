@@ -7,6 +7,7 @@
 #include "PaperGolfGameStateBase.generated.h"
 
 class AGolfPlayerState;
+class APaperGolfPawn;
 
 /**
  * 
@@ -42,11 +43,39 @@ public:
 	/** Remove PlayerState from the PlayerArray - called on both clients and server */
 	virtual void RemovePlayerState(APlayerState* PlayerState) override;
 
+	UFUNCTION(BlueprintPure)
+	TArray<AGolfPlayerState*> GetSortedPlayerStatesByScore() const;
+
+protected:
+	virtual void BeginPlay() override;
+
+	/*
+	* Call after updating a field that affects score syncing.  This will handle checking, broadcasting, and resetting the state.
+	*/
+	void CheckScoreSyncState();
+
+	virtual bool AllScoresSynced() const;
+	virtual void ResetScoreSyncState();
+
 private:
 	UFUNCTION()
 	void OnRep_CurrentHoleNumber();
 
 	void OnTotalShotsUpdated(AGolfPlayerState& PlayerState);
+
+	void SubscribeToGolfEvents();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastOnCourseComplete();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastOnNextHole();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastOnStartHole(int32 HoleNumber);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastOnPlayerScored(APaperGolfPawn* PlayerPawn);
 
 private:
 

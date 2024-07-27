@@ -189,7 +189,6 @@ private:
 	bool IsLocalServer() const;
 	bool IsRemoteServer() const;
 
-	void OnScoresSynced(APaperGolfGameStateBase& GameState);
 
 private:
 	

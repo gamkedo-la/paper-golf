@@ -40,7 +40,7 @@ public:
 	bool IsReadyForShot() const { return bReadyForShot; }
 
 	UFUNCTION(BlueprintCallable)
-	void FinishHole();
+	virtual void FinishHole();
 
 	UFUNCTION(BlueprintCallable)
 	void StartHole() { Shots = 0; }
@@ -49,6 +49,8 @@ public:
 
 	void SetSpectatorOnly() { bSpectatorOnly = true; }
 	bool IsSpectatorOnly() const { return bSpectatorOnly; }
+
+	virtual bool CompareByScore(const AGolfPlayerState& Other) const;
 		
 private:
 	UFUNCTION()

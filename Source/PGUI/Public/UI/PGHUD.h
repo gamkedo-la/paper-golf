@@ -8,6 +8,9 @@
 
 class UUserWidget;
 class UGolfUserWidget;
+class APaperGolfGameStateBase;
+class APaperGolfPawn;
+class AGolfPlayerState;
 
 UENUM(BlueprintType)
 enum class EMessageWidgetType : uint8
@@ -44,12 +47,39 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void RemoveActiveMessageWidget();
 
+	UFUNCTION(BlueprintNativeEvent, Category = "UI")
+	void SpectatePlayer(APaperGolfPawn* PlayerPawn);
+
+	UFUNCTION(BlueprintNativeEvent, Category = UI)
+	void BeginTurn();
+
 protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "UI")
 	void OnToggleHUDVisibility(bool bVisible);
 
+	virtual void BeginPlay() override;
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void ShowScoresHUD(const TArray<AGolfPlayerState*>& PlayerStates);
+
 private:
 	void DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& WidgetClass);
+
+	void Init();
+
+	void OnScoresSynced(APaperGolfGameStateBase& GameState);
+
+	UFUNCTION()
+	void OnPlayerScored(APaperGolfPawn* PaperGolfPawn);
+
+	UFUNCTION()
+	void OnStartHole(int32 HoleNumber);
+
+	UFUNCTION()
+	void OnCourseComplete();
+
+	UFUNCTION()
+	void OnHoleComplete();
 
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config")
