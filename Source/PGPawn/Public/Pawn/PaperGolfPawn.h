@@ -75,6 +75,8 @@ public:
 
 	APaperGolfPawn();
 
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
+
 	FOnFlick OnFlick{};
 
 #if ENABLE_VISUAL_LOG
@@ -185,6 +187,9 @@ private:
 	float CalculateMass() const;
 	void RefreshMass();
 
+	UFUNCTION()
+	void OnRep_FocusActor();
+
 private:
 
 #if ENABLE_VISUAL_LOG
@@ -225,7 +230,7 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	float RestAngularVelocityRadsSquaredMax{ 0.001f };
 
-	UPROPERTY(Transient)
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_FocusActor)
 	TObjectPtr<AActor> FocusActor{};
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Force")

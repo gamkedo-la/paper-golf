@@ -158,6 +158,9 @@ private:
 
 	void DoActivateTurn();
 
+	UFUNCTION(Server, Unreliable)
+	void ServerSetPaperGolfPawnRotation(const FRotator& InTotalRotation);
+
 	UFUNCTION(Server, Reliable)
 	void ServerProcessShootInput(const FRotator& InTotalRotation);
 

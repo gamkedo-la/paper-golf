@@ -285,6 +285,8 @@ void AGolfPlayerController::AddPaperGolfPawnRelativeRotation(const FRotator& Del
 	{
 		PaperGolfPawn->AddActorWorldRotation(RotationToApply);
 	}
+
+	ServerSetPaperGolfPawnRotation(PaperGolfPawn->GetActorRotation());
 }
 
 bool AGolfPlayerController::IsReadyForNextShot() const
@@ -493,6 +495,23 @@ void AGolfPlayerController::ServerProcessShootInput_Implementation(const FRotato
 	if (auto GolfPlayerState = GetGolfPlayerState(); ensure(GolfPlayerState))
 	{
 		GolfPlayerState->SetReadyForShot(false);
+	}
+}
+
+void AGolfPlayerController::ServerSetPaperGolfPawnRotation_Implementation(const FRotator& InTotalRotation)
+{
+	if (IsLocalController())
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ServerSetPaperGolfPawnRotation - InTotalRotation=%s"), *GetName(), *InTotalRotation.ToCompactString());
+
+	TotalRotation = InTotalRotation;
+
+	if (auto PaperGolfPawn = GetPaperGolfPawn(); PaperGolfPawn)
+	{
+		PaperGolfPawn->SetActorRotation(InTotalRotation);
 	}
 }
 

@@ -27,6 +27,8 @@
 #include "Utils/VisualLoggerUtils.h"
 #include "PGPawnLogging.h"
 
+#include "Net/UnrealNetwork.h"
+
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PaperGolfPawn)
 
@@ -39,7 +41,15 @@ namespace
 APaperGolfPawn::APaperGolfPawn()
 {
 	PrimaryActorTick.bCanEverTick = false;
-	bAlwaysRelevant = true;
+	bAlwaysRelevant = false;
+	bReplicates = true;
+}
+
+void APaperGolfPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(APaperGolfPawn, FocusActor);
 }
 
 void APaperGolfPawn::DebugDrawCenterOfMass(float DrawTime)
@@ -98,6 +108,13 @@ void APaperGolfPawn::SetFocusActor(AActor* Focus)
 	FocusActor = Focus;
 
 	ResetCameraForShotSetup();
+}
+
+void APaperGolfPawn::OnRep_FocusActor()
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_FocusActor - Focus=%s"), *GetName(), *LoggingUtils::GetName(FocusActor));
+
+	// TODO: If client spectating, need to update camera focus
 }
 
 void APaperGolfPawn::SnapToGround()
@@ -709,10 +726,7 @@ void APaperGolfPawn::BeginPlay()
 
 	Super::BeginPlay();
 
-	// TODO: May change this if undeterministic physics too much of a problem
-	// but then need to send client rpcs with rotation updates at a regular interval to show other clients
-	// what player is doing
-	SetReplicateMovement(false);
+	SetReplicateMovement(true);
 
 	States.Reserve(NumSamples);
 
