@@ -190,6 +190,8 @@ private:
 	UFUNCTION()
 	void OnRep_FocusActor();
 
+	bool ShouldEnableCameraRotationLagForShotSetup() const;
+
 private:
 
 #if ENABLE_VISUAL_LOG
@@ -253,6 +255,11 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty", meta = (ClampMin = "1.0"))
 	float FlickOffsetZTraceSize{ 5.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Camera | Spectator", meta = (ClampMin = "0.0"))
+	float SpectatorCameraRotationLag{ 1.0f };
+
+	float OriginalCameraRotationLag{};
 
 	mutable float Mass{};
 	bool bReadyForShot{};

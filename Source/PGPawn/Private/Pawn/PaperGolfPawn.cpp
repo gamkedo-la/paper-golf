@@ -114,7 +114,11 @@ void APaperGolfPawn::OnRep_FocusActor()
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_FocusActor - Focus=%s"), *GetName(), *LoggingUtils::GetName(FocusActor));
 
-	// TODO: If client spectating, need to update camera focus
+	// If client spectating, need to update camera focus
+	if (GetLocalRole() == ENetRole::ROLE_SimulatedProxy)
+	{
+		ResetRotation();
+	}
 }
 
 void APaperGolfPawn::SnapToGround()
@@ -753,6 +757,7 @@ void APaperGolfPawn::PostInitializeComponents()
 
 	if (ensureMsgf(_CameraSpringArm, TEXT("%s: CameraSpringArm is NULL"), *GetName()))
 	{
+		OriginalCameraRotationLag = _CameraSpringArm->CameraRotationLagSpeed;
 		_Camera = Cast<UCameraComponent>(_CameraSpringArm->GetChildComponent(0));
 		ensureMsgf(_Camera, TEXT("%s: Camera is NULL"), *GetName());
 	}
@@ -797,6 +802,13 @@ void APaperGolfPawn::SetCameraForFlick()
 
 	_CameraSpringArm->bInheritYaw = false;
 	_CameraSpringArm->bEnableCameraRotationLag = true;
+	_CameraSpringArm->CameraRotationLagSpeed = OriginalCameraRotationLag;
+}
+
+bool APaperGolfPawn::ShouldEnableCameraRotationLagForShotSetup() const
+{
+	// If this is an autonomous proxy make sure rotation lag is enabled to avoid jerky-looking aiming
+	return !IsLocallyControlled();
 }
 
 void APaperGolfPawn::ResetCameraForShotSetup()
@@ -804,7 +816,25 @@ void APaperGolfPawn::ResetCameraForShotSetup()
 	check(_CameraSpringArm);
 
 	_CameraSpringArm->bInheritYaw = true;
+
+	const bool bEnableCameraRotationLag = ShouldEnableCameraRotationLagForShotSetup();
+	// Enable on next tick so focus happens immediately
 	_CameraSpringArm->bEnableCameraRotationLag = false;
+
+	if (bEnableCameraRotationLag)
+	{
+		_CameraSpringArm->CameraRotationLagSpeed = SpectatorCameraRotationLag;
+
+		GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this, [this, bEnableCameraRotationLag]()
+		{
+			_CameraSpringArm->bEnableCameraRotationLag = bEnableCameraRotationLag;
+		}));
+	}
+	else
+	{
+		// Set back to defaults
+		_CameraSpringArm->CameraRotationLagSpeed = OriginalCameraRotationLag;
+	}
 
 	if (!FocusActor)
 	{
@@ -812,6 +842,9 @@ void APaperGolfPawn::ResetCameraForShotSetup()
 	}
 
 	const auto LookAtRotation = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), FocusActor->GetActorLocation());
+
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: ResetCameraForShotSetup - FocusActor=%s; LookAtRotationYaw=%f"), *GetName(), *LoggingUtils::GetName(FocusActor), LookAtRotation.Yaw);
+	UE_VLOG_LOCATION(this, LogPGPawn, Log, FocusActor->GetActorLocation(), 20.0, FColor::Turquoise, TEXT("Focus"));
 
 	check(_PaperGolfMesh);
 
