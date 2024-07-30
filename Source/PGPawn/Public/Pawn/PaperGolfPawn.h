@@ -150,6 +150,11 @@ public:
 	UFUNCTION(BlueprintPure)
 	AActor* GetFocusActor() const;
 
+	/**
+	* Failsafe behavior for handling when the pawn falls below the "Kill-Z".  This should usually be handled by the AFellThroughWorldVolume.
+	*/
+	virtual void FellOutOfWorld(const UDamageType& DmgType) override;
+
 protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void BeginPlay() override;

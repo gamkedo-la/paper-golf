@@ -19,6 +19,8 @@
 
 #include "Library/PaperGolfPawnUtilities.h"
 
+#include "Subsystems/GolfEventsSubsystem.h"
+
 #include "VisualLogger/VisualLogger.h"
 #include "Logging/LoggingUtils.h"
 #include "Utils/StringUtils.h"
@@ -735,6 +737,24 @@ void APaperGolfPawn::BeginPlay()
 	States.Reserve(NumSamples);
 
 	InitDebugDraw();
+}
+
+void APaperGolfPawn::FellOutOfWorld(const UDamageType& DmgType)
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Warning, TEXT("%s: FellOutOfWorld - %s"), *GetName(), *LoggingUtils::GetName(DmgType));
+
+	Super::FellOutOfWorld(DmgType);
+
+	auto World = GetWorld();
+	if(!ensure(World))
+	{
+		return;
+	}
+
+	if (auto GolfEventsSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventsSubsystem))
+	{
+		GolfEventsSubsystem->OnPaperGolfPawnClippedThroughWorld.Broadcast(this);
+	}
 }
 
 void APaperGolfPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
