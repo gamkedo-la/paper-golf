@@ -837,16 +837,22 @@ void APaperGolfPawn::ResetCameraForShotSetup()
 
 	const bool bEnableCameraRotationLag = ShouldEnableCameraRotationLagForShotSetup();
 	// Enable on next tick so focus happens immediately
+	// TODO: Sometimes the camera still spins on the first shot set up even though we are setting bEnableCameraRotationLag to false here
 	_CameraSpringArm->bEnableCameraRotationLag = false;
 
 	if (bEnableCameraRotationLag)
 	{
 		_CameraSpringArm->CameraRotationLagSpeed = SpectatorCameraRotationLag;
 
-		GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this, [this, bEnableCameraRotationLag]()
+		FTimerHandle TimerHandle;
+		GetWorldTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]()
 		{
-			_CameraSpringArm->bEnableCameraRotationLag = bEnableCameraRotationLag;
-		}));
+			// Make sure that camera rotation lag should still be enabled when this fires
+			if (ShouldEnableCameraRotationLagForShotSetup())
+			{
+				_CameraSpringArm->bEnableCameraRotationLag = true;
+			}
+		}), 0.05f, false);
 	}
 	else
 	{

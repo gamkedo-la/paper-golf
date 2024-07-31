@@ -51,22 +51,28 @@ void UGolfControllerCommonComponent::BeginPlay()
 
 	if (auto World = GetWorld(); ensure(World))
 	{
-		FTimerHandle InitTimerHandle;
-		World->GetTimerManager().SetTimer(InitTimerHandle, this, &ThisClass::InitFocusableActors, 0.2f);
+		auto GameState = World->GetGameState<APaperGolfGameStateBase>();
+		if (!ensureAlwaysMsgf(GameState, TEXT("%s-%s - BeginPlay: GameState=%s is not APaperGolfGameStateBase"),
+			*GetName(), *LoggingUtils::GetName(GetOwner()), *LoggingUtils::GetName(World->GetGameState())))
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Error, TEXT("%s-%s - BeginPlay: GameState=%s is not APaperGolfGameStateBase"),
+				*GetName(), *LoggingUtils::GetName(GetOwner()), *LoggingUtils::GetName(World->GetGameState()));
+
+			return;
+		}
+
+		// If on server, game state is updated immediately during game mode start so can just invoke OnHoleChanged directly
+		World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this, [this, WeakGameState = MakeWeakObjectPtr(GameState)]()
+		{
+			if (auto GameState = WeakGameState.Get(); GameState)
+			{
+				OnHoleChanged(GameState->GetCurrentHoleNumber());
+			}
+		}));
 
 		// If not server, then have to listen for when game state changes holes so that we can init the focus actors correctly
 		if (!GetOwner()->HasAuthority())
 		{
-			auto GameState = World->GetGameState<APaperGolfGameStateBase>();
-			if (!ensureAlwaysMsgf(GameState, TEXT("%s-%s - BeginPlay: GameState=%s is not APaperGolfGameStateBase"),
-				*GetName(), *LoggingUtils::GetName(GetOwner()), *LoggingUtils::GetName(World->GetGameState())))
-			{
-				UE_VLOG_UELOG(GetOwner(), LogPGPawn, Error, TEXT("%s-%s - BeginPlay: GameState=%s is not APaperGolfGameStateBase"),
-					*GetName(), *LoggingUtils::GetName(GetOwner()), *LoggingUtils::GetName(World->GetGameState()));
-
-				return;
-			}
-
 			GameState->OnHoleChanged.AddUObject(this, &ThisClass::OnHoleChanged);
 		}
 	}
@@ -683,7 +689,7 @@ void UGolfControllerCommonComponent::OnHoleChanged(int32 HoleNumber)
 	check(GolfController);
 	if (GolfController->IsActivePlayer())
 	{
-		// SetPaperGolfPawnAimFocus();
+		SetPaperGolfPawnAimFocus();
 		GolfController->ResetShot();
 	}
 }

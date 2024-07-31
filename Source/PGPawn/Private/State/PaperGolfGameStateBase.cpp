@@ -25,6 +25,17 @@ void APaperGolfGameStateBase::GetLifetimeReplicatedProps(TArray<FLifetimePropert
 
 }
 
+void APaperGolfGameStateBase::SetCurrentHoleNumber(int32 Hole)
+{
+	if (Hole == CurrentHoleNumber)
+	{
+		return;
+	}
+
+	CurrentHoleNumber = Hole;
+	OnHoleChanged.Broadcast(CurrentHoleNumber);
+}
+
 void APaperGolfGameStateBase::SetActivePlayer(AGolfPlayerState* Player)
 {
 	ActivePlayer = Player;
@@ -107,8 +118,6 @@ void APaperGolfGameStateBase::OnTotalShotsUpdated(AGolfPlayerState& PlayerState)
 	UpdatedPlayerStates.AddUnique(&PlayerState);
 
 	CheckScoreSyncState();
-
-
 }
 
 void APaperGolfGameStateBase::CheckScoreSyncState()

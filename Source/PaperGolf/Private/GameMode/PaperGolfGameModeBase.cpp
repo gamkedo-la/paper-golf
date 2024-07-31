@@ -11,6 +11,8 @@
 
 #include "State/GolfPlayerState.h"
 
+#include "State/PaperGolfGameStateBase.h"
+
 #include "GameMode/HoleTransitionComponent.h"
 
 #include "Utils/VisualLoggerUtils.h"
@@ -58,6 +60,19 @@ void APaperGolfGameModeBase::InitGameState()
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: InitGameState"), *GetName());
 
 	Super::InitGameState();
+
+	// Start at hole 1
+	auto PaperGolfGameState = GetGameState<APaperGolfGameStateBase>();
+
+	if (!ensureMsgf(PaperGolfGameState, TEXT("%s: PaperGolfGameState=%s is not APaperGolfGameStateBase"), *GetName(), *LoggingUtils::GetName(GameState)))
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: PaperGolfGameState=%s is not APaperGolfGameStateBase"),
+			*GetName(), *LoggingUtils::GetName(GameState));
+		return;
+	}
+
+	// This neesd to be called in InitGameState as ChoosePlayerStart will get called before the first hole starts and we don't want it to start at the default value
+	PaperGolfGameState->SetCurrentHoleNumber(1);
 }
 
 void APaperGolfGameModeBase::OnPostLogin(AController* NewPlayer)

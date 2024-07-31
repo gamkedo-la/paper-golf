@@ -30,7 +30,7 @@ public:
 	UFUNCTION(BlueprintPure)
 	int32 GetCurrentHoleNumber() const { return CurrentHoleNumber; }
 
-	void SetCurrentHoleNumber(int32 Hole) { CurrentHoleNumber = Hole; }
+	void SetCurrentHoleNumber(int32 Hole);
 
 	UFUNCTION(BlueprintPure)
 	AGolfPlayerState* GetActivePlayer() const { return ActivePlayer; }
@@ -80,7 +80,7 @@ private:
 private:
 
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentHoleNumber)
-	int32 CurrentHoleNumber{ 1 };
+	int32 CurrentHoleNumber{};
 
 	UPROPERTY(Transient, Replicated)
 	TObjectPtr<AGolfPlayerState> ActivePlayer{};
