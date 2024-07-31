@@ -190,6 +190,8 @@ void APaperGolfPawn::SnapToGround()
 
 void APaperGolfPawn::ResetRotation()
 {
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: ResetRotation: %s -> %s"), *GetName(), *GetActorRotation().ToCompactString(), *InitialRotation.ToCompactString());
+
 	SetActorRotation(InitialRotation);
 
 	check(_PaperGolfMesh);
@@ -201,13 +203,7 @@ void APaperGolfPawn::ResetRotation()
 
 FVector APaperGolfPawn::GetFlickDirection() const
 {
-	check(_PaperGolfMesh);
-
-	const auto& RelativeRotation = _PaperGolfMesh->GetRelativeRotation();
-	const auto& InitialRotationInverse = InitialRotation.GetInverse();
-
-	// Flick direction is a combination of the player rotation and the initial rotation of the base mesh 
-	return UKismetMathLibrary::ComposeRotators(RelativeRotation, InitialRotationInverse).Vector();
+	return GetActorRotation().Vector();
 }
 
 FVector APaperGolfPawn::GetFlickLocation(float LocationZ, float Accuracy, float Power) const
@@ -728,7 +724,9 @@ void APaperGolfPawn::Tick(float DeltaTime)
 
 void APaperGolfPawn::BeginPlay()
 {
-	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: BeginPlay"), *GetName());
+	InitialRotation = GetActorRotation();
+
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: BeginPlay: InitialRotation=%s"), *GetName(), *InitialRotation.ToCompactString());
 
 	Super::BeginPlay();
 
@@ -858,6 +856,8 @@ void APaperGolfPawn::ResetCameraForShotSetup()
 
 	if (!FocusActor)
 	{
+		UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: ResetCameraForShotSetup - Skipping as there is no focus actor"), *GetName());
+
 		return;
 	}
 
@@ -866,11 +866,7 @@ void APaperGolfPawn::ResetCameraForShotSetup()
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: ResetCameraForShotSetup - FocusActor=%s; LookAtRotationYaw=%f"), *GetName(), *LoggingUtils::GetName(FocusActor), LookAtRotation.Yaw);
 	UE_VLOG_LOCATION(this, LogPGPawn, Log, FocusActor->GetActorLocation(), 20.0, FColor::Turquoise, TEXT("Focus"));
 
-	check(_PaperGolfMesh);
-
-	_PaperGolfMesh->AddRelativeRotation(
-		FRotator{ 0, LookAtRotation.Yaw, 0 }
-	);
+	SetActorRotation(FRotator{ 0, LookAtRotation.Yaw, 0 });
 }
 
 void APaperGolfPawn::SampleState()

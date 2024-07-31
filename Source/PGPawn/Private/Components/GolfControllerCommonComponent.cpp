@@ -571,6 +571,7 @@ void UGolfControllerCommonComponent::InitFocusableActors()
 				UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose,
 					TEXT("%s-%s: InitFocusableActors - Matched GolfHole=%s for HoleNumber=%d"),
 					*GetName(), *LoggingUtils::GetName(GetOwner()), *Actor->GetName(), HoleNumber);
+				UE_VLOG_LOCATION(GetOwner(), LogPGPawn, Verbose, Actor->GetActorLocation(), 10.f, FColor::Turquoise, TEXT("Hole: %d"), HoleNumber);
 			}
 			else
 			{
@@ -583,6 +584,8 @@ void UGolfControllerCommonComponent::InitFocusableActors()
 			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose,
 				TEXT("%s-%s: InitFocusableActors - Matched FocusActor=%s for HoleNumber=%d"),
 				*GetName(), *LoggingUtils::GetName(GetOwner()), *Actor->GetName(), HoleNumber);
+
+			UE_VLOG_LOCATION(GetOwner(), LogPGPawn, Verbose, Actor->GetActorLocation(), 10.f, FColor::Turquoise, TEXT("Focus: %d"), HoleNumber);
 
 			FocusableActors.Add(Actor);
 		}

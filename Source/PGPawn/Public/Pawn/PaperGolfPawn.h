@@ -228,7 +228,6 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	FVector FlickLocation{ 0.0, 0.0, 0.05 };
 
-	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	FRotator InitialRotation{ EForceInit::ForceInitToZero };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot")
