@@ -45,7 +45,7 @@ void APGTurnBasedGameMode::OnGameStart()
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnGameStart"), *GetName());
 
-	StartHole(1);
+	StartHole(StartHoleNumber);
 }
 
 void APGTurnBasedGameMode::StartHole(int32 HoleNumber)

@@ -17,6 +17,12 @@ namespace PG
 		true,
 		TEXT("Toggle on/off"),
 		ECVF_Scalability | ECVF_RenderThreadSafe);
+
+	TAutoConsoleVariable<int32> CStartHoleOverride(
+		TEXT("pg.startHole"),
+		-1,
+		TEXT("Override the start hole number"),
+		ECVF_Scalability | ECVF_RenderThreadSafe);
 }
 
 #endif

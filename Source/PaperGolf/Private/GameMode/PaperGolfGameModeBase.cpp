@@ -7,6 +7,8 @@
 #include "VisualLogger/VisualLogger.h"
 #include "PaperGolfLogging.h"
 
+#include "Debug/PGConsoleVars.h"
+
 #include "Controller/GolfAIController.h"
 
 #include "State/GolfPlayerState.h"
@@ -42,6 +44,16 @@ void APaperGolfGameModeBase::InitGame(const FString& MapName, const FString& Opt
 
 	Super::InitGame(MapName, Options, ErrorMessage);
 
+#if PG_DEBUG_ENABLED
+
+	if (const auto StartHoleOverride = PG::CStartHoleOverride.GetValueOnGameThread(); StartHoleOverride > 0)
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitGame - Overriding default StartHole=%d to %d"), *GetName(), StartHoleNumber, StartHoleOverride);
+		StartHoleNumber = StartHoleOverride;
+	}
+
+#endif
+
 	if (!SetDesiredNumberOfPlayersFromPIESettings() && DesiredNumberOfPlayers == 0)
 	{
 		DesiredNumberOfPlayers = DefaultDesiredNumberOfPlayers;
@@ -61,7 +73,7 @@ void APaperGolfGameModeBase::InitGameState()
 
 	Super::InitGameState();
 
-	// Start at hole 1
+	// Set start hole
 	auto PaperGolfGameState = GetGameState<APaperGolfGameStateBase>();
 
 	if (!ensureMsgf(PaperGolfGameState, TEXT("%s: PaperGolfGameState=%s is not APaperGolfGameStateBase"), *GetName(), *LoggingUtils::GetName(GameState)))
@@ -72,7 +84,7 @@ void APaperGolfGameModeBase::InitGameState()
 	}
 
 	// This neesd to be called in InitGameState as ChoosePlayerStart will get called before the first hole starts and we don't want it to start at the default value
-	PaperGolfGameState->SetCurrentHoleNumber(1);
+	PaperGolfGameState->SetCurrentHoleNumber(StartHoleNumber);
 }
 
 void APaperGolfGameModeBase::OnPostLogin(AController* NewPlayer)

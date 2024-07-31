@@ -124,7 +124,9 @@ private:
 
 	void DoCourseComplete();
 
-private:
+protected:
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	int32 StartHoleNumber{ 1 };
 
 private:
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly)
