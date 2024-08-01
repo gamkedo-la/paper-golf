@@ -51,6 +51,8 @@ public:
 
 	int32 GetTotalNumberOfPlayers() const;
 
+	virtual void Reset() override;
+
 protected:
 
 	virtual void StartHole(int32 HoleNumber) PURE_VIRTUAL(APaperGolfGameModeBase::StartHole, );
@@ -71,7 +73,6 @@ protected:
 
 	virtual bool DelayStartWithTimer() const;
 
-protected:
 	virtual void OnPostLogin(AController* NewPlayer) override;
 
 	virtual bool ReadyToStartMatch_Implementation() override;
@@ -167,6 +168,7 @@ private:
 	int32 HumanPlayerDefaultNameIndex{};
 
 	bool bAllowPlayerSpawn{};
+	bool bWasReset{};
 };
 
 #pragma region Inline Definitions

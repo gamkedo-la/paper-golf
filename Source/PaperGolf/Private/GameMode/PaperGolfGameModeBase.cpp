@@ -83,8 +83,20 @@ void APaperGolfGameModeBase::InitGameState()
 		return;
 	}
 
-	// This neesd to be called in InitGameState as ChoosePlayerStart will get called before the first hole starts and we don't want it to start at the default value
-	PaperGolfGameState->SetCurrentHoleNumber(StartHoleNumber);
+	// If the game is not being reset for the next hole then the current hole number needs to be set
+	// in InitGameState as ChoosePlayerStart will get called before the first hole starts and we don't want it to start at the default value
+	if (!bWasReset)
+	{
+		PaperGolfGameState->SetCurrentHoleNumber(StartHoleNumber);
+	}
+}
+
+void APaperGolfGameModeBase::Reset()
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: Reset"), *GetName());
+	bWasReset = true;
+
+	Super::Reset();
 }
 
 void APaperGolfGameModeBase::OnPostLogin(AController* NewPlayer)
@@ -201,6 +213,8 @@ void APaperGolfGameModeBase::StartGameWithDelay()
 void APaperGolfGameModeBase::OnStartHole(int32 HoleNumber)
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnStartHole - HoleNumber=%d"), *GetName(), HoleNumber);
+
+	bWasReset = false;
 
 	StartHole(HoleNumber);
 }

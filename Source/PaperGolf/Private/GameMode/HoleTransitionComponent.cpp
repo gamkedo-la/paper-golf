@@ -77,6 +77,13 @@ void UHoleTransitionComponent::Init()
 
 	check(GetOwner()->HasAuthority());
 
+	LastHoleIndex = GameState->GetCurrentHoleNumber() - 1;
+	if(!ensureMsgf(LastHoleIndex >= 0, TEXT("%s: Init - LastHoleIndex=%d is invalid, defaulting to 0"), *GetName(), LastHoleIndex))
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: Init - LastHoleIndex=%d is invalid, defaulting to 0"), *GetName(), LastHoleIndex);
+		LastHoleIndex = 0;
+	}
+
 	InitCachedData();
 	RegisterEventHandlers();
 }

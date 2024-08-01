@@ -59,6 +59,5 @@ private:
 	UPROPERTY(Transient)
 	TArray<AGolfHole*> GolfHoles{};
 
-	// Start at 0 since the first hole loads automatically from the game mode
 	int32 LastHoleIndex{};
 };
