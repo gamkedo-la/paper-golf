@@ -13,6 +13,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/SceneComponent.h"
 
+#include "Engine/StaticMeshSocket.h"
+
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "Build/BuildUtilities.h"
@@ -38,6 +40,10 @@ namespace
 {
 	constexpr float ValidateFloatEpsilon = 0.001f;
 	constexpr float ValidateZOffsetExtentFraction = 0.5f;
+
+	// TODO: Move into separate constants namespace exported if needed outside this class
+	const FName BottomSocketName = TEXT("Bottom");
+	const FName FlickSocketName = TEXT("Flick");
 }
 
 APaperGolfPawn::APaperGolfPawn()
@@ -146,7 +152,10 @@ void APaperGolfPawn::SnapToGround()
 	const auto& Bounds = _PaperGolfMesh ? PG::CollisionUtils::GetAABB(*_PaperGolfMesh) : PG::CollisionUtils::GetAABB(*this);
 	const auto& ActorUpVector = GetActorUpVector();
 
-	const auto StartLocation = TraceStart + Bounds.GetExtent().Z * ActorUpVector;
+	const auto& BoundsExtent = Bounds.GetExtent();
+	const auto UpExtent = BoundsExtent * ActorUpVector;
+
+	const auto StartLocation = TraceStart + UpExtent;
 	const auto EndLocation = TraceStart - 2000 * ActorUpVector;
 
 	UE_VLOG_SEGMENT_THICK(this, LogPGPawn, Log, StartLocation, EndLocation, FColor::Yellow, 10.0, TEXT("GroundTrace"));
@@ -168,7 +177,20 @@ void APaperGolfPawn::SnapToGround()
 		return;
 	}
 
-	const auto& Location = HitResult.Location;
+	const auto& OriginLocation = HitResult.Location;
+
+	// Since the origin point is in the center of the paper football,
+	// we need to adjust up by the Z extent
+	//const auto Location = OriginLocation + UpExtent;
+	// TODO: Offset by the relative location of the bottom socket
+	auto Location = OriginLocation;
+
+	if (ensure(_PaperGolfMesh))
+	{
+		const auto& BottomSocketLocation = _PaperGolfMesh->GetSocketLocation(BottomSocketName);
+		const auto& FlickSocketLocation = _PaperGolfMesh->GetSocketLocation(FlickSocketName);
+		Location += ActorUpVector * (FlickSocketLocation.Z - BottomSocketLocation.Z);
+	}
 
 	SetActorLocation(Location);
 
