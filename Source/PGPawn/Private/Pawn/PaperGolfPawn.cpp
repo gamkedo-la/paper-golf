@@ -569,6 +569,9 @@ bool APaperGolfPawn::ServerFlick_Validate(const FNetworkFlickParams& Params)
 
 float APaperGolfPawn::ClampFlickZ(float OriginalZOffset, float DeltaZ) const
 {
+	// TODO: Use the Top and Bottom sockets instead to get the extensions of DeltaZ
+	// This is more precise than using the bounding box transformed and gives designers more control over the extents
+	// 
 	// Do a sweep test from OriginalZOffset + DeltaZ back to OriginalZOfset with GetFlickLocation
 	// If there is no intersection then return OriginalZOffset; otherwise return the impact point
 	auto World = GetWorld();
@@ -762,8 +765,6 @@ void APaperGolfPawn::BeginPlay()
 
 	States.Reserve(NumSamples);
 
-//	InitializePhysicsState();
-
 	InitDebugDraw();
 }
 
@@ -801,10 +802,6 @@ void APaperGolfPawn::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 
-	_PivotComponent = GetRootComponent();
-
-	ensureMsgf(_PivotComponent, TEXT("%s: PivotComponent is NULL"), *GetName());
-
 	_CameraSpringArm = FindComponentByClass<USpringArmComponent>();
 
 	if (ensureMsgf(_CameraSpringArm, TEXT("%s: CameraSpringArm is NULL"), *GetName()))
@@ -817,10 +814,6 @@ void APaperGolfPawn::PostInitializeComponents()
 	_PaperGolfMesh = FindComponentByClass<UStaticMeshComponent>();
 	if (ensureMsgf(_PaperGolfMesh, TEXT("%s: PaperGolfMesh is NULL"), *GetName()))
 	{
-		ensureMsgf(_PaperGolfMesh != _PivotComponent, TEXT("%s: PaperGolfMesh is the same as the root component"), *GetName());
-
-		PaperGolfMeshInitialTransform = _PaperGolfMesh->GetRelativeTransform();
-
 		TArray<USceneComponent*> Components;
 		_PaperGolfMesh->GetChildrenComponents(false, Components);
 
@@ -871,22 +864,7 @@ void APaperGolfPawn::ResetPhysicsState() const
 {
 	check(_PaperGolfMesh);
 
-	UPaperGolfPawnUtilities::ResetPhysicsState(_PaperGolfMesh, PaperGolfMeshInitialTransform);
-}
-
-void APaperGolfPawn::InitializePhysicsState()
-{
-	if(!ensure(_PaperGolfMesh))
-	{
-		return;
-	}
-
-	// Toggle physics state to fix initial offset issues
-	if(!_PaperGolfMesh->IsSimulatingPhysics())
-	{
-		_PaperGolfMesh->SetSimulatePhysics(true);
-		ResetPhysicsState();
-	}
+	UPaperGolfPawnUtilities::ResetPhysicsState(_PaperGolfMesh);
 }
 
 void APaperGolfPawn::ResetCameraForShotSetup()

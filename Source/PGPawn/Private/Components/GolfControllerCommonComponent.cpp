@@ -702,10 +702,10 @@ void UGolfControllerCommonComponent::BeginTurn()
 	// Always reset the state when activating turn - this fixes and physics offset issues
 	if(ensure(GolfController))
 	{
-		if (auto PaperGolfPawn = GolfController->GetPaperGolfPawn(); PaperGolfPawn /* && !PaperGolfPawn->IsAtRest()*/)
+		if (auto PaperGolfPawn = GolfController->GetPaperGolfPawn(); PaperGolfPawn && !PaperGolfPawn->IsAtRest())
 		{
-			//UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s-%s: BeginTurn - Resetting shot state as paper golf pawn is not at rest"),
-			//	*GetName(), *LoggingUtils::GetName(GetOwner()));
+			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: BeginTurn - Resetting shot state as paper golf pawn is not at rest"),
+				*GetName(), *LoggingUtils::GetName(GetOwner()));
 
 			// Always reset the state when activating turn - this fixes and physics offset issues
 			PaperGolfPawn->SetUpForNextShot();

@@ -78,7 +78,7 @@ void UPaperGolfPawnUtilities::ClampDeltaRotation(const FRotator& MaxRotationExte
 	}
 }
 
-void UPaperGolfPawnUtilities::ResetPhysicsState(UPrimitiveComponent* PhysicsComponent, const FTransform& RelativeTransform)
+void UPaperGolfPawnUtilities::BlueprintResetPhysicsState(UPrimitiveComponent* PhysicsComponent, const FTransform& RelativeTransform)
 {
 	if (!PhysicsComponent)
 	{

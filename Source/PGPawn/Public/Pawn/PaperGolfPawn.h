@@ -202,8 +202,6 @@ private:
 
 	void ResetPhysicsState() const;
 
-	void InitializePhysicsState();
-
 private:
 
 #if ENABLE_VISUAL_LOG
@@ -236,8 +234,6 @@ private:
 	FVector FlickLocation{ 0.0, 0.0, 0.05 };
 
 	FRotator InitialRotation{ EForceInit::ForceInitToZero };
-
-	FTransform PaperGolfMeshInitialTransform{};
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	float RestLinearVelocitySquaredMax{ 4.f };
@@ -279,10 +275,6 @@ private:
 
 	// TODO: move component set up to C++
 private:
-
-	UPROPERTY(Transient)
-	TObjectPtr<USceneComponent> _PivotComponent{};
-
 	UPROPERTY(Transient)
 	TObjectPtr<UStaticMeshComponent> _PaperGolfMesh{};
 
