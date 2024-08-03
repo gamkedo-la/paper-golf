@@ -12,6 +12,7 @@ class USpringArmComponent;
 class UCameraComponent;
 enum class EShotType : uint8;
 struct FPredictProjectilePathResult;
+class UPhysicsConstraintComponent;
 
 USTRUCT(BlueprintType)
 struct FFlickParams
@@ -200,7 +201,9 @@ private:
 
 	bool ShouldEnableCameraRotationLagForShotSetup() const;
 
-	void ResetPhysicsState() const;
+	// These are marked const in order to be used from GetMass(), really shouldn't be
+	void DisablePhysics() const;
+	void EnablePhysics(bool bRefreshConstraints = true) const;
 
 private:
 
@@ -286,6 +289,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UCameraComponent> _Camera{};
+
+	UPROPERTY(Transient)
+	TObjectPtr<UPhysicsConstraintComponent> _PhysicsConstraint{};
 };
 
 #pragma region Inline Definitions

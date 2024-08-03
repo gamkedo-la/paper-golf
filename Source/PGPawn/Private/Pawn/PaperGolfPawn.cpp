@@ -33,6 +33,8 @@
 
 #include "Net/UnrealNetwork.h"
 
+#include "PhysicsEngine/PhysicsConstraintComponent.h"
+
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PaperGolfPawn)
 
@@ -266,7 +268,7 @@ bool APaperGolfPawn::IsAtRest() const
 
 void APaperGolfPawn::SetUpForNextShot()
 {
-	ResetPhysicsState();
+	DisablePhysics();
 }
 
 void APaperGolfPawn::MulticastReliableSetTransform_Implementation(const FVector_NetQuantize& Position, bool bUseRotation, const FRotator& Rotation)
@@ -348,7 +350,7 @@ void APaperGolfPawn::SetCollisionEnabled(bool bEnabled)
 
 	if (!bEnabled)
 	{
-		_PaperGolfMesh->SetSimulatePhysics(false);
+		DisablePhysics();
 	}
 	// Will explicitly opt-in to physics simulation when flicking
 	
@@ -417,9 +419,8 @@ void APaperGolfPawn::DoFlick(FFlickParams FlickParams)
 
 	SetCollisionEnabled(true);
 
-	// Turn off physics at first so can move the actor
-	_PaperGolfMesh->SetSimulatePhysics(true);
-
+	// Had turned off physics at first so can have player set up the shot
+	EnablePhysics();
 	RefreshMass();
 
 	const auto& Impulse = GetFlickForce(FlickParams.ShotType, FlickParams.Accuracy, FlickParams.PowerFraction);
@@ -438,7 +439,6 @@ void APaperGolfPawn::DoFlick(FFlickParams FlickParams)
 #endif
 
 	_PaperGolfMesh->AddImpulseAtLocation(Impulse, Location);
-	_PaperGolfMesh->SetEnableGravity(true);
 
 	OnFlick.Broadcast();
 }
@@ -827,6 +827,16 @@ void APaperGolfPawn::PostInitializeComponents()
 			_FlickReference = *FindResult;
 			ensureMsgf(_FlickReference, TEXT("%s: FlickReference is NULL"), *GetName());
 		}
+
+		_PhysicsConstraint = FindComponentByClass<UPhysicsConstraintComponent>();
+		if (ensureMsgf(_PhysicsConstraint, TEXT("%s: PhysicsConstraint is NULL"), *GetName()))
+		{
+			// if don't start simulating physics, break the constraint initially
+			if (!_PaperGolfMesh->IsSimulatingPhysics())
+			{
+				_PhysicsConstraint->BreakConstraint();
+			}
+		}
 	}
 }
 
@@ -860,11 +870,26 @@ bool APaperGolfPawn::ShouldEnableCameraRotationLagForShotSetup() const
 	return !IsLocallyControlled();
 }
 
-void APaperGolfPawn::ResetPhysicsState() const
+void APaperGolfPawn::DisablePhysics() const
+{
+	check(_PaperGolfMesh);
+	check(_PhysicsConstraint);
+
+	_PhysicsConstraint->BreakConstraint();
+	UPaperGolfPawnUtilities::ResetPhysicsState(_PaperGolfMesh);
+}
+
+void APaperGolfPawn::EnablePhysics(bool bRefreshConstraints) const
 {
 	check(_PaperGolfMesh);
 
-	UPaperGolfPawnUtilities::ResetPhysicsState(_PaperGolfMesh);
+	_PaperGolfMesh->SetSimulatePhysics(true);
+
+	if (bRefreshConstraints)
+	{
+		check(_PhysicsConstraint);
+		_PhysicsConstraint->InitComponentConstraint();
+	}
 }
 
 void APaperGolfPawn::ResetCameraForShotSetup()
@@ -949,8 +974,8 @@ float APaperGolfPawn::CalculateMass() const
 
 	if (!_PaperGolfMesh->IsSimulatingPhysics())
 	{
-		// necessary to read the mass
-		_PaperGolfMesh->SetSimulatePhysics(true);
+		// necessary to read the mass - no need to call enable physics as don't have to enable the constraints
+		EnablePhysics(false);
 
 		bSetSimulatePhysics = true;
 	}
@@ -959,7 +984,7 @@ float APaperGolfPawn::CalculateMass() const
 
 	if (bSetSimulatePhysics)
 	{
-		ResetPhysicsState();
+		DisablePhysics();
 	}
 
 	return CalculatedMass;

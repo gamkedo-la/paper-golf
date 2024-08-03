@@ -31,7 +31,7 @@ public:
 
 private:
 	// UFUNCTION does not allow default parameters for non-primitive types so add overload specifically for blueprints
-	UFUNCTION(BlueprintCallable, Category = "Physics", meta = (DisplayName = "ResetPhysicsState"))
+	UFUNCTION(BlueprintCallable, Category = "Physics", meta = (DisplayName = "DisablePhysics"))
 	static void BlueprintResetPhysicsState(class UPrimitiveComponent* PhysicsComponent, const FTransform & RelativeTransform);
 };
 

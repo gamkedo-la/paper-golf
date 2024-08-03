@@ -95,7 +95,7 @@ void UPaperGolfPawnUtilities::BlueprintResetPhysicsState(UPrimitiveComponent* Ph
 	{
 		auto RootComponent = Owner->GetRootComponent();
 
-		UE_VLOG_UELOG(Owner, LogPGPawn, Log, TEXT("%s: ResetPhysicsState - Update Transforms - PhysicsComponent=%s, RelativeTransform=%s; RootComponentTransform=%s; PhysicsComponentTransform=%s"),
+		UE_VLOG_UELOG(Owner, LogPGPawn, Log, TEXT("%s: DisablePhysics - Update Transforms - PhysicsComponent=%s, RelativeTransform=%s; RootComponentTransform=%s; PhysicsComponentTransform=%s"),
 			*Owner->GetName(), *PhysicsComponent->GetName(), *RelativeTransform.ToString(),
 			*RootComponent->GetComponentTransform().ToString(), *PhysicsComponent->GetComponentTransform().ToString());
 
