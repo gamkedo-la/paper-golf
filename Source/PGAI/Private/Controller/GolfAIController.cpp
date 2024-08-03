@@ -159,14 +159,6 @@ void AGolfAIController::ActivateTurn()
 		return;
 	}
 
-	if (!PaperGolfPawn->IsAtRest())
-	{
-		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ActivateTurn - Resetting shot state as paper golf pawn is not at rest"),
-			*GetName(), *LoggingUtils::GetName(PaperGolfPawn));
-		// Force reset of physics state to avoid triggering assertion
-		PaperGolfPawn->SetUpForNextShot();
-	}
-
 	GolfControllerCommonComponent->BeginTurn();
 
 	// Turn must be activated before Setup can happen as it requires the player to be active

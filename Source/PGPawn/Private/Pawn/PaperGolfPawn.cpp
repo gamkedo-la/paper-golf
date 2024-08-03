@@ -177,20 +177,7 @@ void APaperGolfPawn::SnapToGround()
 		return;
 	}
 
-	const auto& OriginLocation = HitResult.Location;
-
-	// Since the origin point is in the center of the paper football,
-	// we need to adjust up by the Z extent
-	//const auto Location = OriginLocation + UpExtent;
-	// TODO: Offset by the relative location of the bottom socket
-	auto Location = OriginLocation;
-
-	if (ensure(_PaperGolfMesh))
-	{
-		const auto& BottomSocketLocation = _PaperGolfMesh->GetSocketLocation(BottomSocketName);
-		const auto& FlickSocketLocation = _PaperGolfMesh->GetSocketLocation(FlickSocketName);
-		Location += ActorUpVector * (FlickSocketLocation.Z - BottomSocketLocation.Z);
-	}
+	const auto& Location = HitResult.Location;
 
 	SetActorLocation(Location);
 
@@ -279,9 +266,7 @@ bool APaperGolfPawn::IsAtRest() const
 
 void APaperGolfPawn::SetUpForNextShot()
 {
-	check(_PaperGolfMesh);
-
-	UPaperGolfPawnUtilities::ResetPhysicsState(_PaperGolfMesh);
+	ResetPhysicsState();
 }
 
 void APaperGolfPawn::MulticastReliableSetTransform_Implementation(const FVector_NetQuantize& Position, bool bUseRotation, const FRotator& Rotation)
@@ -301,6 +286,8 @@ void APaperGolfPawn::MulticastReliableSetTransform_Implementation(const FVector_
 		*GetName(), *Position.ToCompactString(), LoggingUtils::GetBoolString(bUseRotation), *Rotation.ToCompactString()
 	);
 
+	// FIXME: Should we be calling this anymore on simulated proxies?
+	// Re-evaluate all the multicast and client position update calls since it should be handled via replication now
 	SetTransform(Position, bUseRotation ? TOptional<FRotator> {Rotation} : TOptional<FRotator>{});
 }
 
@@ -387,6 +374,25 @@ void APaperGolfPawn::Flick(const FFlickParams& FlickParams)
 
 	// Wait until next shot to be able to hit again
 	bReadyForShot = false;
+}
+
+void APaperGolfPawn::AddDeltaRotation(const FRotator& DeltaRotation)
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: AddDeltaRotation - DeltaRotation=%s"), *GetName(), *DeltaRotation.ToCompactString());
+
+	if (!ensure(_PaperGolfMesh))
+	{
+		return;
+	}
+
+	if (FMath::IsNearlyZero(DeltaRotation.Yaw))
+	{
+		AddActorLocalRotation(DeltaRotation);
+	}
+	else
+	{
+		AddActorWorldRotation(DeltaRotation);
+	}
 }
 
 FNetworkFlickParams APaperGolfPawn::ToNetworkParams(const FFlickParams& Params) const
@@ -756,6 +762,8 @@ void APaperGolfPawn::BeginPlay()
 
 	States.Reserve(NumSamples);
 
+//	InitializePhysicsState();
+
 	InitDebugDraw();
 }
 
@@ -793,6 +801,10 @@ void APaperGolfPawn::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 
+	_PivotComponent = GetRootComponent();
+
+	ensureMsgf(_PivotComponent, TEXT("%s: PivotComponent is NULL"), *GetName());
+
 	_CameraSpringArm = FindComponentByClass<USpringArmComponent>();
 
 	if (ensureMsgf(_CameraSpringArm, TEXT("%s: CameraSpringArm is NULL"), *GetName()))
@@ -802,9 +814,13 @@ void APaperGolfPawn::PostInitializeComponents()
 		ensureMsgf(_Camera, TEXT("%s: Camera is NULL"), *GetName());
 	}
 
-	_PaperGolfMesh = Cast<UStaticMeshComponent>(GetRootComponent());
+	_PaperGolfMesh = FindComponentByClass<UStaticMeshComponent>();
 	if (ensureMsgf(_PaperGolfMesh, TEXT("%s: PaperGolfMesh is NULL"), *GetName()))
 	{
+		ensureMsgf(_PaperGolfMesh != _PivotComponent, TEXT("%s: PaperGolfMesh is the same as the root component"), *GetName());
+
+		PaperGolfMeshInitialTransform = _PaperGolfMesh->GetRelativeTransform();
+
 		TArray<USceneComponent*> Components;
 		_PaperGolfMesh->GetChildrenComponents(false, Components);
 
@@ -849,6 +865,28 @@ bool APaperGolfPawn::ShouldEnableCameraRotationLagForShotSetup() const
 {
 	// If this is an autonomous proxy make sure rotation lag is enabled to avoid jerky-looking aiming
 	return !IsLocallyControlled();
+}
+
+void APaperGolfPawn::ResetPhysicsState() const
+{
+	check(_PaperGolfMesh);
+
+	UPaperGolfPawnUtilities::ResetPhysicsState(_PaperGolfMesh, PaperGolfMeshInitialTransform);
+}
+
+void APaperGolfPawn::InitializePhysicsState()
+{
+	if(!ensure(_PaperGolfMesh))
+	{
+		return;
+	}
+
+	// Toggle physics state to fix initial offset issues
+	if(!_PaperGolfMesh->IsSimulatingPhysics())
+	{
+		_PaperGolfMesh->SetSimulatePhysics(true);
+		ResetPhysicsState();
+	}
 }
 
 void APaperGolfPawn::ResetCameraForShotSetup()
@@ -943,7 +981,7 @@ float APaperGolfPawn::CalculateMass() const
 
 	if (bSetSimulatePhysics)
 	{
-		UPaperGolfPawnUtilities::ResetPhysicsState(_PaperGolfMesh);
+		ResetPhysicsState();
 	}
 
 	return CalculatedMass;

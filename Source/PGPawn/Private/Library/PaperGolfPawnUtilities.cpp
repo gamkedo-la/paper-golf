@@ -8,6 +8,10 @@
 // Draw point
 #include "Components/LineBatchComponent.h"
 
+#include "VisualLogger/VisualLogger.h"
+#include "Logging/LoggingUtils.h"
+#include "PGPawnLogging.h"
+
 #include <array>
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PaperGolfPawnUtilities)
@@ -74,31 +78,33 @@ void UPaperGolfPawnUtilities::ClampDeltaRotation(const FRotator& MaxRotationExte
 	}
 }
 
-void UPaperGolfPawnUtilities::ResetPhysicsState(UPrimitiveComponent* PhysicsComponent)
+void UPaperGolfPawnUtilities::ResetPhysicsState(UPrimitiveComponent* PhysicsComponent, const FTransform& RelativeTransform)
 {
 	if (!PhysicsComponent)
 	{
 		return;
 	}
 
-	//PhysicsComponent->RecreatePhysicsState();
 	PhysicsComponent->SetSimulatePhysics(false);
-	//PhysicsComponent->ResetRelativeTransform();
-	//if (auto Owner = PhysicsComponent->GetOwner(); Owner)
-	//{
-	////	Owner->GetRootComponent()->ResetRelativeTransform();
-	//	Owner->SetActorLocation(PhysicsComponent->GetComponentLocation());
-	//}
-	////	Owner->SetActorRotation(PhysicsComponent->GetComponentRotation());
-	////	//Owner->SetActorRelativeTransform(FTransform::Identity, false, nullptr, ETeleportType::ResetPhysics);
-	////	//Owner->SetActorRelativeRotation(FRotator::ZeroRotator);
-	////}
-	//auto Parent = PhysicsComponent->GetAttachParent();
-	//if (auto Parent = PhysicsComponent->GetAttachParent(); Parent)
-	//{
-	//	PhysicsComponent->DetachFromParent();
-	//	PhysicsComponent->AttachToComponent(Parent, FAttachmentTransformRules::KeepWorldTransform);
-	//}
+
+	// When we simulate physics and the primitive component is not the root component, it becomes detached from its parent
+	// In this case we need to manually reattach it to its original parent, move the parent to where it was and then reset any relative transform of the physics component
+	// back to the original values (RelativeTransform)
+	// FIXME: Putting check for role as a workaround for "phantom pawns" replicated from SetTransform and a concurrency issue with the actor attachments - this messes up the camera
+	if (auto Owner = PhysicsComponent->GetOwner(); Owner && Owner->GetLocalRole() != ENetRole::ROLE_SimulatedProxy && Owner->GetRootComponent() && Owner->GetRootComponent() != PhysicsComponent->GetAttachmentRoot())
+	{
+		auto RootComponent = Owner->GetRootComponent();
+
+		UE_VLOG_UELOG(Owner, LogPGPawn, Log, TEXT("%s: ResetPhysicsState - Update Transforms - PhysicsComponent=%s, RelativeTransform=%s; RootComponentTransform=%s; PhysicsComponentTransform=%s"),
+			*Owner->GetName(), *PhysicsComponent->GetName(), *RelativeTransform.ToString(),
+			*RootComponent->GetComponentTransform().ToString(), *PhysicsComponent->GetComponentTransform().ToString());
+
+		RootComponent->SetWorldLocation(PhysicsComponent->GetComponentLocation() - RelativeTransform.GetLocation());
+		RootComponent->SetWorldRotation(PhysicsComponent->GetComponentRotation() - RelativeTransform.GetRotation().Rotator());
+
+		PhysicsComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		PhysicsComponent->SetRelativeTransform(RelativeTransform);
+	}
 }
 
 void UPaperGolfPawnUtilities::DrawPoint(const UObject* WorldContextObject, const FVector& Position, const FLinearColor& Color, float PointSize)

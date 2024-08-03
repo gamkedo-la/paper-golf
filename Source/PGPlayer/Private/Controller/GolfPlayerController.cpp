@@ -10,7 +10,6 @@
 #include "Library/PaperGolfPawnUtilities.h"
 
 #include "Kismet/GameplayStatics.h"
-
 #include "GameFramework/SpectatorPawn.h"
 
 #include "PGPlayerLogging.h"
@@ -277,14 +276,7 @@ void AGolfPlayerController::AddPaperGolfPawnRelativeRotation(const FRotator& Del
 
 	UPaperGolfPawnUtilities::ClampDeltaRotation(RotationMax, RotationToApply, TotalRotation);
 
-	if (FMath::IsNearlyZero(RotationToApply.Yaw))
-	{
-		PaperGolfPawn->AddActorLocalRotation(RotationToApply);
-	}
-	else
-	{
-		PaperGolfPawn->AddActorWorldRotation(RotationToApply);
-	}
+	PaperGolfPawn->AddDeltaRotation(RotationToApply);
 
 	ServerSetPaperGolfPawnRotation(PaperGolfPawn->GetActorRotation());
 }
@@ -810,14 +802,6 @@ void AGolfPlayerController::DoActivateTurn()
 	}
 
 	GolfControllerCommonComponent->BeginTurn();
-
-	if (!PaperGolfPawn->IsAtRest())
-	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DoActivateTurn - Resetting shot state as paper golf pawn is not at rest"),
-			*GetName(), *LoggingUtils::GetName(PaperGolfPawn));
-		// Force reset of physics state to avoid triggering assertion
-		PaperGolfPawn->SetUpForNextShot();
-	}
 
 	SetupNextShot(true);
 	bTurnActivated = true;

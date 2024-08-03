@@ -19,7 +19,7 @@ public:
 	static void ClampDeltaRotation(const FRotator& MaxRotationExtent, UPARAM(ref) FRotator& DeltaRotation, UPARAM(ref) FRotator& TotalRotation);
 
 	UFUNCTION(BlueprintCallable, Category = "Physics")
-	static void ResetPhysicsState(class UPrimitiveComponent* PhysicsComponent);
+	static void ResetPhysicsState(class UPrimitiveComponent* PhysicsComponent, const FTransform& RelativeTransform);
 
 	UFUNCTION(BlueprintCallable, Category = "HUD")
 	static void DrawPoint(const UObject* WorldContextObject, const FVector& Position, const FLinearColor& Color, float PointSize = 15.0f);
