@@ -158,6 +158,9 @@ public:
 	*/
 	virtual void FellOutOfWorld(const UDamageType& DmgType) override;
 
+	FVector GetPaperGolfPosition() const;
+	FRotator GetPaperGolfRotation() const;
+
 protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void BeginPlay() override;

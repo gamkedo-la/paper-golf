@@ -370,7 +370,7 @@ void AGolfPlayerController::DoAdditionalOnShotFinished()
 			TEXT("%s-%s: OnShotFinished - Setting final authoritative position for client pawn: %s"),
 			*GetName(), *PaperGolfPawn->GetName(), *PaperGolfPawn->GetActorLocation().ToCompactString());
 
-		ClientSetTransformTo(PaperGolfPawn->GetActorLocation(), PaperGolfPawn->GetActorRotation());
+		ClientSetTransformTo(PaperGolfPawn->GetPaperGolfPosition(), PaperGolfPawn->GetPaperGolfRotation());
 	}
 }
 
@@ -382,7 +382,7 @@ void AGolfPlayerController::DoAdditionalFallThroughFloor()
 			TEXT("%s-%s: DoAdditionalFallThroughFloor - Setting final authoritative position for client pawn: %s"),
 			*GetName(), *PaperGolfPawn->GetName(), *PaperGolfPawn->GetActorLocation().ToCompactString());
 
-		ClientSetTransformTo(PaperGolfPawn->GetActorLocation(), PaperGolfPawn->GetActorRotation());
+		ClientSetTransformTo(PaperGolfPawn->GetPaperGolfPosition(), PaperGolfPawn->GetPaperGolfRotation());
 	}
 }
 

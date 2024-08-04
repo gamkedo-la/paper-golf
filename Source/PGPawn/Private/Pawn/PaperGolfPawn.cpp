@@ -109,6 +109,28 @@ bool APaperGolfPawn::IsStuckInPerpetualMotion() const
 	return Delta.Size() < MinDistanceThreshold;
 }
 
+// We need to check the _PaperGolfMesh since a physics actor pops out of the hierarchy
+
+FVector APaperGolfPawn::GetPaperGolfPosition() const
+{
+	if (ensure(_PaperGolfMesh) && GetRootComponent() != _PaperGolfMesh->GetAttachmentRoot())
+	{
+		return _PaperGolfMesh->GetComponentLocation();
+	}
+
+	return GetActorLocation();
+}
+
+FRotator APaperGolfPawn::GetPaperGolfRotation() const
+{
+	if (ensure(_PaperGolfMesh) && GetRootComponent() != _PaperGolfMesh->GetAttachmentRoot())
+	{
+		return _PaperGolfMesh->GetComponentRotation();
+	}
+
+	return GetActorRotation();
+}
+
 void APaperGolfPawn::SetFocusActor(AActor* Focus)
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: SetFocusActor - Focus=%s"), *GetName(), *LoggingUtils::GetName(Focus));
@@ -320,6 +342,26 @@ void APaperGolfPawn::SetTransform(const FVector& Position, const TOptional<FRota
 		);
 	}
 
+	if (GetLocalRole() == ENetRole::ROLE_SimulatedProxy)
+	{
+		// This always puts hit pawns last shot for clients
+		if (ensure(_PivotComponent && _PaperGolfMesh))
+		{
+
+			_PivotComponent->SetWorldLocation(_PaperGolfMesh->GetComponentLocation() - PaperGolfMeshInitialTransform.GetLocation());
+			_PivotComponent->SetWorldRotation(_PaperGolfMesh->GetComponentRotation() - PaperGolfMeshInitialTransform.GetRotation().Rotator());
+
+			_PaperGolfMesh->AttachToComponent(_PivotComponent, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+			_PaperGolfMesh->SetRelativeTransform(PaperGolfMeshInitialTransform);
+
+			//_PaperGolfMesh->AttachToComponent(_PivotComponent, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+			//_PaperGolfMesh->SetRelativeTransform(PaperGolfMeshInitialTransform);
+		}
+
+		//SnapToGround();
+	}
+
+
 	UE_VLOG_LOCATION(this, LogPGPawn, Log, Position, 20.0f, FColor::Red, TEXT("SetPositionTo"));
 }
 
@@ -438,7 +480,6 @@ void APaperGolfPawn::DoFlick(FFlickParams FlickParams)
 #endif
 
 	_PaperGolfMesh->AddImpulseAtLocation(Impulse, Location);
-	_PaperGolfMesh->SetEnableGravity(true);
 
 	OnFlick.Broadcast();
 }
@@ -569,6 +610,9 @@ bool APaperGolfPawn::ServerFlick_Validate(const FNetworkFlickParams& Params)
 
 float APaperGolfPawn::ClampFlickZ(float OriginalZOffset, float DeltaZ) const
 {
+	// TODO: Use the Top and Bottom sockets instead to get the extensions of DeltaZ
+	// This is more precise than using the bounding box transformed and gives designers more control over the extents
+	// 
 	// Do a sweep test from OriginalZOffset + DeltaZ back to OriginalZOfset with GetFlickLocation
 	// If there is no intersection then return OriginalZOffset; otherwise return the impact point
 	auto World = GetWorld();
@@ -1020,6 +1064,26 @@ void APaperGolfPawn::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 	Category.Add(TEXT("FlickLocation"), FlickLocation.ToCompactString());
 	Category.Add(TEXT("Location"), GetActorLocation().ToCompactString());
 	Category.Add(TEXT("Rotation"), GetActorRotation().ToCompactString());
+
+	if (_PivotComponent)
+	{
+		FVisualLogStatusCategory PivotCategory;
+		PivotCategory.Category = TEXT("Pivot");
+		PivotCategory.Add(TEXT("Location"), _PivotComponent->GetComponentLocation().ToCompactString());
+		PivotCategory.Add(TEXT("Rotation"), _PivotComponent->GetComponentRotation().ToCompactString());
+		Category.AddChild(PivotCategory);
+	}
+
+	if (_PaperGolfMesh)
+	{
+		FVisualLogStatusCategory MeshCategory;
+		MeshCategory.Category = TEXT("Mesh");
+		MeshCategory.Add(TEXT("World Location"), _PaperGolfMesh->GetComponentLocation().ToCompactString());
+		MeshCategory.Add(TEXT("World Rotation"), _PaperGolfMesh->GetComponentRotation().ToCompactString());
+		MeshCategory.Add(TEXT("Relative Location"), _PaperGolfMesh->GetRelativeLocation().ToCompactString());
+		MeshCategory.Add(TEXT("Relative Rotation"), _PaperGolfMesh->GetRelativeRotation().ToCompactString());
+		Category.AddChild(MeshCategory);
+	}
 
 	DrawPawn(FColor::Blue, Snapshot);
 
