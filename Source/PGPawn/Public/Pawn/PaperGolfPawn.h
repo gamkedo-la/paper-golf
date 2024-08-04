@@ -12,6 +12,7 @@ class USpringArmComponent;
 class UCameraComponent;
 enum class EShotType : uint8;
 struct FPredictProjectilePathResult;
+class UCurveFloat;
 
 USTRUCT(BlueprintType)
 struct FFlickParams
@@ -143,6 +144,8 @@ public:
 
 	float GetFlickMaxForce(EShotType ShotType) const;
 
+	float GetFlickDragForceMultiplier(float Power) const;
+
 	float GetMass() const;
 
 	// Used for server validation
@@ -267,6 +270,9 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Force")
 	float FlickMaxForceMediumShot{ 200.f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot | Force")
+	TObjectPtr<UCurveFloat> FlickDragForceCurve{};
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty")
 	float PowerAccuracyDampenExp{ 0.25f };

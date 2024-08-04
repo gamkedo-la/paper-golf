@@ -744,6 +744,9 @@ float APaperGolfPawn::ClampFlickZ(float OriginalZOffset, float DeltaZ) const
 bool APaperGolfPawn::PredictFlick(const FFlickParams& FlickParams, const FFlickPredictParams& FlickPredictParams, FPredictProjectilePathResult& Result) const
 {
 	const auto FlickImpulse = GetFlickForce(FlickParams.ShotType, FlickParams.Accuracy, FlickParams.PowerFraction);
+	const auto DragForceMultiplier = GetFlickDragForceMultiplier(FlickImpulse.Size());
+	const auto DragAdjustedFlickImpulse = FlickImpulse * DragForceMultiplier;
+
 	const auto& FlickDirection = FlickImpulse.GetSafeNormal();
 
 	FPredictProjectilePathParams Params;
@@ -758,17 +761,18 @@ bool APaperGolfPawn::PredictFlick(const FFlickParams& FlickParams, const FFlickP
 	Params.SimFrequency = FlickPredictParams.SimFrequency;
 
 	// Impulse = change in momentum
-	Params.LaunchVelocity = FlickImpulse / GetMass();
+	Params.LaunchVelocity = DragAdjustedFlickImpulse / GetMass();
 
 	// TODO: Later toggle with console variable
 	//Params.DrawDebugType = EDrawDebugTrace::ForDuration;
 	//Params.DrawDebugTime = 10.0f;
 
 	UE_VLOG_UELOG(this, LogPGPawn, Log, 
-		TEXT("%s: PredictFlick - FlickDirection=%s; FlickForceMagnitude=%.1f; StartLocation=%s; LaunchVelocity=%scm/s"),
+		TEXT("%s: PredictFlick - FlickDirection=%s; FlickForceMagnitude=%.1f; DragForceMultiplier=%.1f; StartLocation=%s; LaunchVelocity=%scm/s"),
 		*GetName(),
 		*FlickDirection.ToCompactString(),
-		FlickImpulse.Size(),
+		DragAdjustedFlickImpulse.Size(),
+		DragForceMultiplier,
 		*Params.StartLocation.ToCompactString(),
 		*Params.LaunchVelocity.ToCompactString());
 
@@ -909,6 +913,16 @@ float APaperGolfPawn::GetFlickMaxForce(EShotType ShotType) const
 		case EShotType::Close: return FlickMaxForceCloseShot;
 		default: return FlickMaxForce;
 	}
+}
+
+float APaperGolfPawn::GetFlickDragForceMultiplier(float Power) const
+{
+	if (!ensureMsgf(FlickDragForceCurve, TEXT("%s: FlickDragForceCurve is NULL"), *GetName()))
+	{
+		return 1.0f;
+	}
+
+	return FlickDragForceCurve->FloatCurve.Eval(Power, 1.0f);
 }
 
 float APaperGolfPawn::GetMass() const
