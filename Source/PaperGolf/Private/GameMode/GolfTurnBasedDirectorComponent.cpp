@@ -212,9 +212,13 @@ void UGolfTurnBasedDirectorComponent::DoNextTurn()
 {
 	ActivePlayerIndex = DetermineNextPlayer();
 
-	if (ActivePlayerIndex == INDEX_NONE)
+	check(GameState);
+
+	// If there are no more players to go or if the game rules determine the hole is complete - e.g. match play the final rankings already determined, then finish the hole
+	if (ActivePlayerIndex == INDEX_NONE || GameState->IsHoleComplete())
 	{
-		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: DoNextTurn - Hole Complete"), *GetName());
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: DoNextTurn - Hole Complete - By %s"), *GetName(),
+			ActivePlayerIndex == INDEX_NONE ? TEXT("No more unfinished players") : TEXT("Early finish via game rules"));
 		NextHole();
 
 		return;

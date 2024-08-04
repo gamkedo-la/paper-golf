@@ -739,5 +739,10 @@ void UGolfControllerCommonComponent::OnScored()
 	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: OnScored"),
 		*GetName(), *LoggingUtils::GetName(GetOwner()));
 
+	if (auto GolfPlayerState = GolfController->GetGolfPlayerState(); GetOwner()->HasAuthority() && ensure(GolfPlayerState))
+	{
+		GolfPlayerState->SetHasScored(true);
+	}
+
 	UnregisterShotFinishedTimer();
 }
