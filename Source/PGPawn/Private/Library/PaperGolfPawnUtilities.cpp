@@ -125,6 +125,12 @@ void UPaperGolfPawnUtilities::ReattachPhysicsComponent(UPrimitiveComponent* Phys
 
 	PhysicsComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 	PhysicsComponent->SetRelativeTransform(RelativeTransform);
+
+	// force a network update if we are on the server
+	if (Owner->HasAuthority())
+	{
+		Owner->ForceNetUpdate();
+	}
 }
 
 void UPaperGolfPawnUtilities::DrawPoint(const UObject* WorldContextObject, const FVector& Position, const FLinearColor& Color, float PointSize)
