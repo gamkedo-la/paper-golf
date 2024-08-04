@@ -368,7 +368,7 @@ void AGolfPlayerController::DoAdditionalOnShotFinished()
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Log,
 			TEXT("%s-%s: OnShotFinished - Setting final authoritative position for client pawn: %s"),
-			*GetName(), *PaperGolfPawn->GetName(), *PaperGolfPawn->GetActorLocation().ToCompactString());
+			*GetName(), *PaperGolfPawn->GetName(), *PaperGolfPawn->GetPaperGolfPosition().ToCompactString());
 
 		ClientSetTransformTo(PaperGolfPawn->GetPaperGolfPosition(), PaperGolfPawn->GetPaperGolfRotation());
 	}
@@ -380,7 +380,7 @@ void AGolfPlayerController::DoAdditionalFallThroughFloor()
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Log,
 			TEXT("%s-%s: DoAdditionalFallThroughFloor - Setting final authoritative position for client pawn: %s"),
-			*GetName(), *PaperGolfPawn->GetName(), *PaperGolfPawn->GetActorLocation().ToCompactString());
+			*GetName(), *PaperGolfPawn->GetName(), *PaperGolfPawn->GetPaperGolfPosition().ToCompactString());
 
 		ClientSetTransformTo(PaperGolfPawn->GetPaperGolfPosition(), PaperGolfPawn->GetPaperGolfRotation());
 	}
@@ -578,7 +578,7 @@ void AGolfPlayerController::ResetShotAfterOutOfBounds()
 		}
 
 		ClientResetShotAfterOutOfBounds(ResetPosition);
-		PaperGolfPawn->MulticastReliableSetTransform(ResetPosition, true, PaperGolfPawn->GetActorRotation());
+		PaperGolfPawn->MulticastReliableSetTransform(ResetPosition, true, true, PaperGolfPawn->GetActorRotation());
 	}
 	// TODO: What to do if we bail out early as user will still have the HUD message for out of bounds displaying
 }

@@ -34,11 +34,14 @@ void APaperGolfGameStateBase::SetCurrentHoleNumber(int32 Hole)
 
 	CurrentHoleNumber = Hole;
 	OnHoleChanged.Broadcast(CurrentHoleNumber);
+
+	ForceNetUpdate();
 }
 
 void APaperGolfGameStateBase::SetActivePlayer(AGolfPlayerState* Player)
 {
 	ActivePlayer = Player;
+	ForceNetUpdate();
 }
 
 void APaperGolfGameStateBase::AddPlayerState(APlayerState* PlayerState)

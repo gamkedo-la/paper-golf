@@ -364,7 +364,7 @@ bool UGolfControllerCommonComponent::HandleFallThroughFloor()
 		*GetName(), *LoggingUtils::GetName(GetOwner()), *LoggingUtils::GetName(PaperGolfPawn));
 
 
-	const auto& Position = PaperGolfPawn->GetActorLocation() + FVector::UpVector * FallThroughFloorCorrectionTestZ;
+	const auto& Position = PaperGolfPawn->GetPaperGolfPosition() + FVector::UpVector * FallThroughFloorCorrectionTestZ;
 
 	SetPositionTo(Position);
 
@@ -436,7 +436,7 @@ bool UGolfControllerCommonComponent::SetupNextShot(bool bSetCanFlick)
 		// Broadcast new upright ready position and rotation
 		if (GetOwner()->HasAuthority())
 		{
-			PaperGolfPawn->MulticastReliableSetTransform(PaperGolfPawn->GetActorLocation(), true, PaperGolfPawn->GetActorRotation());
+			PaperGolfPawn->MulticastReliableSetTransform(PaperGolfPawn->GetActorLocation(), true, true, PaperGolfPawn->GetActorRotation());
 		}
 	}
 
@@ -461,7 +461,7 @@ void UGolfControllerCommonComponent::SetPositionTo(const FVector& Position, cons
 	}
 
 	PaperGolfPawn->SetTransform(Position, OptionalRotation);
-	PaperGolfPawn->MulticastReliableSetTransform(Position, OptionalRotation.IsSet(), OptionalRotation ? OptionalRotation.GetValue() : FRotator::ZeroRotator);
+	PaperGolfPawn->MulticastReliableSetTransform(Position, false, OptionalRotation.IsSet(), OptionalRotation ? OptionalRotation.GetValue() : FRotator::ZeroRotator);
 }
 
 void UGolfControllerCommonComponent::CheckForNextShot()

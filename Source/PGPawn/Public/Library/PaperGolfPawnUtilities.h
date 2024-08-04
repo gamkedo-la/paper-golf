@@ -18,8 +18,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Math")
 	static void ClampDeltaRotation(const FRotator& MaxRotationExtent, UPARAM(ref) FRotator& DeltaRotation, UPARAM(ref) FRotator& TotalRotation);
 
-	UFUNCTION(BlueprintCallable, Category = "Physics")
-	static void ResetPhysicsState(class UPrimitiveComponent* PhysicsComponent, const FTransform& RelativeTransform);
+	static void ResetPhysicsState(class UPrimitiveComponent* PhysicsComponent, const FTransform& RelativeTransform = {});
 
 	UFUNCTION(BlueprintCallable, Category = "HUD")
 	static void DrawPoint(const UObject* WorldContextObject, const FVector& Position, const FLinearColor& Color, float PointSize = 15.0f);
@@ -29,4 +28,20 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "HUD")
 	static void DrawBox(const UObject* WorldContextObject, const FVector& Position, const FLinearColor& Color, const FVector& Extent);
+
+	static void ReattachPhysicsComponent(class UPrimitiveComponent* PhysicsComponent, const FTransform& RelativeTransform, bool bForceUpdate = false);
+
+private:
+	// UFUNCTION does not allow default parameters for non-primitive types so add overload specifically for blueprints
+	UFUNCTION(BlueprintCallable, Category = "Physics", meta = (DisplayName = "ResetPhysicsState"))
+	static void BlueprintResetPhysicsState(class UPrimitiveComponent* PhysicsComponent, const FTransform& RelativeTransform);
 };
+
+#pragma region Inline Definitions
+
+FORCEINLINE void UPaperGolfPawnUtilities::ResetPhysicsState(class UPrimitiveComponent* PhysicsComponent, const FTransform& RelativeTransform)
+{
+	BlueprintResetPhysicsState(PhysicsComponent, RelativeTransform);
+}
+
+#pragma endregion Inline Definitions

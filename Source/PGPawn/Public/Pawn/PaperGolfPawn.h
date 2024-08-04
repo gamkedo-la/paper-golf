@@ -127,7 +127,7 @@ public:
 
 	// Cannot use TOptional in a UFUNCTION
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastReliableSetTransform(const FVector_NetQuantize& Position, bool bUseRotation = false, const FRotator& Rotation = FRotator::ZeroRotator);
+	void MulticastReliableSetTransform(const FVector_NetQuantize& Position, bool bSnapToGround, bool bUseRotation = false, const FRotator& Rotation = FRotator::ZeroRotator);
 
 	void SetTransform(const FVector& Position, const TOptional<FRotator>& Rotation = {});
 
@@ -160,6 +160,17 @@ public:
 
 	FVector GetPaperGolfPosition() const;
 	FRotator GetPaperGolfRotation() const;
+
+	virtual void PostNetReceive() override;
+	virtual void OnRep_ReplicatedMovement() override;
+
+	virtual void PostNetReceiveLocationAndRotation() override;
+
+	/** Update velocity - typically from ReplicatedMovement, not called for simulated physics! */
+	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) override;
+
+	/** Update and smooth simulated physic state, replaces PostNetReceiveLocation() and PostNetReceiveVelocity() */
+	virtual void PostNetReceivePhysicState() override;
 
 protected:
 	virtual void Tick(float DeltaTime) override;

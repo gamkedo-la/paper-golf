@@ -25,7 +25,11 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
 
 	UFUNCTION(BlueprintCallable)
-	void AddShot() { ++Shots;  }
+	void AddShot() 
+	{
+		++Shots;
+		ForceNetUpdate();
+	}
 
 	UFUNCTION(BlueprintPure)
 	int32 GetShots() const { return Shots; }
@@ -34,7 +38,11 @@ public:
 	int32 GetTotalShots() const;
 
 	UFUNCTION(BlueprintCallable)
-	void SetReadyForShot(bool bReady) { bReadyForShot = bReady; }
+	void SetReadyForShot(bool bReady)
+	{ 
+		bReadyForShot = bReady;
+		ForceNetUpdate(); 
+	}
 
 	UFUNCTION(BlueprintPure)
 	bool IsReadyForShot() const { return bReadyForShot; }

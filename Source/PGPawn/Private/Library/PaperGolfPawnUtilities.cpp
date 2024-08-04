@@ -78,7 +78,7 @@ void UPaperGolfPawnUtilities::ClampDeltaRotation(const FRotator& MaxRotationExte
 	}
 }
 
-void UPaperGolfPawnUtilities::ResetPhysicsState(UPrimitiveComponent* PhysicsComponent, const FTransform& RelativeTransform)
+void UPaperGolfPawnUtilities::BlueprintResetPhysicsState(UPrimitiveComponent* PhysicsComponent, const FTransform& RelativeTransform)
 {
 	if (!PhysicsComponent)
 	{
@@ -91,20 +91,40 @@ void UPaperGolfPawnUtilities::ResetPhysicsState(UPrimitiveComponent* PhysicsComp
 	// In this case we need to manually reattach it to its original parent, move the parent to where it was and then reset any relative transform of the physics component
 	// back to the original values (RelativeTransform)
 	// FIXME: Putting check for role as a workaround for "phantom pawns" replicated from SetTransform and a concurrency issue with the actor attachments - this messes up the camera
-	if (auto Owner = PhysicsComponent->GetOwner(); Owner && Owner->GetLocalRole() != ENetRole::ROLE_SimulatedProxy && Owner->GetRootComponent() && Owner->GetRootComponent() != PhysicsComponent->GetAttachmentRoot())
+	if (auto Owner = PhysicsComponent->GetOwner(); Owner && Owner->GetLocalRole() != ENetRole::ROLE_SimulatedProxy)
 	{
-		auto RootComponent = Owner->GetRootComponent();
-
-		UE_VLOG_UELOG(Owner, LogPGPawn, Log, TEXT("%s: ResetPhysicsState - Update Transforms - PhysicsComponent=%s, RelativeTransform=%s; RootComponentTransform=%s; PhysicsComponentTransform=%s"),
-			*Owner->GetName(), *PhysicsComponent->GetName(), *RelativeTransform.ToString(),
-			*RootComponent->GetComponentTransform().ToString(), *PhysicsComponent->GetComponentTransform().ToString());
-
-		RootComponent->SetWorldLocation(PhysicsComponent->GetComponentLocation() - RelativeTransform.GetLocation());
-		RootComponent->SetWorldRotation(PhysicsComponent->GetComponentRotation() - RelativeTransform.GetRotation().Rotator());
-
-		PhysicsComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
-		PhysicsComponent->SetRelativeTransform(RelativeTransform);
+		ReattachPhysicsComponent(PhysicsComponent, RelativeTransform);
 	}
+}
+
+void UPaperGolfPawnUtilities::ReattachPhysicsComponent(UPrimitiveComponent* PhysicsComponent, const FTransform& RelativeTransform, bool bForceUpdate )
+{
+	auto Owner = PhysicsComponent->GetOwner();
+	if (!Owner)
+	{
+		return;
+	}
+
+	auto RootComponent = Owner->GetRootComponent();
+	if (!RootComponent)
+	{
+		return;
+	}
+
+	if(!bForceUpdate && RootComponent == PhysicsComponent->GetAttachmentRoot())
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(Owner, LogPGPawn, Log, TEXT("%s: ResetPhysicsState - Update Transforms - PhysicsComponent=%s, RelativeTransform=%s; RootComponentTransform=%s; PhysicsComponentTransform=%s"),
+		*Owner->GetName(), *PhysicsComponent->GetName(), *RelativeTransform.ToString(),
+		*RootComponent->GetComponentTransform().ToString(), *PhysicsComponent->GetComponentTransform().ToString());
+
+	RootComponent->SetWorldLocation(PhysicsComponent->GetComponentLocation() - RelativeTransform.GetLocation());
+	RootComponent->SetWorldRotation(PhysicsComponent->GetComponentRotation() - RelativeTransform.GetRotation().Rotator());
+
+	PhysicsComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+	PhysicsComponent->SetRelativeTransform(RelativeTransform);
 }
 
 void UPaperGolfPawnUtilities::DrawPoint(const UObject* WorldContextObject, const FVector& Position, const FLinearColor& Color, float PointSize)

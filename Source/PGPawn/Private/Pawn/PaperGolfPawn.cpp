@@ -131,6 +131,41 @@ FRotator APaperGolfPawn::GetPaperGolfRotation() const
 	return GetActorRotation();
 }
 
+void APaperGolfPawn::PostNetReceive()
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: PostNetReceive"), *GetName());
+
+	Super::PostNetReceive();
+}
+
+void APaperGolfPawn::OnRep_ReplicatedMovement()
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_ReplicatedMovement"), *GetName());
+
+	Super::OnRep_ReplicatedMovement();
+}
+
+void APaperGolfPawn::PostNetReceiveLocationAndRotation()
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: PostNetReceiveLocationAndRotation"), *GetName());
+
+	Super::PostNetReceiveLocationAndRotation();
+}
+
+void APaperGolfPawn::PostNetReceiveVelocity(const FVector& NewVelocity)
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: PostNetReceiveVelocity"), *GetName());
+
+	Super::PostNetReceiveVelocity(NewVelocity);
+}
+
+void APaperGolfPawn::PostNetReceivePhysicState()
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: PostNetReceivePhysicState"), *GetName());
+
+	Super::PostNetReceivePhysicState();
+}
+
 void APaperGolfPawn::SetFocusActor(AActor* Focus)
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: SetFocusActor - Focus=%s"), *GetName(), *LoggingUtils::GetName(Focus));
@@ -214,8 +249,7 @@ void APaperGolfPawn::SnapToGround()
 
 	if (HasAuthority())
 	{
-		//MulticastReliableSetTransform(Location, true, GetActorRotation());
-		MulticastReliableSetTransform(Location, false);
+		MulticastReliableSetTransform(Location, true);
 	}
 }
 
@@ -291,7 +325,7 @@ void APaperGolfPawn::SetUpForNextShot()
 	ResetPhysicsState();
 }
 
-void APaperGolfPawn::MulticastReliableSetTransform_Implementation(const FVector_NetQuantize& Position, bool bUseRotation, const FRotator& Rotation)
+void APaperGolfPawn::MulticastReliableSetTransform_Implementation(const FVector_NetQuantize& Position, bool bSnapToGround, bool bUseRotation, const FRotator& Rotation)
 {
 	if (GetLocalRole() != ENetRole::ROLE_SimulatedProxy)
 	{
@@ -311,6 +345,12 @@ void APaperGolfPawn::MulticastReliableSetTransform_Implementation(const FVector_
 	// FIXME: Should we be calling this anymore on simulated proxies?
 	// Re-evaluate all the multicast and client position update calls since it should be handled via replication now
 	SetTransform(Position, bUseRotation ? TOptional<FRotator> {Rotation} : TOptional<FRotator>{});
+
+	if (bSnapToGround)
+	{
+		UPaperGolfPawnUtilities::ReattachPhysicsComponent(_PaperGolfMesh, PaperGolfMeshInitialTransform);
+		SnapToGround();
+	}
 }
 
 void APaperGolfPawn::SetTransform(const FVector& Position, const TOptional<FRotator>& Rotation)
@@ -341,26 +381,6 @@ void APaperGolfPawn::SetTransform(const FVector& Position, const TOptional<FRota
 			TeleportFlagToEnum(true)
 		);
 	}
-
-	if (GetLocalRole() == ENetRole::ROLE_SimulatedProxy)
-	{
-		// This always puts hit pawns last shot for clients
-		if (ensure(_PivotComponent && _PaperGolfMesh))
-		{
-
-			_PivotComponent->SetWorldLocation(_PaperGolfMesh->GetComponentLocation() - PaperGolfMeshInitialTransform.GetLocation());
-			_PivotComponent->SetWorldRotation(_PaperGolfMesh->GetComponentRotation() - PaperGolfMeshInitialTransform.GetRotation().Rotator());
-
-			_PaperGolfMesh->AttachToComponent(_PivotComponent, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
-			_PaperGolfMesh->SetRelativeTransform(PaperGolfMeshInitialTransform);
-
-			//_PaperGolfMesh->AttachToComponent(_PivotComponent, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
-			//_PaperGolfMesh->SetRelativeTransform(PaperGolfMeshInitialTransform);
-		}
-
-		//SnapToGround();
-	}
-
 
 	UE_VLOG_LOCATION(this, LogPGPawn, Log, Position, 20.0f, FColor::Red, TEXT("SetPositionTo"));
 }
