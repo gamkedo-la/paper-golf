@@ -175,6 +175,10 @@ public:
 	/** Update and smooth simulated physic state, replaces PostNetReceiveLocation() and PostNetReceiveVelocity() */
 	virtual void PostNetReceivePhysicState() override;
 
+	void AddCameraRelativeRotation(const FRotator& DeltaRotation);
+	void ResetCameraRelativeRotation();
+	void AddCameraZoomDelta(float ZoomDelta);
+
 protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void BeginPlay() override;
@@ -253,6 +257,7 @@ private:
 	FVector FlickLocation{ 0.0, 0.0, 0.05 };
 
 	FRotator InitialRotation{ EForceInit::ForceInitToZero };
+	FRotator InitialSpringArmRotation{ EForceInit::ForceInitToZero };
 
 	FTransform PaperGolfMeshInitialTransform{};
 
@@ -288,6 +293,20 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty", meta = (ClampMin = "1.0"))
 	float FlickOffsetZTraceSize{ 5.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Camera | Shot")
+	FRotator MinCameraRotation{ -45.0f, -60.0f, 0 };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Camera | Shot")
+	FRotator MaxCameraRotation{ 45.0f, 60.0f, 0 };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Camera | Shot", meta = (ClampMin = "0.0"))
+	float MinCameraSpringArmLength{ 0.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Camera | Shot", meta = (ClampMin = "0.0"))
+	float MaxCameraSpringArmLength{ 2000.0f };
+
+	float InitialCameraSpringArmLength{};
 
 	UPROPERTY(EditDefaultsOnly, Category = "Camera | Spectator", meta = (ClampMin = "0.0"))
 	float SpectatorCameraRotationLag{ 1.0f };

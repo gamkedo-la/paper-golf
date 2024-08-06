@@ -166,6 +166,52 @@ void APaperGolfPawn::PostNetReceivePhysicState()
 	Super::PostNetReceivePhysicState();
 }
 
+void APaperGolfPawn::AddCameraRelativeRotation(const FRotator& DeltaRotation)
+{
+	if(!ensure(_CameraSpringArm))
+	{
+		return;
+	}
+
+	FRotator RelativeRotation = _CameraSpringArm->GetRelativeRotation();
+	RelativeRotation.Pitch = FMath::ClampAngle(RelativeRotation.Pitch + DeltaRotation.Pitch, MinCameraRotation.Pitch, MaxCameraRotation.Pitch);
+	RelativeRotation.Yaw = FMath::ClampAngle(RelativeRotation.Yaw + DeltaRotation.Yaw, MinCameraRotation.Yaw, MaxCameraRotation.Yaw);
+
+	_CameraSpringArm->SetRelativeRotation(RelativeRotation);
+
+	UE_VLOG_UELOG(this, LogPGPawn, VeryVerbose, TEXT("%s: AddCameraRelativeRotation: %s -> %s"),
+		*GetName(), *DeltaRotation.ToCompactString(), *_CameraSpringArm->GetRelativeRotation().ToCompactString());
+}
+
+void APaperGolfPawn::ResetCameraRelativeRotation()
+{
+	if (!ensure(_CameraSpringArm))
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogPGPawn, VeryVerbose, TEXT("%s: ResetCameraRelativeRotation: %s -> %s"),
+		*GetName(), *_CameraSpringArm->GetRelativeRotation().ToCompactString(), *InitialSpringArmRotation.ToCompactString());
+
+	_CameraSpringArm->SetRelativeRotation(InitialSpringArmRotation);
+	_CameraSpringArm->TargetArmLength = InitialCameraSpringArmLength;
+}
+
+void APaperGolfPawn::AddCameraZoomDelta(float ZoomDelta)
+{
+	if (!ensure(_CameraSpringArm))
+	{
+		return;
+	}
+
+	const auto NewTargetArmLength = FMath::Clamp(_CameraSpringArm->TargetArmLength + ZoomDelta, MinCameraSpringArmLength, MaxCameraSpringArmLength);
+
+	UE_VLOG_UELOG(this, LogPGPawn, VeryVerbose, TEXT("%s: AddCameraZoomDelta: %f -> %f"),
+		*GetName(), _CameraSpringArm->TargetArmLength, NewTargetArmLength);
+
+	_CameraSpringArm->TargetArmLength = NewTargetArmLength;
+}
+
 void APaperGolfPawn::SetFocusActor(AActor* Focus)
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: SetFocusActor - Focus=%s"), *GetName(), *LoggingUtils::GetName(Focus));
@@ -878,6 +924,9 @@ void APaperGolfPawn::PostInitializeComponents()
 	if (ensureMsgf(_CameraSpringArm, TEXT("%s: CameraSpringArm is NULL"), *GetName()))
 	{
 		OriginalCameraRotationLag = _CameraSpringArm->CameraRotationLagSpeed;
+		InitialSpringArmRotation = _CameraSpringArm->GetRelativeRotation();
+		InitialCameraSpringArmLength = _CameraSpringArm->TargetArmLength;
+
 		_Camera = Cast<UCameraComponent>(_CameraSpringArm->GetChildComponent(0));
 		ensureMsgf(_Camera, TEXT("%s: Camera is NULL"), *GetName());
 	}
@@ -937,6 +986,8 @@ void APaperGolfPawn::SetCameraForFlick()
 	_CameraSpringArm->bInheritYaw = false;
 	_CameraSpringArm->bEnableCameraRotationLag = true;
 	_CameraSpringArm->CameraRotationLagSpeed = OriginalCameraRotationLag;
+
+	ResetCameraRelativeRotation();
 }
 
 bool APaperGolfPawn::ShouldEnableCameraRotationLagForShotSetup() const
@@ -972,6 +1023,7 @@ void APaperGolfPawn::ResetCameraForShotSetup()
 	check(_CameraSpringArm);
 
 	_CameraSpringArm->bInheritYaw = true;
+	ResetCameraRelativeRotation();
 
 	const bool bEnableCameraRotationLag = ShouldEnableCameraRotationLagForShotSetup();
 	// Enable on next tick so focus happens immediately

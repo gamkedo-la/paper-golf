@@ -395,6 +395,38 @@ void AGolfPlayerController::Reset()
 	DoReset();
 }
 
+void AGolfPlayerController::AddPitchInput(float Val)
+{
+	if (IsValid(PlayerPawn))
+	{
+		PlayerPawn->AddCameraRelativeRotation(FRotator(Val, 0.f, 0.f));
+	}
+}
+
+void AGolfPlayerController::AddYawInput(float Val)
+{
+	if (IsValid(PlayerPawn))
+	{
+		PlayerPawn->AddCameraRelativeRotation(FRotator(0.f, Val, 0.f));
+	}
+}
+
+void AGolfPlayerController::ResetCameraRotation()
+{
+	if (IsValid(PlayerPawn))
+	{
+		PlayerPawn->ResetCameraRelativeRotation();
+	}
+}
+
+void AGolfPlayerController::AddCameraZoomDelta(float ZoomDelta)
+{
+	if (IsValid(PlayerPawn))
+	{
+		PlayerPawn->AddCameraZoomDelta(ZoomDelta);
+	}
+}
+
 void AGolfPlayerController::ClientReset_Implementation()
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientReset_Implementation"), *GetName());

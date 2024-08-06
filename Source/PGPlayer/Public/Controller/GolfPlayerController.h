@@ -73,6 +73,12 @@ public:
 
 	virtual void Reset() override;
 
+	virtual void AddPitchInput(float Val) override;
+
+	virtual void AddYawInput(float Val) override;
+
+	virtual bool IsLookInputIgnored() const override { return false; }
+
 	// TODO: Can we remove UFUNCTION on some of these
 protected:
 	virtual void BeginPlay() override;
@@ -80,6 +86,12 @@ protected:
 
 	UFUNCTION(BlueprintCallable)
 	void ResetForCamera();
+
+	UFUNCTION(BlueprintCallable)
+	void ResetCameraRotation();
+
+	UFUNCTION(BlueprintCallable)
+	void AddCameraZoomDelta(float ZoomDelta);
 
 	UFUNCTION(BlueprintCallable)
 	void ProcessFlickZInput(float FlickZInput);
