@@ -18,6 +18,8 @@
 #include "Interfaces/OnlineSessionInterface.h"
 #include "OnlineSubsystem.h"
 
+#include UE_INLINE_GENERATED_CPP_BY_NAME(Menu)
+
 void UMenu::MenuSetup(int32 NumberOfPublicConnections, const FString& TypeOfMatch, const FString& LobbyPath)
 {
 	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: MenuSetup: NumberOfPublicConnections=%d; TypeOfMatch=%s; LobbyPath=%s"), 
@@ -117,30 +119,6 @@ void UMenu::OnCreateSessionComplete(bool bWasSuccessful)
 {
 	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: OnCreateSessionComplete: bWasSuccessful=%s"), *GetName(), bWasSuccessful ? TEXT("TRUE") : TEXT("FALSE"));
 
-	if (GEngine)
-	{
-		if (bWasSuccessful)
-		{
-			GEngine->AddOnScreenDebugMessage(
-				-1,
-				15.f,
-				FColor::Green,
-				FString(TEXT("OnCreateSessionComplete Success!"))
-			);
-		}
-		else
-		{
-			BtnHost->SetIsEnabled(true);
-
-			GEngine->AddOnScreenDebugMessage(
-				-1,
-				15.f,
-				FColor::Red,
-				FString(TEXT("OnCreateSessionComplete FAILED!"))
-			);
-		}
-	}
-
 	if (bWasSuccessful)
 	{
 		// Travel to the lobby level after confirmation that session creation was successful
@@ -152,6 +130,10 @@ void UMenu::OnCreateSessionComplete(bool bWasSuccessful)
 		{
 			UE_LOG(LogMultiplayerSessions, Error, TEXT("%s: HostButtonClicked - World is NULL"), *GetName());
 		}
+	}
+	else
+	{
+		BtnHost->SetIsEnabled(true);
 	}
 }
 
