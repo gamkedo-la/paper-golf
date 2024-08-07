@@ -486,7 +486,7 @@ void APaperGolfPawn::Flick(const FFlickParams& FlickParams)
 
 void APaperGolfPawn::AddDeltaRotation(const FRotator& DeltaRotation)
 {
-	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: AddDeltaRotation - DeltaRotation=%s"), *GetName(), *DeltaRotation.ToCompactString());
+	UE_VLOG_UELOG(this, LogPGPawn, VeryVerbose, TEXT("%s: AddDeltaRotation - DeltaRotation=%s"), *GetName(), *DeltaRotation.ToCompactString());
 
 	if (!ensure(_PaperGolfMesh))
 	{

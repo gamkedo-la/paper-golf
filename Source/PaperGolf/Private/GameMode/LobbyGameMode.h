@@ -36,6 +36,4 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Maps")
 	TArray<TSoftObjectPtr<UWorld>> Maps;
-
-
 };
