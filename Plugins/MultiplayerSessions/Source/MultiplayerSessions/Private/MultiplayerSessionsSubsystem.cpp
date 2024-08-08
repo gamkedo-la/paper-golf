@@ -9,6 +9,8 @@
 #include "OnlineSubsystem.h"
 #include "OnlineSessionSettings.h" 
 
+#include "VisualLogger/VisualLogger.h"
+
 #include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
 
@@ -25,7 +27,7 @@ UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem():
 
 void UMultiplayerSessionsSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
-	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: Initialize"), *GetName());
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: Initialize"), *GetName());
 
 	Super::Initialize(Collection);
 
@@ -33,7 +35,7 @@ void UMultiplayerSessionsSubsystem::Initialize(FSubsystemCollectionBase& Collect
 
 	if (!OnlineSubsystem)
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: OnlineSubsystem is NULL"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: OnlineSubsystem is NULL"), *GetName());
 		return;
 	}
 
@@ -42,7 +44,7 @@ void UMultiplayerSessionsSubsystem::Initialize(FSubsystemCollectionBase& Collect
 
 void UMultiplayerSessionsSubsystem::Deinitialize()
 {
-	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: Deinitialize"), *GetName());
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: Deinitialize"), *GetName());
 
 	if (OnlineSessionInterface.IsValid())
 	{
@@ -60,11 +62,11 @@ void UMultiplayerSessionsSubsystem::Deinitialize()
 
 void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, const FString& MatchType)
 {
-	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: CreateSession: NumPublicConnections=%d; MatchType=%s"), *GetName(), NumPublicConnections, *MatchType);
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: CreateSession: NumPublicConnections=%d; MatchType=%s"), *GetName(), NumPublicConnections, *MatchType);
 
 	if (!OnlineSessionInterface.IsValid())
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: CreateSession - OnlineSessionInterface is not valid: NumPublicConnections=%d; MatchType=%s"), 
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: CreateSession - OnlineSessionInterface is not valid: NumPublicConnections=%d; MatchType=%s"), 
 			*GetName(), NumPublicConnections, *MatchType);
 
 		MultiplayerOnCreateSessionComplete.Broadcast(false);
@@ -75,7 +77,7 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, co
 	const auto ExistingSession = OnlineSessionInterface->GetNamedSession(NAME_GameSession);
 	if (ExistingSession)
 	{
-		UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: Destroying existing NamedSession: NAME_GameSession"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: Destroying existing NamedSession: NAME_GameSession"), *GetName());
 
 		LastNumPublicConnections = NumPublicConnections;
 		LastMatchType = MatchType;
@@ -108,7 +110,7 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, co
 	const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
 	if (!LocalPlayer)
 	{
-		UE_LOG(LogMultiplayerSessions, Error, TEXT("%s: CreateGameSession - LocalPlayer not found!"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: CreateGameSession - LocalPlayer not found!"), *GetName());
 		return;
 	}
 
@@ -116,7 +118,7 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, co
 
 	if (!bWasSuccessful)
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: CreateSession FAILED: NumPublicConnections=%d; MatchType=%s"), *GetName(), NumPublicConnections, *MatchType);
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: CreateSession FAILED: NumPublicConnections=%d; MatchType=%s"), *GetName(), NumPublicConnections, *MatchType);
 
 		OnlineSessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegateHandle);
 		CreateSessionCompleteDelegateHandle.Reset();
@@ -125,7 +127,7 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, co
 	}
 	else
 	{
-		UE_LOG(LogMultiplayerSessions, Display, TEXT("%s: CreateSession InProgress: NumPublicConnections=%d; MatchType=%s"), *GetName(), NumPublicConnections, *MatchType);
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: CreateSession InProgress: NumPublicConnections=%d; MatchType=%s"), *GetName(), NumPublicConnections, *MatchType);
 
 		// Don't call MultiplayerOnCreateSessionComplete.Broadcast(true) yet as we need to wait for the OnCreateSessionComplete function to trigger
 	}
@@ -133,11 +135,11 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, co
 
 void UMultiplayerSessionsSubsystem::FindSessions(int32 MaxSearchResults)
 {
-	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: FindSessions: MaxSearchResults=%d"), *GetName(), MaxSearchResults);
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: FindSessions: MaxSearchResults=%d"), *GetName(), MaxSearchResults);
 
 	if (!OnlineSessionInterface.IsValid())
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: FindSessions: MaxSearchResults=%d - OnlineSessionInterface is not valid"), *GetName(), MaxSearchResults);
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: FindSessions: MaxSearchResults=%d - OnlineSessionInterface is not valid"), *GetName(), MaxSearchResults);
 
 		MultiplayerOnFindSessionsComplete.Broadcast({}, false);
 
@@ -158,7 +160,7 @@ void UMultiplayerSessionsSubsystem::FindSessions(int32 MaxSearchResults)
 
 	if (!bWasSuccessful)
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: FindSessions - FAILED: MaxSearchResults=%d"), *GetName(), MaxSearchResults);
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: FindSessions - FAILED: MaxSearchResults=%d"), *GetName(), MaxSearchResults);
 
 		OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(FindSessionsCompleteDelegateHandle);
 
@@ -168,11 +170,11 @@ void UMultiplayerSessionsSubsystem::FindSessions(int32 MaxSearchResults)
 
 void UMultiplayerSessionsSubsystem::JoinSession(const FOnlineSessionSearchResult& OnlineSessionSearchResult)
 {
-	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: JoinSession: OnlineSessionSearchResult=%s"), *GetName(), *OnlineSessionSearchResult.GetSessionIdStr());
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: JoinSession: OnlineSessionSearchResult=%s"), *GetName(), *OnlineSessionSearchResult.GetSessionIdStr());
 
 	if (!OnlineSessionInterface.IsValid())
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: JoinSession - OnlineSessionInterface is not valid"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: JoinSession - OnlineSessionInterface is not valid"), *GetName());
 
 		MultiplayerOnJoinSessionComplete.Broadcast(EOnJoinSessionCompleteResult::UnknownError);
 		return;
@@ -180,7 +182,7 @@ void UMultiplayerSessionsSubsystem::JoinSession(const FOnlineSessionSearchResult
 
 	if (!OnlineSessionSearchResult.IsValid())
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: JoinSession: OnlineSessionSearchResult is not valid"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: JoinSession: OnlineSessionSearchResult is not valid"), *GetName());
 
 		MultiplayerOnJoinSessionComplete.Broadcast(EOnJoinSessionCompleteResult::UnknownError);
 
@@ -191,7 +193,7 @@ void UMultiplayerSessionsSubsystem::JoinSession(const FOnlineSessionSearchResult
 	const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
 	if (!LocalPlayer)
 	{
-		UE_LOG(LogTemp, Error, TEXT("%s: JoinSession - LocalPlayer not found!"), *GetName());
+		UE_VLOG_UELOG(this, LogTemp, Error, TEXT("%s: JoinSession - LocalPlayer not found!"), *GetName());
 
 		MultiplayerOnJoinSessionComplete.Broadcast(EOnJoinSessionCompleteResult::UnknownError);
 
@@ -204,7 +206,7 @@ void UMultiplayerSessionsSubsystem::JoinSession(const FOnlineSessionSearchResult
 
 	if (!bJoinWasSuccessful)
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: JoinSession FAILED: OnlineSessionSearchResult=%s"), *GetName(), *OnlineSessionSearchResult.GetSessionIdStr());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: JoinSession FAILED: OnlineSessionSearchResult=%s"), *GetName(), *OnlineSessionSearchResult.GetSessionIdStr());
 
 		OnlineSessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegateHandle);
 		MultiplayerOnJoinSessionComplete.Broadcast(EOnJoinSessionCompleteResult::UnknownError);
@@ -213,12 +215,12 @@ void UMultiplayerSessionsSubsystem::JoinSession(const FOnlineSessionSearchResult
 
 void UMultiplayerSessionsSubsystem::StartSession()
 {
-	UE_LOG(LogMultiplayerSessions, Display, TEXT("%s: StartSession"), *GetName());
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: StartSession"), *GetName());
 
 	const auto ExistingSession = OnlineSessionInterface->GetNamedSession(NAME_GameSession);
 	if (!ExistingSession)
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: Start Session NAME_GameSession no longer valid - aborting"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: Start Session NAME_GameSession no longer valid - aborting"), *GetName());
 
 		MultiplayerOnStartSessionComplete.Broadcast(false);
 
@@ -226,7 +228,7 @@ void UMultiplayerSessionsSubsystem::StartSession()
 		return;
 	}
 
-	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: StartSession - Starting session: %s"), *GetName(), *ExistingSession->SessionName.ToString());
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: StartSession - Starting session: %s"), *GetName(), *ExistingSession->SessionName.ToString());
 
 	StartSessionCompleteDelegateHandle = OnlineSessionInterface->AddOnStartSessionCompleteDelegate_Handle(StartSessionCompleteDelegate);
 
@@ -234,7 +236,7 @@ void UMultiplayerSessionsSubsystem::StartSession()
 
 	if (!bStartWasSuccessful)
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: StartSession - FAILED"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: StartSession - FAILED"), *GetName());
 
 		OnlineSessionInterface->ClearOnStartSessionCompleteDelegate_Handle(StartSessionCompleteDelegateHandle);
 		MultiplayerOnStartSessionComplete.Broadcast(false);
@@ -245,11 +247,11 @@ void UMultiplayerSessionsSubsystem::OnStartSessionComplete(FName SessionName, bo
 {
 	if (bWasSuccessful)
 	{
-		UE_LOG(LogMultiplayerSessions, Display, TEXT("%s: StartSession COMPLETED: SessionName=%s"), *GetName(), *SessionName.ToString());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: StartSession COMPLETED: SessionName=%s"), *GetName(), *SessionName.ToString());
 	}
 	else
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: StartSession FAILED in OnCreateSessionComplete: SessionName=%s"), *GetName(), *SessionName.ToString());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: StartSession FAILED in OnCreateSessionComplete: SessionName=%s"), *GetName(), *SessionName.ToString());
 	}
 
 	if (OnlineSessionInterface)
@@ -264,11 +266,11 @@ void UMultiplayerSessionsSubsystem::OnStartSessionComplete(FName SessionName, bo
 
 void UMultiplayerSessionsSubsystem::DestroySession()
 {
-	UE_LOG(LogMultiplayerSessions, Display, TEXT("%s: DestroySession"), *GetName());
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: DestroySession"), *GetName());
 
 	if (!OnlineSessionInterface.IsValid())
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: DestroySession - OnlineSessionInterface is not valid"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: DestroySession - OnlineSessionInterface is not valid"), *GetName());
 
 		MultiplayerOnDestroySessionComplete.Broadcast(false);
 		return;
@@ -276,7 +278,7 @@ void UMultiplayerSessionsSubsystem::DestroySession()
 
 	const auto ExistingSession = OnlineSessionInterface->GetNamedSession(NAME_GameSession);
 
-	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: DestroySession - Destroying session NAME_GameSession: %s"),
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: DestroySession - Destroying session NAME_GameSession: %s"),
 		*GetName(), ExistingSession ? *ExistingSession->SessionName.ToString() : TEXT("NULL"));
 
 	DestroySessionCompleteDelegateHandle = OnlineSessionInterface->AddOnDestroySessionCompleteDelegate_Handle(DestroySessionCompleteDelegate);
@@ -285,7 +287,7 @@ void UMultiplayerSessionsSubsystem::DestroySession()
 
 	if (!bDestroyWasSuccessful)
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: DestroySession - FAILED"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: DestroySession - FAILED"), *GetName());
 
 		OnlineSessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(DestroySessionCompleteDelegateHandle);
 		MultiplayerOnDestroySessionComplete.Broadcast(false);
@@ -296,11 +298,11 @@ void UMultiplayerSessionsSubsystem::OnDestroySessionComplete(FName SessionName, 
 {
 	if (bWasSuccessful)
 	{
-		UE_LOG(LogMultiplayerSessions, Display, TEXT("%s: DestroySession COMPLETED: SessionName=%s"), *GetName(), *SessionName.ToString());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: DestroySession COMPLETED: SessionName=%s"), *GetName(), *SessionName.ToString());
 	}
 	else
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: DestroySession FAILED in OnCreateSessionComplete: SessionName=%s"), *GetName(), *SessionName.ToString());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: DestroySession FAILED in OnCreateSessionComplete: SessionName=%s"), *GetName(), *SessionName.ToString());
 	}
 
 	if (OnlineSessionInterface)
@@ -314,7 +316,7 @@ void UMultiplayerSessionsSubsystem::OnDestroySessionComplete(FName SessionName, 
 
 	if (bWasSuccessful && bCreateSessionOnDestroy)
 	{
-		UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: DestroySession - requested create session on destroy: NumPublicConnections=%d; MatchType=%s"),
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: DestroySession - requested create session on destroy: NumPublicConnections=%d; MatchType=%s"),
 			*GetName(), LastNumPublicConnections, *LastMatchType);
 
 		bCreateSessionOnDestroy = false;
@@ -326,11 +328,11 @@ void UMultiplayerSessionsSubsystem::OnCreateSessionComplete(FName SessionName, b
 {
 	if (bWasSuccessful)
 	{
-		UE_LOG(LogMultiplayerSessions, Display, TEXT("%s: CreateSession COMPLETED: SessionName=%s"), *GetName(), *SessionName.ToString());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: CreateSession COMPLETED: SessionName=%s"), *GetName(), *SessionName.ToString());
 	}
 	else
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: CreateSession FAILED in OnCreateSessionComplete: SessionName=%s"), *GetName(), *SessionName.ToString());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: CreateSession FAILED in OnCreateSessionComplete: SessionName=%s"), *GetName(), *SessionName.ToString());
 	}
 
 	if (OnlineSessionInterface)
@@ -347,12 +349,12 @@ void UMultiplayerSessionsSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 {
 	if (bWasSuccessful)
 	{
-		UE_LOG(LogMultiplayerSessions, Display, TEXT("%s: OnFindSessions COMPLETED: SearchResultsFound=%d"),
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: OnFindSessions COMPLETED: SearchResultsFound=%d"),
 			*GetName(), LastSessionSearch ? LastSessionSearch->SearchResults.Num() : -1);
 	}
 	else
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: OnFindSessions FAILED in OnCreateSessionComplete"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: OnFindSessions FAILED in OnCreateSessionComplete"), *GetName());
 	}
 
 	if (OnlineSessionInterface)
@@ -376,7 +378,7 @@ void UMultiplayerSessionsSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 
 void UMultiplayerSessionsSubsystem::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
 {
-	UE_LOG(LogMultiplayerSessions, Display, TEXT("%s: OnJoinSession COMPLETED: Result=%d"), *GetName(), Result);
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: OnJoinSession COMPLETED: Result=%d"), *GetName(), Result);
 
 	if (OnlineSessionInterface)
 	{
@@ -393,14 +395,14 @@ bool UMultiplayerSessionsSubsystem::IsLanMatch() const
 	auto OnlineSubsystem = IOnlineSubsystem::Get();
 	if (!OnlineSubsystem)
 	{
-		UE_LOG(LogMultiplayerSessions, Error, TEXT("%s: OnlineSubsystem is NULL"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: OnlineSubsystem is NULL"), *GetName());
 		return false;
 	}
 
 	// LAN match if the subsystem is NULL (We are not using steam or other online subsystem)
 	bool bIsLANMatch = OnlineSubsystem->GetSubsystemName() == "NULL";
 
-	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: IsLanMatch=%s"), *GetName(), (bIsLANMatch ? TEXT("TRUE") : TEXT("FALSE")));
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: IsLanMatch=%s"), *GetName(), (bIsLANMatch ? TEXT("TRUE") : TEXT("FALSE")));
 
 	return bIsLANMatch;
 }
