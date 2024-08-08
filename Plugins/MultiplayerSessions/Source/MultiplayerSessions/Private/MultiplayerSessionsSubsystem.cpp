@@ -21,6 +21,14 @@ UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem():
 	StartSessionCompleteDelegate(FOnStartSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnStartSessionComplete)),
 	DestroySessionCompleteDelegate(FOnDestroySessionCompleteDelegate::CreateUObject(this, &ThisClass::OnDestroySessionComplete))
 {
+}
+
+void UMultiplayerSessionsSubsystem::Initialize(FSubsystemCollectionBase& Collection)
+{
+	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: Initialize"), *GetName());
+
+	Super::Initialize(Collection);
+
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 
 	if (!OnlineSubsystem)
@@ -30,6 +38,24 @@ UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem():
 	}
 
 	OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+}
+
+void UMultiplayerSessionsSubsystem::Deinitialize()
+{
+	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: Deinitialize"), *GetName());
+
+	if (OnlineSessionInterface.IsValid())
+	{
+		OnlineSessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegateHandle);
+		OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(FindSessionsCompleteDelegateHandle);
+		OnlineSessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegateHandle);
+		OnlineSessionInterface->ClearOnStartSessionCompleteDelegate_Handle(StartSessionCompleteDelegateHandle);
+		OnlineSessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(DestroySessionCompleteDelegateHandle);
+
+		OnlineSessionInterface.Reset();
+	}
+
+	Super::Deinitialize();
 }
 
 void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, const FString& MatchType)
