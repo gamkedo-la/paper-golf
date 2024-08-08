@@ -9,17 +9,23 @@
 
 #include "Debug/PGConsoleVars.h"
 
+#include "Interfaces/GolfController.h"
 #include "Controller/GolfAIController.h"
 
 #include "State/GolfPlayerState.h"
 
 #include "State/PaperGolfGameStateBase.h"
 
+#include "Pawn/PaperGolfPawn.h"
+
 #include "GameMode/HoleTransitionComponent.h"
 
 #include "Utils/VisualLoggerUtils.h"
 
 #include "Subsystems/GolfEventsSubsystem.h"
+
+#include "Config/PlayerConfig.h"
+#include "Config/PlayerStateConfigurator.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PaperGolfGameModeBase)
 
@@ -65,6 +71,21 @@ void APaperGolfGameModeBase::InitGame(const FString& MapName, const FString& Opt
 	}
 
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitGame - DesiredNumberOfPlayers=%d; DesiredNumberOfBotPlayers=%d"), *GetName(), DesiredNumberOfPlayers, DesiredNumberOfBotPlayers);
+
+	InitPlayerStateDefaults();
+}
+
+void APaperGolfGameModeBase::InitPlayerStateDefaults()
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: InitPlayerStateDefaults"), *GetName());
+
+	if (!ensureMsgf(PlayerConfigData, TEXT("%s: InitPlayerStateDefaults - PlayerConfigData is not set"), *GetName()))
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: InitPlayerStateDefaults - PlayerConfigData is not set"), *GetName());
+		return;
+	}
+
+	PlayerStateConfigurator = MakeUnique<PG::FPlayerStateConfigurator>(PlayerConfigData);
 }
 
 void APaperGolfGameModeBase::InitGameState()
@@ -133,6 +154,11 @@ void APaperGolfGameModeBase::SetDefaultPlayerName(AController& Player)
 
 	++HumanPlayerDefaultNameIndex;
 	PlayerState->SetPlayerName(FString::Printf(TEXT("Player %d"), HumanPlayerDefaultNameIndex));
+
+	if (PlayerStateConfigurator)
+	{
+		PlayerStateConfigurator->AssignToPlayer(*PlayerState);
+	}
 }
 
 void APaperGolfGameModeBase::StartGame()
@@ -260,6 +286,11 @@ void APaperGolfGameModeBase::DoCourseComplete()
 	}
 }
 
+void APaperGolfGameModeBase::SetPlayerColor(IGolfController& Controller)
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: SetPlayerColor - Controller=%s"), *GetName(), *Controller.ToString());
+}
+
 void APaperGolfGameModeBase::BeginPlay()
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: BeginPlay"), *GetName());
@@ -311,6 +342,19 @@ APawn* APaperGolfGameModeBase::SpawnDefaultPawnAtTransform_Implementation(AContr
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: SpawnDefaultPawnAtTransform_Implementation - NewPlayer=%s; Pawn=%s"),
 		*GetName(), *LoggingUtils::GetName(NewPlayer), *LoggingUtils::GetName(Pawn));
 	
+	if (auto PaperGolfPawn = Cast<APaperGolfPawn>(Pawn); PaperGolfPawn)
+	{
+		auto PlayerState = NewPlayer->GetPlayerState<AGolfPlayerState>();
+		if (ensureMsgf(PlayerState, TEXT("%s: No player state for NewPlayer=%s"), *GetName(), *LoggingUtils::GetName(NewPlayer)))
+		{
+			PaperGolfPawn->SetPawnColor(PlayerState->GetPlayerColor());
+		}
+		else
+		{
+			UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: No player state for NewPlayer=%s"), *GetName(), *LoggingUtils::GetName(NewPlayer));
+		}
+	}
+
 	return Pawn;
 }
 
@@ -492,6 +536,11 @@ void APaperGolfGameModeBase::InitBot(AGolfAIController& AIController, int32 BotN
 	{
 		// TODO: Draw from a random list of funny golfer names
 		PlayerState->SetPlayerName(FString::Printf(TEXT("Bot %d"), BotNumber));
+
+		if (PlayerStateConfigurator)
+		{
+			PlayerStateConfigurator->AssignToPlayer(*PlayerState);
+		}
 	}
 	else
 	{

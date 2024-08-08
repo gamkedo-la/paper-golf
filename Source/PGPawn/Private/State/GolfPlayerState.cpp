@@ -28,6 +28,7 @@ void AGolfPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(AGolfPlayerState, ScoreByHole);
 	DOREPLIFETIME(AGolfPlayerState, bSpectatorOnly);
 	DOREPLIFETIME(AGolfPlayerState, bScored);
+	DOREPLIFETIME(AGolfPlayerState, PlayerColor);
 }
 
 int32 AGolfPlayerState::GetTotalShots() const

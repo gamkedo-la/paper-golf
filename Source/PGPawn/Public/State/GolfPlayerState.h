@@ -82,6 +82,15 @@ public:
 	bool HasScored() const { return bScored; }
 
 	virtual bool CompareByScore(const AGolfPlayerState& Other) const;
+
+	UFUNCTION(BlueprintPure)
+	FLinearColor GetPlayerColor() const;
+
+	void SetPlayerColor(const FLinearColor& Color) 
+	{ 
+		PlayerColor = Color; 
+		ForceNetUpdate();
+	}
 		
 private:
 	UFUNCTION()
@@ -107,6 +116,9 @@ private:
 
 	UPROPERTY(Replicated)
 	bool bScored{};
+
+	UPROPERTY(Replicated)
+	FLinearColor PlayerColor{FLinearColor::White};
 };
 
 #pragma region Inline Definitions
@@ -114,6 +126,11 @@ private:
 FORCEINLINE int32 AGolfPlayerState::GetDisplayScore() const
 {
 	return GetTotalShots();
+}
+
+FORCEINLINE FLinearColor AGolfPlayerState::GetPlayerColor() const
+{
+	return PlayerColor;
 }
 
 #pragma endregion Inline Definitions

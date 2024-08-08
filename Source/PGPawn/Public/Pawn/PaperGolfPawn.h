@@ -87,6 +87,9 @@ public:
 	UFUNCTION(BlueprintCallable, meta = (DevelopmentOnly))
 	void DebugDrawCenterOfMass(float DrawTime = 0.0f);
 
+	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly)
+	void SetPawnColor(const FLinearColor& Color);
+
 	UFUNCTION(BlueprintPure)
 	bool IsStuckInPerpetualMotion() const;
 
