@@ -34,11 +34,14 @@ void APaperGolfGameStateBase::SetCurrentHoleNumber(int32 Hole)
 
 	CurrentHoleNumber = Hole;
 	OnHoleChanged.Broadcast(CurrentHoleNumber);
+
+	ForceNetUpdate();
 }
 
 void APaperGolfGameStateBase::SetActivePlayer(AGolfPlayerState* Player)
 {
 	ActivePlayer = Player;
+	ForceNetUpdate();
 }
 
 void APaperGolfGameStateBase::AddPlayerState(APlayerState* PlayerState)
@@ -91,6 +94,23 @@ TArray<AGolfPlayerState*> APaperGolfGameStateBase::GetSortedPlayerStatesByScore(
 	return GolfPlayerStates;
 }
 
+// by default this is when everyone has scored
+bool APaperGolfGameStateBase::IsHoleComplete() const
+{
+	for(auto PlayerState : PlayerArray)
+	{
+		if (auto GolfPlayerState = Cast<AGolfPlayerState>(PlayerState); GolfPlayerState)
+		{
+			if (!GolfPlayerState->HasScored())
+			{
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
 void APaperGolfGameStateBase::BeginPlay()
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: BeginPlay"), *GetName());
@@ -102,6 +122,15 @@ void APaperGolfGameStateBase::BeginPlay()
 	{
 		SubscribeToGolfEvents();
 	}
+}
+
+void APaperGolfGameStateBase::OnHoleComplete()
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnHoleComplete"), *GetName());
+
+	DoAdditionalHoleComplete();
+
+	MulticastOnNextHole();
 }
 
 void APaperGolfGameStateBase::OnRep_CurrentHoleNumber()
@@ -158,7 +187,7 @@ void APaperGolfGameStateBase::SubscribeToGolfEvents()
 	if (auto GolfEventsSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventsSubsystem))
 	{
 		GolfEventsSubsystem->OnPaperGolfCourseComplete.AddUniqueDynamic(this, &ThisClass::MulticastOnCourseComplete);
-		GolfEventsSubsystem->OnPaperGolfNextHole.AddUniqueDynamic(this, &ThisClass::MulticastOnNextHole);
+		GolfEventsSubsystem->OnPaperGolfNextHole.AddUniqueDynamic(this, &ThisClass::OnHoleComplete);
 		GolfEventsSubsystem->OnPaperGolfStartHole.AddUniqueDynamic(this, &ThisClass::MulticastOnStartHole);
 		GolfEventsSubsystem->OnPaperGolfPawnScored.AddUniqueDynamic(this, &ThisClass::MulticastOnPlayerScored);
 	}

@@ -7,3 +7,8 @@
 #ifndef PG_DEBUG_ENABLED
 	#define PG_DEBUG_ENABLED !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 #endif
+
+namespace PG
+{
+	inline constexpr int32 MaxPlayers = 4;
+}

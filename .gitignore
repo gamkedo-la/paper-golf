@@ -58,7 +58,7 @@ Plugins/BlockoutToolsPlugin
 # Binary Files
 # Ignore exceptions don't work on subdirectories so need to list out the path fully
 Binaries/*/*
-Plugins/*/Binaries/*
+Plugins/*/Binaries/*/*
 # allow editor development build files for faster onboarding
 # use a regex to avoid matching the Debug builds
 # git actually using linux fnmatch: https://www.man7.org/linux/man-pages/man3/fnmatch.3.html which does not support the full regex character set
@@ -67,6 +67,9 @@ Plugins/*/Binaries/*
 !Binaries/*/UnrealEditor-PG[a-zA-Z]*[^Debug].dll
 !Binaries/*/PaperGolfEditor.target
 !Binaries/*/UnrealEditor.modules
+
+!Plugins/*/Binaries/*/UnrealEditor.modules
+!Plugins/*/Binaries/*/UnrealEditor-MultiplayerSessions.dll
 
 # Builds
 Build/*

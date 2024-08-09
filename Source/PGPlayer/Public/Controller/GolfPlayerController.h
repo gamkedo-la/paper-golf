@@ -14,6 +14,7 @@
 
 #include "GolfPlayerController.generated.h"
 
+class AGolfPlayerState;
 class APaperGolfPawn;
 class AGolfHole;
 class UShotArcPreviewComponent;
@@ -53,7 +54,7 @@ public:
 	virtual APaperGolfPawn* GetPaperGolfPawn() override;
 
 	virtual void ActivateTurn() override;
-	virtual void Spectate(APaperGolfPawn* InPawn) override;
+	virtual void Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState) override;
 
 	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const override;
 
@@ -73,6 +74,12 @@ public:
 
 	virtual void Reset() override;
 
+	virtual void AddPitchInput(float Val) override;
+
+	virtual void AddYawInput(float Val) override;
+
+	virtual bool IsLookInputIgnored() const override { return false; }
+
 	// TODO: Can we remove UFUNCTION on some of these
 protected:
 	virtual void BeginPlay() override;
@@ -80,6 +87,12 @@ protected:
 
 	UFUNCTION(BlueprintCallable)
 	void ResetForCamera();
+
+	UFUNCTION(BlueprintCallable)
+	void ResetCameraRotation();
+
+	UFUNCTION(BlueprintCallable)
+	void AddCameraZoomDelta(float ZoomDelta);
 
 	UFUNCTION(BlueprintCallable)
 	void ProcessFlickZInput(float FlickZInput);
@@ -106,7 +119,7 @@ protected:
 	void BlueprintActivateTurn();
 
 	UFUNCTION(BlueprintImplementableEvent)
-	void BlueprintSpectate(APaperGolfPawn* InPawn);
+	void BlueprintSpectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState);
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void BlueprintResetShot();
@@ -154,7 +167,7 @@ private:
 	void ClientActivateTurn();
 
 	UFUNCTION(Client, Reliable)
-	void ClientSpectate(APaperGolfPawn* InPawn);
+	void ClientSpectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState);
 
 	void DoActivateTurn();
 
@@ -192,7 +205,6 @@ private:
 	bool IsLocalServer() const;
 	bool IsRemoteServer() const;
 
-
 private:
 	
 #if ENABLE_VISUAL_LOG
@@ -227,6 +239,7 @@ private:
 	EShotType ShotType{ EShotType::Default };
 
 	FTimerHandle NextShotTimerHandle{};
+	FDelegateHandle OnFlickSpectateShotHandle{};
 
 	UPROPERTY(Transient)
 	TObjectPtr<APaperGolfPawn> PlayerPawn{};
@@ -239,6 +252,7 @@ private:
 	bool bScored{};
 
 	bool bOutOfBounds{};
+
 };
 
 #pragma region Inline Definitions

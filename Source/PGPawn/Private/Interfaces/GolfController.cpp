@@ -78,9 +78,9 @@ void IGolfController::OnShotFinished()
 	{
 		UE_VLOG_UELOG(AsController(), LogPGPawn, Log,
 			TEXT("%s-%s: OnShotFinished - Setting final authoritative position for pawn: %s"),
-			*ToString(), *PaperGolfPawn->GetName(), *PaperGolfPawn->GetActorLocation().ToCompactString());
+			*ToString(), *PaperGolfPawn->GetName(), *PaperGolfPawn->GetPaperGolfPosition().ToCompactString());
 
-		PaperGolfPawn->MulticastReliableSetTransform(PaperGolfPawn->GetActorLocation(), true, PaperGolfPawn->GetActorRotation());
+		PaperGolfPawn->MulticastReliableSetTransform(PaperGolfPawn->GetPaperGolfPosition(), false, true, PaperGolfPawn->GetPaperGolfRotation());
 	}
 
 	DoAdditionalOnShotFinished();

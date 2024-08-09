@@ -36,7 +36,7 @@ public:
 	virtual bool IsActivePlayer() const = 0;
 	virtual bool IsReadyForNextShot() const = 0;
 	virtual void ActivateTurn() = 0;
-	virtual void Spectate(APaperGolfPawn* InPawn) = 0;
+	virtual void Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* PlayerState) = 0;
 
 	virtual bool HandleOutOfBounds() = 0;
 

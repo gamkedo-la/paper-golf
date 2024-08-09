@@ -8,6 +8,13 @@
 
 class AGolfAIController;
 class UHoleTransitionComponent;
+class IGolfController;
+class UPlayerConfig;
+
+namespace PG
+{
+	class FPlayerStateConfigurator;
+}
 
 /**
  * Base game mode for all paper golf game modes.
@@ -125,6 +132,10 @@ private:
 
 	void DoCourseComplete();
 
+	void SetPlayerColor(IGolfController& Controller);
+
+	void InitPlayerStateDefaults();
+
 protected:
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	int32 StartHoleNumber{ 1 };
@@ -169,6 +180,11 @@ private:
 
 	bool bAllowPlayerSpawn{};
 	bool bWasReset{};
+
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	TObjectPtr<UPlayerConfig> PlayerConfigData{};
+
+	TUniquePtr<PG::FPlayerStateConfigurator> PlayerStateConfigurator{};
 };
 
 #pragma region Inline Definitions

@@ -364,7 +364,7 @@ bool UGolfControllerCommonComponent::HandleFallThroughFloor()
 		*GetName(), *LoggingUtils::GetName(GetOwner()), *LoggingUtils::GetName(PaperGolfPawn));
 
 
-	const auto& Position = PaperGolfPawn->GetActorLocation() + FVector::UpVector * FallThroughFloorCorrectionTestZ;
+	const auto& Position = PaperGolfPawn->GetPaperGolfPosition() + FVector::UpVector * FallThroughFloorCorrectionTestZ;
 
 	SetPositionTo(Position);
 
@@ -436,7 +436,7 @@ bool UGolfControllerCommonComponent::SetupNextShot(bool bSetCanFlick)
 		// Broadcast new upright ready position and rotation
 		if (GetOwner()->HasAuthority())
 		{
-			PaperGolfPawn->MulticastReliableSetTransform(PaperGolfPawn->GetActorLocation(), true, PaperGolfPawn->GetActorRotation());
+			PaperGolfPawn->MulticastReliableSetTransform(PaperGolfPawn->GetActorLocation(), true, true, PaperGolfPawn->GetActorRotation());
 		}
 	}
 
@@ -461,7 +461,7 @@ void UGolfControllerCommonComponent::SetPositionTo(const FVector& Position, cons
 	}
 
 	PaperGolfPawn->SetTransform(Position, OptionalRotation);
-	PaperGolfPawn->MulticastReliableSetTransform(Position, OptionalRotation.IsSet(), OptionalRotation ? OptionalRotation.GetValue() : FRotator::ZeroRotator);
+	PaperGolfPawn->MulticastReliableSetTransform(Position, false, OptionalRotation.IsSet(), OptionalRotation ? OptionalRotation.GetValue() : FRotator::ZeroRotator);
 }
 
 void UGolfControllerCommonComponent::CheckForNextShot()
@@ -699,6 +699,19 @@ void UGolfControllerCommonComponent::BeginTurn()
 	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: BeginTurn"),
 		*GetName(), *LoggingUtils::GetName(GetOwner()));
 
+	// Always reset the state when activating turn - this fixes and physics offset issues
+	if(ensure(GolfController))
+	{
+		if (auto PaperGolfPawn = GolfController->GetPaperGolfPawn(); PaperGolfPawn /* && !PaperGolfPawn->IsAtRest()*/)
+		{
+			//UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s-%s: BeginTurn - Resetting shot state as paper golf pawn is not at rest"),
+			//	*GetName(), *LoggingUtils::GetName(GetOwner()));
+
+			// Always reset the state when activating turn - this fixes and physics offset issues
+			PaperGolfPawn->SetUpForNextShot();
+		}
+	}
+
 	RegisterShotFinishedTimer();
 }
 
@@ -725,6 +738,11 @@ void UGolfControllerCommonComponent::OnScored()
 {
 	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: OnScored"),
 		*GetName(), *LoggingUtils::GetName(GetOwner()));
+
+	if (auto GolfPlayerState = GolfController->GetGolfPlayerState(); GetOwner()->HasAuthority() && ensure(GolfPlayerState))
+	{
+		GolfPlayerState->SetHasScored(true);
+	}
 
 	UnregisterShotFinishedTimer();
 }

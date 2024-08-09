@@ -25,16 +25,34 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
 
 	UFUNCTION(BlueprintCallable)
-	void AddShot() { ++Shots;  }
+	void AddShot() 
+	{
+		++Shots;
+		ForceNetUpdate();
+	}
 
 	UFUNCTION(BlueprintPure)
 	int32 GetShots() const { return Shots; }
 
 	UFUNCTION(BlueprintPure)
+	int32 GetNumCompletedHoles() const { return ScoreByHole.Num(); }
+
+	UFUNCTION(BlueprintPure)	
 	int32 GetTotalShots() const;
 
+	// TODO: Cannot implement this yet
+	//UFUNCTION(BlueprintPure)
+	//bool GetScoreForHole(int32 HoleNumber) const;
+
+	UFUNCTION(BlueprintPure)
+	virtual int32 GetDisplayScore() const;
+
 	UFUNCTION(BlueprintCallable)
-	void SetReadyForShot(bool bReady) { bReadyForShot = bReady; }
+	void SetReadyForShot(bool bReady)
+	{ 
+		bReadyForShot = bReady;
+		ForceNetUpdate(); 
+	}
 
 	UFUNCTION(BlueprintPure)
 	bool IsReadyForShot() const { return bReadyForShot; }
@@ -43,23 +61,49 @@ public:
 	virtual void FinishHole();
 
 	UFUNCTION(BlueprintCallable)
-	void StartHole() { Shots = 0; }
+	void StartHole();
 
 	virtual void CopyProperties(APlayerState* PlayerState) override;
 
-	void SetSpectatorOnly() { bSpectatorOnly = true; }
+	void SetSpectatorOnly() 
+	{ 
+		bSpectatorOnly = true; 
+		ForceNetUpdate();
+	}
+
 	bool IsSpectatorOnly() const { return bSpectatorOnly; }
 
+	void SetHasScored(bool bInScored) 
+	{ 
+		bScored = bInScored;
+		ForceNetUpdate();
+	}
+
+	bool HasScored() const { return bScored; }
+
 	virtual bool CompareByScore(const AGolfPlayerState& Other) const;
+
+	UFUNCTION(BlueprintPure)
+	FLinearColor GetPlayerColor() const;
+
+	void SetPlayerColor(const FLinearColor& Color) 
+	{ 
+		PlayerColor = Color; 
+		ForceNetUpdate();
+	}
 		
 private:
 	UFUNCTION()
 	void OnRep_ScoreByHole();
 
-private:
+protected:
 
+	// TODO: Cannot implement GetScoreByHole since this is assuming always start at hole 1 at index 0 and that might not be case
+	// So would need an array of structs here that track which hole the score is for
 	UPROPERTY(ReplicatedUsing = OnRep_ScoreByHole)
 	TArray<uint8> ScoreByHole{};
+
+private:
 
 	UPROPERTY(Replicated)
 	uint8 Shots{};
@@ -69,4 +113,24 @@ private:
 
 	UPROPERTY(Replicated)
 	bool bSpectatorOnly{};
+
+	UPROPERTY(Replicated)
+	bool bScored{};
+
+	UPROPERTY(Replicated)
+	FLinearColor PlayerColor{FLinearColor::White};
 };
+
+#pragma region Inline Definitions
+
+FORCEINLINE int32 AGolfPlayerState::GetDisplayScore() const
+{
+	return GetTotalShots();
+}
+
+FORCEINLINE FLinearColor AGolfPlayerState::GetPlayerColor() const
+{
+	return PlayerColor;
+}
+
+#pragma endregion Inline Definitions

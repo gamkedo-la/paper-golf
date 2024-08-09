@@ -27,6 +27,8 @@ void AGolfPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(AGolfPlayerState, bReadyForShot);
 	DOREPLIFETIME(AGolfPlayerState, ScoreByHole);
 	DOREPLIFETIME(AGolfPlayerState, bSpectatorOnly);
+	DOREPLIFETIME(AGolfPlayerState, bScored);
+	DOREPLIFETIME(AGolfPlayerState, PlayerColor);
 }
 
 int32 AGolfPlayerState::GetTotalShots() const
@@ -48,6 +50,13 @@ void AGolfPlayerState::FinishHole()
 	OnTotalShotsUpdated.Broadcast(*this);
 }
 
+void AGolfPlayerState::StartHole()
+{
+	Shots = 0;
+	bScored = false;
+	ForceNetUpdate();
+}
+
 void AGolfPlayerState::CopyProperties(APlayerState* PlayerState)
 {
 	Super::CopyProperties(PlayerState);
@@ -62,6 +71,7 @@ void AGolfPlayerState::CopyProperties(APlayerState* PlayerState)
 	Shots = OtherPlayerState->Shots;
 	bReadyForShot = OtherPlayerState->bReadyForShot;
 	bSpectatorOnly = OtherPlayerState->bSpectatorOnly;
+	bScored = OtherPlayerState->bScored;
 }
 
 bool AGolfPlayerState::CompareByScore(const AGolfPlayerState& Other) const

@@ -159,14 +159,6 @@ void AGolfAIController::ActivateTurn()
 		return;
 	}
 
-	if (!PaperGolfPawn->IsAtRest())
-	{
-		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ActivateTurn - Resetting shot state as paper golf pawn is not at rest"),
-			*GetName(), *LoggingUtils::GetName(PaperGolfPawn));
-		// Force reset of physics state to avoid triggering assertion
-		PaperGolfPawn->SetUpForNextShot();
-	}
-
 	GolfControllerCommonComponent->BeginTurn();
 
 	// Turn must be activated before Setup can happen as it requires the player to be active
@@ -176,9 +168,10 @@ void AGolfAIController::ActivateTurn()
 	PaperGolfPawn->SetReadyForShot(true);
 }
 
-void AGolfAIController::Spectate(APaperGolfPawn* InPawn)
+void AGolfAIController::Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState)
 {
-	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: Spectate - %s"), *GetName(), *LoggingUtils::GetName(InPawn));
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: Spectate - InPawn=%s; InPlayerState=%s"),
+		*GetName(), *LoggingUtils::GetName(InPawn), InPlayerState ? *InPlayerState->GetPlayerName() : TEXT("NULL"));
 
 	if (IsValid(PlayerPawn))
 	{
@@ -356,7 +349,10 @@ TOptional<FFlickParams> AGolfAIController::CalculateFlickParams() const
 	FlickParams.ShotType = ShotType;
 
 	const auto FlickLocation = PlayerPawn->GetFlickLocation(FlickParams.LocalZOffset);
-	const auto FlickMaxForce = PlayerPawn->GetFlickMaxForce(FlickParams.ShotType);
+	const auto RawFlickMaxForce = PlayerPawn->GetFlickMaxForce(FlickParams.ShotType);
+	// Account for drag
+	//const auto FlickMaxForce = PlayerPawn->GetFlickDragForceMultiplier(RawFlickMaxForce) * RawFlickMaxForce;
+	const auto FlickMaxForce = RawFlickMaxForce;
 	const auto FlickMaxSpeed = FlickMaxForce / PlayerPawn->GetMass();
 
 	// See https://en.wikipedia.org/wiki/Range_of_a_projectile
@@ -411,12 +407,16 @@ TOptional<FFlickParams> AGolfAIController::CalculateFlickParams() const
 		}
 	}
 
+	// Account for drag by increasing the power
+	const auto FlickDragForceMultiplier = PlayerPawn->GetFlickDragForceMultiplier(PowerFraction * FlickMaxForce);
+	PowerFraction = FMath::Clamp(PowerFraction / FlickDragForceMultiplier, 0.0f, 1.0f);
+
 	// Add error to power calculation and accuracy
 	FlickParams.PowerFraction = GeneratePowerFraction(PowerFraction);
 	FlickParams.Accuracy = GenerateAccuracy();
 
-	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateFlickParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f"),
-		*GetName(), *LoggingUtils::GetName(FlickParams.ShotType), FlickParams.PowerFraction, FlickParams.Accuracy, FlickParams.LocalZOffset);
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateFlickParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f; FlickDragForceMultiplier=%1.f"),
+		*GetName(), *LoggingUtils::GetName(FlickParams.ShotType), FlickParams.PowerFraction, FlickParams.Accuracy, FlickParams.LocalZOffset, FlickDragForceMultiplier);
 
 	return FlickParams;
 }
@@ -548,7 +548,7 @@ void AGolfAIController::ResetShotAfterOutOfBounds()
 		SetPositionTo(ResetPosition);
 		ActivateTurn();
 
-		PaperGolfPawn->MulticastReliableSetTransform(ResetPosition, true, PaperGolfPawn->GetActorRotation());
+		PaperGolfPawn->MulticastReliableSetTransform(ResetPosition, true, true, PaperGolfPawn->GetActorRotation());
 	}
 }
 

@@ -15,6 +15,7 @@
 
 class UGolfControllerCommonComponent;
 class APaperGolfPawn;
+class AGolfPlayerState;
 
 /**
  * 
@@ -46,7 +47,7 @@ public:
 
 	virtual void ActivateTurn() override;
 
-	virtual void Spectate(APaperGolfPawn* InPawn) override;
+	virtual void Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState) override;
 
 	virtual bool HandleOutOfBounds() override;
 

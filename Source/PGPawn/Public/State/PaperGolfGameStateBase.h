@@ -45,6 +45,8 @@ public:
 
 	UFUNCTION(BlueprintPure)
 	TArray<AGolfPlayerState*> GetSortedPlayerStatesByScore() const;
+	
+	virtual bool IsHoleComplete() const;
 
 protected:
 	virtual void BeginPlay() override;
@@ -57,7 +59,14 @@ protected:
 	virtual bool AllScoresSynced() const;
 	virtual void ResetScoreSyncState();
 
+	/* Hook function for doing processing after the hole completes - only called on the server. */
+	virtual void DoAdditionalHoleComplete() {}
+
 private:
+
+	UFUNCTION()
+	void OnHoleComplete();
+
 	UFUNCTION()
 	void OnRep_CurrentHoleNumber();
 

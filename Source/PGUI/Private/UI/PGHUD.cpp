@@ -19,6 +19,8 @@
 
 #include "Pawn/PaperGolfPawn.h"
 
+#include "UI/Widget/TextDisplayingWidget.h"
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PGHUD)
 
 void APGHUD::ShowHUD()
@@ -28,6 +30,16 @@ void APGHUD::ShowHUD()
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: ShowHUD: %s"), *GetName(), LoggingUtils::GetBoolString(bShowHUD));
 
 	OnToggleHUDVisibility(bShowHUD);
+}
+
+
+void APGHUD::BeginPlay()
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: BeginPlay"), *GetName());
+
+	Super::BeginPlay();
+
+	Init();
 }
 
 void APGHUD::SetHUDVisible(bool bVisible)
@@ -72,24 +84,75 @@ void APGHUD::RemoveActiveMessageWidget()
 	ActiveMessageWidget = nullptr;
 }
 
-void APGHUD::SpectatePlayer_Implementation(APaperGolfPawn* PlayerPawn)
+void APGHUD::SpectatePlayer_Implementation(APaperGolfPawn* PlayerPawn, AGolfPlayerState* InPlayerState)
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log,
-		TEXT("%s: SpectatePlayer: PlayerPawn=%s"), *GetName(), *LoggingUtils::GetName(PlayerPawn));
+		TEXT("%s: SpectatePlayer: PlayerPawn=%s; InPlayerState=%s"), *GetName(), *LoggingUtils::GetName(PlayerPawn), *LoggingUtils::GetName(InPlayerState));
+
+	if (ShouldShowActiveTurnWidgets())
+	{
+		if (!InPlayerState)
+		{
+			UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Warning, TEXT("%s: SpectatePlayer: %s - No player state defined"),
+				*GetName(), *LoggingUtils::GetName(PlayerPawn));
+		}
+
+		DisplayTurnWidget(SpectatingWidgetClass, &ThisClass::SpectatingWidget,
+			FText::FromString(FString::Printf(TEXT("Spectating %s"), InPlayerState ? *InPlayerState->GetPlayerName() : TEXT(""))));
+	}
 }
 
 void APGHUD::BeginTurn_Implementation()
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: BeginTurn"), *GetName());
+
+	if (ShouldShowActiveTurnWidgets())
+	{
+		DisplayTurnWidget(ActiveTurnWidgetClass, &ThisClass::ActiveTurnWidget, FText::FromString("Your Turn"));
+	}
 }
 
-void APGHUD::BeginPlay()
+void APGHUD::BeginShot_Implementation()
 {
-	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: BeginPlay"), *GetName());
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: BeginShot"), *GetName());
 
-	Super::BeginPlay();
+	HideActiveTurnWidget();
+}
 
-	Init();
+void APGHUD::HideActiveTurnWidget()
+{
+	if (IsValid(ActivePlayerTurnWidget))
+	{
+		ActivePlayerTurnWidget->RemoveFromParent();
+		ActivePlayerTurnWidget = nullptr;
+		ActivePlayerTurnWidgetClass = nullptr;
+	}
+}
+
+void APGHUD::BeginSpectatorShot_Implementation(APaperGolfPawn* PlayerPawn, AGolfPlayerState* InPlayerState)
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: BeginSpectatorShot: PlayerPawn=%s; InPlayerState=%s"),
+		*GetName(), *LoggingUtils::GetName(PlayerPawn), *LoggingUtils::GetName(InPlayerState));
+
+	HideActiveTurnWidget();
+}
+
+bool APGHUD::ShouldShowActiveTurnWidgets() const
+{
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return false;
+	}
+
+	auto GolfGameState = World->GetGameState<APaperGolfGameStateBase>();
+	if (!ensure(GolfGameState))
+	{
+		return false;
+	}
+
+	// Don't show for single player
+	return GolfGameState->PlayerArray.Num() > 1;
 }
 
 void APGHUD::DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& WidgetClass)
@@ -113,8 +176,8 @@ void APGHUD::DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& Widge
 		{
 			return;
 		}
-		// Safe to reference "this"
 
+		// Safe to reference "this"
 		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: DisplayMessageWidgetByClass: WidgetClass=%s Loaded"), *GetName(), 
 			*LoggingUtils::GetName(WidgetClass));
 
@@ -156,6 +219,102 @@ void APGHUD::DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& Widge
 		ActiveMessageWidget = NewWidget;
 		ActiveMessageWidget->AddToViewport();
 	});
+}
+
+void APGHUD::LoadWidgetAsync(const TSoftClassPtr<UUserWidget>& WidgetClass, TFunction<void(UUserWidget&)> OnWidgetReady)
+{
+	if (!ensure(!WidgetClass.IsNull()))
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: LoadWidgetAsync: %s"), *GetName(), *LoggingUtils::GetName(WidgetClass));
+
+	// Must use this versino and not just create an instance of FStreamableManager as then the loading doesn't work when the callback fires!
+	auto& StreamableManager = UAssetManager::Get().GetStreamableManager();
+
+	// Request to load the asset asynchronously
+	StreamableManager.RequestAsyncLoad(WidgetClass.ToSoftObjectPath(), [this, WeakThis = TWeakObjectPtr<APGHUD>(this), WidgetClass, OnWidgetReady]()
+	{
+		if (auto StrongThis = WeakThis.Get(); !StrongThis)
+		{
+			return;
+		}
+
+		// Safe to reference "this"
+		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: LoadWidgetAsync: WidgetClass=%s Loaded"), *GetName(),
+			*LoggingUtils::GetName(WidgetClass));
+
+		// This lambda is executed once the asset has been loaded
+		UClass* LoadedClass = WidgetClass.Get();
+		if (!LoadedClass)
+		{
+			UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Warning, TEXT("%s: LoadWidgetAsync: WidgetClass=%s could not be loaded"),
+				*GetName(), *LoggingUtils::GetName(WidgetClass));
+			return;
+		}
+
+		auto PC = GetOwningPlayerController();
+		if (!PC)
+		{
+			UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Warning, TEXT("%s: LoadWidgetAsync: WidgetClass=%s - Player Controller is NULL"),
+				*GetName(), *LoggingUtils::GetName(WidgetClass));
+			return;
+		}
+
+		const auto NewWidget = CreateWidget<UUserWidget>(PC, LoadedClass);
+		if (!NewWidget)
+		{
+			UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Warning, TEXT("%s: LoadWidgetAsync: WidgetClass=%s - Could not create widget"),
+				*GetName(), *LoggingUtils::GetName(LoadedClass));
+			return;
+		}
+
+		OnWidgetReady(*NewWidget);
+	});
+}
+
+void APGHUD::DisplayTurnWidget(const TSoftClassPtr<UUserWidget>& WidgetClass, WidgetMemberPtr WidgetToDisplay, const FText& Message)
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: DisplayTurnWidget: WidgetClass=%s; WidgetToDisplay=%s; Message=%s"),
+		*GetName(), *LoggingUtils::GetName(WidgetClass), *LoggingUtils::GetName(this->*WidgetToDisplay), *Message.ToString());
+
+	auto BoundWidgetToDisplay = this->*WidgetToDisplay;
+
+	if (IsValid(BoundWidgetToDisplay))
+	{
+		if (ActivePlayerTurnWidget != BoundWidgetToDisplay)
+		{
+			HideActiveTurnWidget();
+
+			ActivePlayerTurnWidget = BoundWidgetToDisplay;
+			ActivePlayerTurnWidgetClass = WidgetClass;
+		}
+
+		ITextDisplayingWidget::Execute_SetText(BoundWidgetToDisplay, Message);
+	}
+	else
+	{
+		HideActiveTurnWidget();
+
+		ActivePlayerTurnWidgetClass = WidgetClass;
+		LoadWidgetAsync(WidgetClass, [this, WidgetToDisplay, WidgetClass, Message](UUserWidget& NewWidget)
+		{
+			// LoadWidgetAsync automatically captures this weakly so if this executes we know that the HUD object is still valid
+			// Only display if the active widget class is still the same
+			if (ActivePlayerTurnWidgetClass != WidgetClass)
+			{
+				UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Display, TEXT("%s: DisplayTurnWidget: WidgetClass=%s no longer matches new active widget class=%s"),
+					*GetName(), *LoggingUtils::GetName(WidgetClass), *LoggingUtils::GetName(ActivePlayerTurnWidgetClass));
+				return;
+			}
+
+			this->*WidgetToDisplay = &NewWidget;
+			ITextDisplayingWidget::Execute_SetText(&NewWidget, Message);
+
+			ActivePlayerTurnWidget = &NewWidget;
+		});
+	}
 }
 
 void APGHUD::Init()

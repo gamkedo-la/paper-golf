@@ -13,6 +13,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/SceneComponent.h"
 
+#include "Engine/StaticMeshSocket.h"
+
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "Build/BuildUtilities.h"
@@ -38,6 +40,10 @@ namespace
 {
 	constexpr float ValidateFloatEpsilon = 0.001f;
 	constexpr float ValidateZOffsetExtentFraction = 0.5f;
+
+	// TODO: Move into separate constants namespace exported if needed outside this class
+	const FName BottomSocketName = TEXT("Bottom");
+	const FName FlickSocketName = TEXT("Flick");
 }
 
 APaperGolfPawn::APaperGolfPawn()
@@ -103,6 +109,109 @@ bool APaperGolfPawn::IsStuckInPerpetualMotion() const
 	return Delta.Size() < MinDistanceThreshold;
 }
 
+// We need to check the _PaperGolfMesh since a physics actor pops out of the hierarchy
+
+FVector APaperGolfPawn::GetPaperGolfPosition() const
+{
+	if (ensure(_PaperGolfMesh) && GetRootComponent() != _PaperGolfMesh->GetAttachmentRoot())
+	{
+		return _PaperGolfMesh->GetComponentLocation();
+	}
+
+	return GetActorLocation();
+}
+
+FRotator APaperGolfPawn::GetPaperGolfRotation() const
+{
+	if (ensure(_PaperGolfMesh) && GetRootComponent() != _PaperGolfMesh->GetAttachmentRoot())
+	{
+		return _PaperGolfMesh->GetComponentRotation();
+	}
+
+	return GetActorRotation();
+}
+
+void APaperGolfPawn::PostNetReceive()
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: PostNetReceive"), *GetName());
+
+	Super::PostNetReceive();
+}
+
+void APaperGolfPawn::OnRep_ReplicatedMovement()
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_ReplicatedMovement"), *GetName());
+
+	Super::OnRep_ReplicatedMovement();
+}
+
+void APaperGolfPawn::PostNetReceiveLocationAndRotation()
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: PostNetReceiveLocationAndRotation"), *GetName());
+
+	Super::PostNetReceiveLocationAndRotation();
+}
+
+void APaperGolfPawn::PostNetReceiveVelocity(const FVector& NewVelocity)
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: PostNetReceiveVelocity"), *GetName());
+
+	Super::PostNetReceiveVelocity(NewVelocity);
+}
+
+void APaperGolfPawn::PostNetReceivePhysicState()
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: PostNetReceivePhysicState"), *GetName());
+
+	Super::PostNetReceivePhysicState();
+}
+
+void APaperGolfPawn::AddCameraRelativeRotation(const FRotator& DeltaRotation)
+{
+	if(!ensure(_CameraSpringArm))
+	{
+		return;
+	}
+
+	FRotator RelativeRotation = _CameraSpringArm->GetRelativeRotation();
+	RelativeRotation.Pitch = FMath::ClampAngle(RelativeRotation.Pitch + DeltaRotation.Pitch, MinCameraRotation.Pitch, MaxCameraRotation.Pitch);
+	RelativeRotation.Yaw = FMath::ClampAngle(RelativeRotation.Yaw + DeltaRotation.Yaw, MinCameraRotation.Yaw, MaxCameraRotation.Yaw);
+
+	_CameraSpringArm->SetRelativeRotation(RelativeRotation);
+
+	UE_VLOG_UELOG(this, LogPGPawn, VeryVerbose, TEXT("%s: AddCameraRelativeRotation: %s -> %s"),
+		*GetName(), *DeltaRotation.ToCompactString(), *_CameraSpringArm->GetRelativeRotation().ToCompactString());
+}
+
+void APaperGolfPawn::ResetCameraRelativeRotation()
+{
+	if (!ensure(_CameraSpringArm))
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogPGPawn, VeryVerbose, TEXT("%s: ResetCameraRelativeRotation: %s -> %s"),
+		*GetName(), *_CameraSpringArm->GetRelativeRotation().ToCompactString(), *InitialSpringArmRotation.ToCompactString());
+
+	_CameraSpringArm->SetRelativeRotation(InitialSpringArmRotation);
+	_CameraSpringArm->TargetArmLength = InitialCameraSpringArmLength;
+}
+
+void APaperGolfPawn::AddCameraZoomDelta(float ZoomDelta)
+{
+	if (!ensure(_CameraSpringArm))
+	{
+		return;
+	}
+
+	const auto NewTargetArmLength = FMath::Clamp(_CameraSpringArm->TargetArmLength + ZoomDelta, MinCameraSpringArmLength, MaxCameraSpringArmLength);
+
+	UE_VLOG_UELOG(this, LogPGPawn, VeryVerbose, TEXT("%s: AddCameraZoomDelta: %f -> %f"),
+		*GetName(), _CameraSpringArm->TargetArmLength, NewTargetArmLength);
+
+	_CameraSpringArm->TargetArmLength = NewTargetArmLength;
+}
+
 void APaperGolfPawn::SetFocusActor(AActor* Focus)
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: SetFocusActor - Focus=%s"), *GetName(), *LoggingUtils::GetName(Focus));
@@ -146,7 +255,10 @@ void APaperGolfPawn::SnapToGround()
 	const auto& Bounds = _PaperGolfMesh ? PG::CollisionUtils::GetAABB(*_PaperGolfMesh) : PG::CollisionUtils::GetAABB(*this);
 	const auto& ActorUpVector = GetActorUpVector();
 
-	const auto StartLocation = TraceStart + Bounds.GetExtent().Z * ActorUpVector;
+	const auto& BoundsExtent = Bounds.GetExtent();
+	const auto UpExtent = BoundsExtent * ActorUpVector;
+
+	const auto StartLocation = TraceStart + UpExtent;
 	const auto EndLocation = TraceStart - 2000 * ActorUpVector;
 
 	UE_VLOG_SEGMENT_THICK(this, LogPGPawn, Log, StartLocation, EndLocation, FColor::Yellow, 10.0, TEXT("GroundTrace"));
@@ -183,8 +295,7 @@ void APaperGolfPawn::SnapToGround()
 
 	if (HasAuthority())
 	{
-		//MulticastReliableSetTransform(Location, true, GetActorRotation());
-		MulticastReliableSetTransform(Location, false);
+		MulticastReliableSetTransform(Location, true);
 	}
 }
 
@@ -257,12 +368,10 @@ bool APaperGolfPawn::IsAtRest() const
 
 void APaperGolfPawn::SetUpForNextShot()
 {
-	check(_PaperGolfMesh);
-
-	UPaperGolfPawnUtilities::ResetPhysicsState(_PaperGolfMesh);
+	ResetPhysicsState();
 }
 
-void APaperGolfPawn::MulticastReliableSetTransform_Implementation(const FVector_NetQuantize& Position, bool bUseRotation, const FRotator& Rotation)
+void APaperGolfPawn::MulticastReliableSetTransform_Implementation(const FVector_NetQuantize& Position, bool bSnapToGround, bool bUseRotation, const FRotator& Rotation)
 {
 	if (GetLocalRole() != ENetRole::ROLE_SimulatedProxy)
 	{
@@ -279,7 +388,15 @@ void APaperGolfPawn::MulticastReliableSetTransform_Implementation(const FVector_
 		*GetName(), *Position.ToCompactString(), LoggingUtils::GetBoolString(bUseRotation), *Rotation.ToCompactString()
 	);
 
+	// FIXME: Should we be calling this anymore on simulated proxies?
+	// Re-evaluate all the multicast and client position update calls since it should be handled via replication now
 	SetTransform(Position, bUseRotation ? TOptional<FRotator> {Rotation} : TOptional<FRotator>{});
+
+	if (bSnapToGround)
+	{
+		UPaperGolfPawnUtilities::ReattachPhysicsComponent(_PaperGolfMesh, PaperGolfMeshInitialTransform);
+		SnapToGround();
+	}
 }
 
 void APaperGolfPawn::SetTransform(const FVector& Position, const TOptional<FRotator>& Rotation)
@@ -367,6 +484,25 @@ void APaperGolfPawn::Flick(const FFlickParams& FlickParams)
 	bReadyForShot = false;
 }
 
+void APaperGolfPawn::AddDeltaRotation(const FRotator& DeltaRotation)
+{
+	UE_VLOG_UELOG(this, LogPGPawn, VeryVerbose, TEXT("%s: AddDeltaRotation - DeltaRotation=%s"), *GetName(), *DeltaRotation.ToCompactString());
+
+	if (!ensure(_PaperGolfMesh))
+	{
+		return;
+	}
+
+	if (FMath::IsNearlyZero(DeltaRotation.Yaw))
+	{
+		AddActorLocalRotation(DeltaRotation);
+	}
+	else
+	{
+		AddActorWorldRotation(DeltaRotation);
+	}
+}
+
 FNetworkFlickParams APaperGolfPawn::ToNetworkParams(const FFlickParams& Params) const
 {
 	return FNetworkFlickParams
@@ -410,7 +546,6 @@ void APaperGolfPawn::DoFlick(FFlickParams FlickParams)
 #endif
 
 	_PaperGolfMesh->AddImpulseAtLocation(Impulse, Location);
-	_PaperGolfMesh->SetEnableGravity(true);
 
 	OnFlick.Broadcast();
 }
@@ -541,6 +676,9 @@ bool APaperGolfPawn::ServerFlick_Validate(const FNetworkFlickParams& Params)
 
 float APaperGolfPawn::ClampFlickZ(float OriginalZOffset, float DeltaZ) const
 {
+	// TODO: Use the Top and Bottom sockets instead to get the extensions of DeltaZ
+	// This is more precise than using the bounding box transformed and gives designers more control over the extents
+	// 
 	// Do a sweep test from OriginalZOffset + DeltaZ back to OriginalZOfset with GetFlickLocation
 	// If there is no intersection then return OriginalZOffset; otherwise return the impact point
 	auto World = GetWorld();
@@ -652,6 +790,9 @@ float APaperGolfPawn::ClampFlickZ(float OriginalZOffset, float DeltaZ) const
 bool APaperGolfPawn::PredictFlick(const FFlickParams& FlickParams, const FFlickPredictParams& FlickPredictParams, FPredictProjectilePathResult& Result) const
 {
 	const auto FlickImpulse = GetFlickForce(FlickParams.ShotType, FlickParams.Accuracy, FlickParams.PowerFraction);
+	const auto DragForceMultiplier = GetFlickDragForceMultiplier(FlickImpulse.Size());
+	const auto DragAdjustedFlickImpulse = FlickImpulse * DragForceMultiplier;
+
 	const auto& FlickDirection = FlickImpulse.GetSafeNormal();
 
 	FPredictProjectilePathParams Params;
@@ -666,17 +807,18 @@ bool APaperGolfPawn::PredictFlick(const FFlickParams& FlickParams, const FFlickP
 	Params.SimFrequency = FlickPredictParams.SimFrequency;
 
 	// Impulse = change in momentum
-	Params.LaunchVelocity = FlickImpulse / GetMass();
+	Params.LaunchVelocity = DragAdjustedFlickImpulse / GetMass();
 
 	// TODO: Later toggle with console variable
 	//Params.DrawDebugType = EDrawDebugTrace::ForDuration;
 	//Params.DrawDebugTime = 10.0f;
 
 	UE_VLOG_UELOG(this, LogPGPawn, Log, 
-		TEXT("%s: PredictFlick - FlickDirection=%s; FlickForceMagnitude=%.1f; StartLocation=%s; LaunchVelocity=%scm/s"),
+		TEXT("%s: PredictFlick - FlickDirection=%s; FlickForceMagnitude=%.1f; DragForceMultiplier=%.1f; StartLocation=%s; LaunchVelocity=%scm/s"),
 		*GetName(),
 		*FlickDirection.ToCompactString(),
-		FlickImpulse.Size(),
+		DragAdjustedFlickImpulse.Size(),
+		DragForceMultiplier,
 		*Params.StartLocation.ToCompactString(),
 		*Params.LaunchVelocity.ToCompactString());
 
@@ -734,6 +876,8 @@ void APaperGolfPawn::BeginPlay()
 
 	States.Reserve(NumSamples);
 
+//	InitializePhysicsState();
+
 	InitDebugDraw();
 }
 
@@ -771,18 +915,29 @@ void APaperGolfPawn::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 
+	_PivotComponent = GetRootComponent();
+
+	ensureMsgf(_PivotComponent, TEXT("%s: PivotComponent is NULL"), *GetName());
+
 	_CameraSpringArm = FindComponentByClass<USpringArmComponent>();
 
 	if (ensureMsgf(_CameraSpringArm, TEXT("%s: CameraSpringArm is NULL"), *GetName()))
 	{
 		OriginalCameraRotationLag = _CameraSpringArm->CameraRotationLagSpeed;
+		InitialSpringArmRotation = _CameraSpringArm->GetRelativeRotation();
+		InitialCameraSpringArmLength = _CameraSpringArm->TargetArmLength;
+
 		_Camera = Cast<UCameraComponent>(_CameraSpringArm->GetChildComponent(0));
 		ensureMsgf(_Camera, TEXT("%s: Camera is NULL"), *GetName());
 	}
 
-	_PaperGolfMesh = Cast<UStaticMeshComponent>(GetRootComponent());
+	_PaperGolfMesh = FindComponentByClass<UStaticMeshComponent>();
 	if (ensureMsgf(_PaperGolfMesh, TEXT("%s: PaperGolfMesh is NULL"), *GetName()))
 	{
+		ensureMsgf(_PaperGolfMesh != _PivotComponent, TEXT("%s: PaperGolfMesh is the same as the root component"), *GetName());
+
+		PaperGolfMeshInitialTransform = _PaperGolfMesh->GetRelativeTransform();
+
 		TArray<USceneComponent*> Components;
 		_PaperGolfMesh->GetChildrenComponents(false, Components);
 
@@ -809,6 +964,16 @@ float APaperGolfPawn::GetFlickMaxForce(EShotType ShotType) const
 	}
 }
 
+float APaperGolfPawn::GetFlickDragForceMultiplier(float Power) const
+{
+	if (!ensureMsgf(FlickDragForceCurve, TEXT("%s: FlickDragForceCurve is NULL"), *GetName()))
+	{
+		return 1.0f;
+	}
+
+	return FlickDragForceCurve->FloatCurve.Eval(Power, 1.0f);
+}
+
 float APaperGolfPawn::GetMass() const
 {
 	return Mass = CalculateMass();
@@ -821,6 +986,8 @@ void APaperGolfPawn::SetCameraForFlick()
 	_CameraSpringArm->bInheritYaw = false;
 	_CameraSpringArm->bEnableCameraRotationLag = true;
 	_CameraSpringArm->CameraRotationLagSpeed = OriginalCameraRotationLag;
+
+	ResetCameraRelativeRotation();
 }
 
 bool APaperGolfPawn::ShouldEnableCameraRotationLagForShotSetup() const
@@ -829,11 +996,34 @@ bool APaperGolfPawn::ShouldEnableCameraRotationLagForShotSetup() const
 	return !IsLocallyControlled();
 }
 
+void APaperGolfPawn::ResetPhysicsState() const
+{
+	check(_PaperGolfMesh);
+
+	UPaperGolfPawnUtilities::ResetPhysicsState(_PaperGolfMesh, PaperGolfMeshInitialTransform);
+}
+
+void APaperGolfPawn::InitializePhysicsState()
+{
+	if(!ensure(_PaperGolfMesh))
+	{
+		return;
+	}
+
+	// Toggle physics state to fix initial offset issues
+	if(!_PaperGolfMesh->IsSimulatingPhysics())
+	{
+		_PaperGolfMesh->SetSimulatePhysics(true);
+		ResetPhysicsState();
+	}
+}
+
 void APaperGolfPawn::ResetCameraForShotSetup()
 {
 	check(_CameraSpringArm);
 
 	_CameraSpringArm->bInheritYaw = true;
+	ResetCameraRelativeRotation();
 
 	const bool bEnableCameraRotationLag = ShouldEnableCameraRotationLagForShotSetup();
 	// Enable on next tick so focus happens immediately
@@ -921,7 +1111,7 @@ float APaperGolfPawn::CalculateMass() const
 
 	if (bSetSimulatePhysics)
 	{
-		UPaperGolfPawnUtilities::ResetPhysicsState(_PaperGolfMesh);
+		ResetPhysicsState();
 	}
 
 	return CalculatedMass;
@@ -960,6 +1150,26 @@ void APaperGolfPawn::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 	Category.Add(TEXT("FlickLocation"), FlickLocation.ToCompactString());
 	Category.Add(TEXT("Location"), GetActorLocation().ToCompactString());
 	Category.Add(TEXT("Rotation"), GetActorRotation().ToCompactString());
+
+	if (_PivotComponent)
+	{
+		FVisualLogStatusCategory PivotCategory;
+		PivotCategory.Category = TEXT("Pivot");
+		PivotCategory.Add(TEXT("Location"), _PivotComponent->GetComponentLocation().ToCompactString());
+		PivotCategory.Add(TEXT("Rotation"), _PivotComponent->GetComponentRotation().ToCompactString());
+		Category.AddChild(PivotCategory);
+	}
+
+	if (_PaperGolfMesh)
+	{
+		FVisualLogStatusCategory MeshCategory;
+		MeshCategory.Category = TEXT("Mesh");
+		MeshCategory.Add(TEXT("World Location"), _PaperGolfMesh->GetComponentLocation().ToCompactString());
+		MeshCategory.Add(TEXT("World Rotation"), _PaperGolfMesh->GetComponentRotation().ToCompactString());
+		MeshCategory.Add(TEXT("Relative Location"), _PaperGolfMesh->GetRelativeLocation().ToCompactString());
+		MeshCategory.Add(TEXT("Relative Rotation"), _PaperGolfMesh->GetRelativeRotation().ToCompactString());
+		Category.AddChild(MeshCategory);
+	}
 
 	DrawPawn(FColor::Blue, Snapshot);
 

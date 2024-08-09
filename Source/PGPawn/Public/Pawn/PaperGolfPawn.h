@@ -12,6 +12,7 @@ class USpringArmComponent;
 class UCameraComponent;
 enum class EShotType : uint8;
 struct FPredictProjectilePathResult;
+class UCurveFloat;
 
 USTRUCT(BlueprintType)
 struct FFlickParams
@@ -86,6 +87,9 @@ public:
 	UFUNCTION(BlueprintCallable, meta = (DevelopmentOnly))
 	void DebugDrawCenterOfMass(float DrawTime = 0.0f);
 
+	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly)
+	void SetPawnColor(const FLinearColor& Color);
+
 	UFUNCTION(BlueprintPure)
 	bool IsStuckInPerpetualMotion() const;
 
@@ -122,9 +126,12 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void Flick(const FFlickParams& FlickParams);
 
+	UFUNCTION(BlueprintCallable)
+	void AddDeltaRotation(const FRotator& DeltaRotation);
+
 	// Cannot use TOptional in a UFUNCTION
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastReliableSetTransform(const FVector_NetQuantize& Position, bool bUseRotation = false, const FRotator& Rotation = FRotator::ZeroRotator);
+	void MulticastReliableSetTransform(const FVector_NetQuantize& Position, bool bSnapToGround, bool bUseRotation = false, const FRotator& Rotation = FRotator::ZeroRotator);
 
 	void SetTransform(const FVector& Position, const TOptional<FRotator>& Rotation = {});
 
@@ -140,6 +147,8 @@ public:
 
 	float GetFlickMaxForce(EShotType ShotType) const;
 
+	float GetFlickDragForceMultiplier(float Power) const;
+
 	float GetMass() const;
 
 	// Used for server validation
@@ -154,6 +163,24 @@ public:
 	* Failsafe behavior for handling when the pawn falls below the "Kill-Z".  This should usually be handled by the AFellThroughWorldVolume.
 	*/
 	virtual void FellOutOfWorld(const UDamageType& DmgType) override;
+
+	FVector GetPaperGolfPosition() const;
+	FRotator GetPaperGolfRotation() const;
+
+	virtual void PostNetReceive() override;
+	virtual void OnRep_ReplicatedMovement() override;
+
+	virtual void PostNetReceiveLocationAndRotation() override;
+
+	/** Update velocity - typically from ReplicatedMovement, not called for simulated physics! */
+	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) override;
+
+	/** Update and smooth simulated physic state, replaces PostNetReceiveLocation() and PostNetReceiveVelocity() */
+	virtual void PostNetReceivePhysicState() override;
+
+	void AddCameraRelativeRotation(const FRotator& DeltaRotation);
+	void ResetCameraRelativeRotation();
+	void AddCameraZoomDelta(float ZoomDelta);
 
 protected:
 	virtual void Tick(float DeltaTime) override;
@@ -197,6 +224,10 @@ private:
 
 	bool ShouldEnableCameraRotationLagForShotSetup() const;
 
+	void ResetPhysicsState() const;
+
+	void InitializePhysicsState();
+
 private:
 
 #if ENABLE_VISUAL_LOG
@@ -229,6 +260,9 @@ private:
 	FVector FlickLocation{ 0.0, 0.0, 0.05 };
 
 	FRotator InitialRotation{ EForceInit::ForceInitToZero };
+	FRotator InitialSpringArmRotation{ EForceInit::ForceInitToZero };
+
+	FTransform PaperGolfMeshInitialTransform{};
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	float RestLinearVelocitySquaredMax{ 4.f };
@@ -245,6 +279,9 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Force")
 	float FlickMaxForceMediumShot{ 200.f };
 
+	UPROPERTY(EditDefaultsOnly, Category = "Shot | Force")
+	TObjectPtr<UCurveFloat> FlickDragForceCurve{};
+
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty")
 	float PowerAccuracyDampenExp{ 0.25f };
 
@@ -260,6 +297,20 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty", meta = (ClampMin = "1.0"))
 	float FlickOffsetZTraceSize{ 5.0f };
 
+	UPROPERTY(EditDefaultsOnly, Category = "Camera | Shot")
+	FRotator MinCameraRotation{ -45.0f, -60.0f, 0 };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Camera | Shot")
+	FRotator MaxCameraRotation{ 45.0f, 60.0f, 0 };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Camera | Shot", meta = (ClampMin = "0.0"))
+	float MinCameraSpringArmLength{ 0.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Camera | Shot", meta = (ClampMin = "0.0"))
+	float MaxCameraSpringArmLength{ 2000.0f };
+
+	float InitialCameraSpringArmLength{};
+
 	UPROPERTY(EditDefaultsOnly, Category = "Camera | Spectator", meta = (ClampMin = "0.0"))
 	float SpectatorCameraRotationLag{ 1.0f };
 
@@ -270,6 +321,10 @@ private:
 
 	// TODO: move component set up to C++
 private:
+
+	UPROPERTY(Transient)
+	TObjectPtr<USceneComponent> _PivotComponent{};
+
 	UPROPERTY(Transient)
 	TObjectPtr<UStaticMeshComponent> _PaperGolfMesh{};
 
