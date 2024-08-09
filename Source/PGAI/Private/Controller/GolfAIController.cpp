@@ -168,9 +168,10 @@ void AGolfAIController::ActivateTurn()
 	PaperGolfPawn->SetReadyForShot(true);
 }
 
-void AGolfAIController::Spectate(APaperGolfPawn* InPawn)
+void AGolfAIController::Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState)
 {
-	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: Spectate - %s"), *GetName(), *LoggingUtils::GetName(InPawn));
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: Spectate - InPawn=%s; InPlayerState=%s"),
+		*GetName(), *LoggingUtils::GetName(InPawn), InPlayerState ? *InPlayerState->GetPlayerName() : TEXT("NULL"));
 
 	if (IsValid(PlayerPawn))
 	{

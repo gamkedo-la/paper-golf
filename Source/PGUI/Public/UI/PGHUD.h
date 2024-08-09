@@ -11,6 +11,7 @@ class UGolfUserWidget;
 class APaperGolfGameStateBase;
 class APaperGolfPawn;
 class AGolfPlayerState;
+class ITextDisplayingWidget;
 
 UENUM(BlueprintType)
 enum class EMessageWidgetType : uint8
@@ -48,10 +49,16 @@ public:
 	void RemoveActiveMessageWidget();
 
 	UFUNCTION(BlueprintNativeEvent, Category = "UI")
-	void SpectatePlayer(APaperGolfPawn* PlayerPawn);
+	void SpectatePlayer(APaperGolfPawn* PlayerPawn, AGolfPlayerState* InPlayerState);
 
 	UFUNCTION(BlueprintNativeEvent, Category = UI)
 	void BeginTurn();
+
+	UFUNCTION(BlueprintNativeEvent, Category = UI)
+	void BeginShot();
+
+	UFUNCTION(BlueprintNativeEvent, Category = UI)
+	void BeginSpectatorShot(APaperGolfPawn* PlayerPawn, AGolfPlayerState* InPlayerState);
 
 protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "UI")
@@ -81,6 +88,10 @@ private:
 	UFUNCTION()
 	void OnHoleComplete();
 
+	void HideActiveTurnWidget();
+
+	bool ShouldShowActiveTurnWidgets() const;
+
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config")
 	TSubclassOf<UGolfUserWidget> GolfWidgetClass{};
@@ -92,6 +103,13 @@ protected:
 	TObjectPtr<UGolfUserWidget> GolfWidget{};
 
 private:
+	void LoadWidgetAsync(const TSoftClassPtr<UUserWidget>& WidgetClass, TFunction<void(UUserWidget&)> OnWidgetReady);
+
+	using WidgetMemberPtr = TObjectPtr<UUserWidget> ThisClass::*;
+
+	void DisplayTurnWidget(const TSoftClassPtr<UUserWidget>& WidgetClass, WidgetMemberPtr WidgetToDisplay, const FText& Message);
+
+private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	TSoftClassPtr<UUserWidget> OutOfBoundsWidgetClass{};
 
@@ -101,11 +119,29 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	TSoftClassPtr<UUserWidget> TutorialWidgetClass{};
 
+	UPROPERTY(EditDefaultsOnly, Category = "Config", meta= (MustImplement = "PGUI.TextDisplayingWidget"))
+	TSoftClassPtr<UUserWidget> ActiveTurnWidgetClass{};
+
+	UPROPERTY(EditDefaultsOnly, Category = "Config", meta = (MustImplement = "PGUI.TextDisplayingWidget"))
+	TSoftClassPtr<UUserWidget> SpectatingWidgetClass{};
+
 	UPROPERTY(Transient)
 	TObjectPtr<UUserWidget> ActiveMessageWidget{};
 
 	UPROPERTY(Transient)
 	TSoftClassPtr<UUserWidget> ActiveMessageWidgetClass{};
+
+	UPROPERTY(Transient)
+	TObjectPtr<UUserWidget> ActiveTurnWidget{};
+
+	UPROPERTY(Transient)
+	TObjectPtr<UUserWidget> SpectatingWidget{};
+
+	UPROPERTY(Transient)
+	TSoftClassPtr<UUserWidget> ActivePlayerTurnWidgetClass{};
+
+	UPROPERTY(Transient)
+	TObjectPtr<UUserWidget> ActivePlayerTurnWidget{};
 };
 
 #pragma region Inline Definitions

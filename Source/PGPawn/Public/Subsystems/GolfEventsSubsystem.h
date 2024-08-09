@@ -43,6 +43,10 @@ public:
 	UPROPERTY(Category = "Notification", Transient, BlueprintAssignable)
 	FOnPaperGolfPawnScored OnPaperGolfPawnScored;
 
+	/*
+	* Called when a shot is finished.
+	* Currently only broadcast on server and on locally controlled pawns.
+	*/
 	UPROPERTY(Category = "Notification", Transient, BlueprintAssignable)
 	FOnPaperGolfShotFinished OnPaperGolfShotFinished;
 

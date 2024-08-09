@@ -483,6 +483,8 @@ void AGolfPlayerController::ProcessShootInput()
 		return;
 	}
 
+	HUD->BeginShot();
+
 	UE_VLOG_UELOG(this, LogPGPlayer, Log,
 		TEXT("%s: ProcessShootInput - Calling Flick"),
 		*GetName());
@@ -881,30 +883,34 @@ bool AGolfPlayerController::ShouldEnableInputForActivateTurn() const
 	return TutorialTrackingSubsystem->IsHoleFlybySeen(GolfGameState->GetCurrentHoleNumber());
 }
 
-void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn)
+void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState)
 {
 	// This can only be called on server
-	if(!ensureAlwaysMsgf(HasAuthority(), TEXT("%s: Spectate - InPawn=%s called on client!"), *GetName(), *LoggingUtils::GetName(InPawn)))
+	if(!ensureAlwaysMsgf(HasAuthority(), TEXT("%s: Spectate - InPawn=%s; InPlayerState=%s called on client!"), 
+		*GetName(), *LoggingUtils::GetName(InPawn), InPlayerState ? *InPlayerState->GetPlayerName() : TEXT("NULL")))
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s: Spectate - InPawn=%s called on client!"), *GetName(), *LoggingUtils::GetName(InPawn));
+		UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s: Spectate - InPawn=%s; InPlayerState=%s called on client!"),
+			*GetName(), *LoggingUtils::GetName(InPawn), InPlayerState ? *InPlayerState->GetPlayerName() : TEXT("NULL"));
 		return;
 	}
 
-	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: Spectate - InPawn=%s"), *GetName(), *LoggingUtils::GetName(InPawn));
+	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: Spectate - InPawn=%s; InPlayerState=%s called on client!"), 
+		*GetName(), *LoggingUtils::GetName(InPawn), InPlayerState ? *InPlayerState->GetPlayerName() : TEXT("NULL"));
 
 	// TODO: Hide the player pawn and UI and switch to spectate the input player pawn
 	// Need to account for possibly destroying the player pawn after scoring so the player pawn could be null
 	// Should track the possessed paper golf pawn as need to switch back to it when activating the turn
 
 	// Allow the spectator pawn to take over the controls; otherwise, some of the bindings will be disabled
-	ClientSpectate(InPawn);
+	ClientSpectate(InPawn, InPlayerState);
 
 	AddSpectatorPawn(InPawn);
 }
 
-void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn)
+void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState)
 {
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientSpectate - %s"), *GetName(), *LoggingUtils::GetName(InPawn));
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientSpectate - InPawn=%s; InPlayerState=%s"),
+		*GetName(), *LoggingUtils::GetName(InPawn), InPlayerState ? *InPlayerState->GetPlayerName() : TEXT("NULL"));
 
 	// TODO: Do we need to wait for Spectate to propagate?
 	// Allow the spectator pawn to take over the controls; otherwise, some of the bindings will be disabled
@@ -921,11 +927,26 @@ void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn
 	bTurnActivated = false;
 	GolfControllerCommonComponent->EndTurn();
 
-	BlueprintSpectate(InPawn);
+	BlueprintSpectate(InPawn, InPlayerState);
 
 	if (auto HUD = GetHUD<APGHUD>(); ensure(HUD))
 	{
-		HUD->SpectatePlayer(InPawn);
+		HUD->SpectatePlayer(InPawn, InPlayerState);
+
+		if (InPawn)
+		{
+			OnFlickSpectateShotHandle = InPawn->OnFlick.AddWeakLambda(this, 
+				[this, InPawn = MakeWeakObjectPtr(InPawn), HUD = MakeWeakObjectPtr(HUD), InPlayerState = MakeWeakObjectPtr(InPlayerState)]()
+			{
+				InPawn->OnFlick.Remove(OnFlickSpectateShotHandle);
+				OnFlickSpectateShotHandle.Reset();
+
+				if (HUD.IsValid())
+				{
+					HUD->BeginSpectatorShot(InPawn.Get(), InPlayerState.Get());
+				}
+			});
+		}
 	}
 }
 
