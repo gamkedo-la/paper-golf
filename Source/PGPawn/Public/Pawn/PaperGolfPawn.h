@@ -182,6 +182,12 @@ public:
 	void ResetCameraRelativeRotation();
 	void AddCameraZoomDelta(float ZoomDelta);
 
+	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly)
+	void OnShotFinished();
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly)
+	void OnTurnStarted();
+
 protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void BeginPlay() override;

@@ -35,6 +35,8 @@
 #include "EngineUtils.h"
 
 
+#include UE_INLINE_GENERATED_CPP_BY_NAME(HoleTransitionComponent)
+
 UHoleTransitionComponent::UHoleTransitionComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;

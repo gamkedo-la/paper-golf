@@ -509,7 +509,6 @@ void UGolfControllerCommonComponent::CheckForNextShot()
 
 	if (auto GolfEventSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventSubsystem))
 	{
-		// This will call a function on server from game mode to set up next turn - we use above RPC to make sure 
 		GolfEventSubsystem->OnPaperGolfShotFinished.Broadcast(PaperGolfPawn);
 	}
 }
@@ -709,6 +708,11 @@ void UGolfControllerCommonComponent::BeginTurn()
 
 			// Always reset the state when activating turn - this fixes and physics offset issues
 			PaperGolfPawn->SetUpForNextShot();
+
+			if (GetOwner()->HasAuthority())
+			{
+				PaperGolfPawn->OnTurnStarted();
+			}
 		}
 	}
 

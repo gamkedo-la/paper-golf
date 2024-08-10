@@ -71,14 +71,16 @@ void IGolfController::OnShotFinished()
 
 	auto Controller = AsController();
 
-	// TODO: Why in AGolfPlayerController is this IsLocalPlayerController guarding MulticastReliableSetTransform? 
-	// Don't we want to do the multicast if we have authority? Changed it here
-
 	if (auto PaperGolfPawn = GetPaperGolfPawn(); Controller->HasAuthority() && PaperGolfPawn)
 	{
 		UE_VLOG_UELOG(AsController(), LogPGPawn, Log,
 			TEXT("%s-%s: OnShotFinished - Setting final authoritative position for pawn: %s"),
 			*ToString(), *PaperGolfPawn->GetName(), *PaperGolfPawn->GetPaperGolfPosition().ToCompactString());
+
+		if (Controller->HasAuthority())
+		{
+			PaperGolfPawn->OnShotFinished();
+		}
 
 		PaperGolfPawn->MulticastReliableSetTransform(PaperGolfPawn->GetPaperGolfPosition(), false, true, PaperGolfPawn->GetPaperGolfRotation());
 	}
