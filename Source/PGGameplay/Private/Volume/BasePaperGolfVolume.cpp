@@ -7,9 +7,17 @@
 #include "Pawn/PaperGolfPawn.h"
 
 #include "Subsystems/GolfEventsSubsystem.h"
+#include "Components/BrushComponent.h"
+
+#include "Utils/CollisionUtils.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(BasePaperGolfVolume)
 
+
+ABasePaperGolfVolume::ABasePaperGolfVolume()
+{
+	GetBrushComponent()->SetCollisionProfileName(PG::CollisionProfile::OverlapOnlyPawn);
+}
 
 void ABasePaperGolfVolume::NotifyActorBeginOverlap(AActor* OtherActor)
 {

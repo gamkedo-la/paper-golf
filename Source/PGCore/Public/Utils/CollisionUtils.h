@@ -32,4 +32,5 @@ namespace PG::CollisionChannel
 namespace PG::CollisionProfile
 {
 	inline constexpr const TCHAR* NoCollision = TEXT("NoCollision");
+	inline constexpr const TCHAR* OverlapOnlyPawn = TEXT("OverlapOnlyPawn");
 }
