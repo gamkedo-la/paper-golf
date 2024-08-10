@@ -876,8 +876,6 @@ void APaperGolfPawn::BeginPlay()
 
 	States.Reserve(NumSamples);
 
-//	InitializePhysicsState();
-
 	InitDebugDraw();
 }
 
@@ -1003,21 +1001,6 @@ void APaperGolfPawn::ResetPhysicsState() const
 	UPaperGolfPawnUtilities::ResetPhysicsState(_PaperGolfMesh, PaperGolfMeshInitialTransform);
 }
 
-void APaperGolfPawn::InitializePhysicsState()
-{
-	if(!ensure(_PaperGolfMesh))
-	{
-		return;
-	}
-
-	// Toggle physics state to fix initial offset issues
-	if(!_PaperGolfMesh->IsSimulatingPhysics())
-	{
-		_PaperGolfMesh->SetSimulatePhysics(true);
-		ResetPhysicsState();
-	}
-}
-
 void APaperGolfPawn::ResetCameraForShotSetup()
 {
 	check(_CameraSpringArm);
@@ -1087,6 +1070,11 @@ void APaperGolfPawn::SampleState()
 
 float APaperGolfPawn::CalculateMass() const
 {
+	// TODO: Should we be setting Mass as replicated and then this can only be called on the server to avoid needing to change the physics simulation state on clients?
+	// Would need to call early on in PostInitializeComponents for instance so that the value can propagate to clients before they need to read that value
+	// even then there could be a race condition
+	// Ideally we want to remove all calls to SetSimulatePhysics on clients and only do that on server as it also affects attachment setup that should be done on server so it can replicate properly
+	// Alternatively this could just be a property
 	if(!FMath::IsNearlyZero(Mass))
 	{
 		return Mass;

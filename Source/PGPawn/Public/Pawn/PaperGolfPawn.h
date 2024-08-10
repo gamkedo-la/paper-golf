@@ -232,8 +232,6 @@ private:
 
 	void ResetPhysicsState() const;
 
-	void InitializePhysicsState();
-
 private:
 
 #if ENABLE_VISUAL_LOG
