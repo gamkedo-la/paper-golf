@@ -63,6 +63,8 @@ private:
 	void InitializePlayersForHole();
 	void MarkPlayersFinishedHole();
 
+	void SortPlayersForNextHole();
+
 private:
 	// TODO: Use APGTurnBasedGameMode if need the functionality of it.  Keeping it to the base class for now for maximum reuse
 	UPROPERTY(Transient)
@@ -84,6 +86,8 @@ private:
 	*/
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	bool bSkipHumanPlayers{};
+
+	int32 HolesCompleted{};
 };
 
 #pragma region Inline Definitions

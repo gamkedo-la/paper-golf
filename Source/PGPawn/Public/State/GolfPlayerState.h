@@ -40,9 +40,13 @@ public:
 	UFUNCTION(BlueprintPure)	
 	int32 GetTotalShots() const;
 
-	// TODO: Cannot implement this yet
+	// TODO: Cannot implement this yet - need to track which hole the score was for rather than just an array since may not start at hole 1
+	// or may drop out
 	//UFUNCTION(BlueprintPure)
-	//bool GetScoreForHole(int32 HoleNumber) const;
+	//int32 GetScoreForHole(int32 HoleNumber) const;
+
+	UFUNCTION(BlueprintPure)
+	int32 GetLastCompletedHoleScore() const;
 
 	UFUNCTION(BlueprintPure)
 	virtual int32 GetDisplayScore() const;
@@ -131,6 +135,11 @@ FORCEINLINE int32 AGolfPlayerState::GetDisplayScore() const
 FORCEINLINE FLinearColor AGolfPlayerState::GetPlayerColor() const
 {
 	return PlayerColor;
+}
+
+FORCEINLINE int32 AGolfPlayerState::GetLastCompletedHoleScore() const
+{
+	return !ScoreByHole.IsEmpty() ? static_cast<int32>(ScoreByHole.Last()) : -1;
 }
 
 #pragma endregion Inline Definitions

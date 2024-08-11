@@ -55,8 +55,6 @@ void UGolfTurnBasedDirectorComponent::StartHole()
 	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: StartHole with %d player%s: %s"), *GetName(), Players.Num(), LoggingUtils::Pluralize(Players.Num()), 
 		*PG::ToString < TScriptInterface<IGolfController>, decltype([](const auto& Player) { return Player ? Player->ToString() : TEXT("NULL");  })> (Players));
 
-	// TODO: Order should be based on previous hole's finish
-
 	if (!ensureMsgf(!Players.IsEmpty(), TEXT("%s: StartHole - No players"), *GetName()))
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: StartHole - No players"), *GetName());
@@ -374,7 +372,9 @@ int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 
 void UGolfTurnBasedDirectorComponent::NextHole()
 {
-	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Display, TEXT("%s: NextHole"), *GetName());
+	++HolesCompleted;
+
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Display, TEXT("%s: NextHole - HolesCompleted=%d"), *GetName(), HolesCompleted);
 
 	check(GameState);
 	GameState->SetActivePlayer(nullptr);
@@ -395,6 +395,8 @@ void UGolfTurnBasedDirectorComponent::NextHole()
 
 void UGolfTurnBasedDirectorComponent::InitializePlayersForHole()
 {
+	SortPlayersForNextHole();
+
 	for (auto Player : Players)
 	{
 		if (auto PlayerState = Player->GetGolfPlayerState(); ensureMsgf(PlayerState,
@@ -408,6 +410,34 @@ void UGolfTurnBasedDirectorComponent::InitializePlayersForHole()
 				*GetName(), *PG::StringUtils::ToString(Player));
 		}
 	}
+}
+
+void UGolfTurnBasedDirectorComponent::SortPlayersForNextHole()
+{
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: SortPlayersForNextHole"), *GetName());
+
+	// Players ordered based on lowest score from previous hole, maintaining previous order if there was a tie
+	Players.StableSort([this, CompletedHoles = this->HolesCompleted](const TScriptInterface<IGolfController>& First, const TScriptInterface<IGolfController>& Second)
+	{
+		const auto FirstPlayerState = First->GetGolfPlayerState();
+		const auto SecondPlayerState = Second->GetGolfPlayerState();
+
+		const auto StateIsValid = [CompletedHoles](AGolfPlayerState* State)
+		{
+			return State && State->GetNumCompletedHoles() == CompletedHoles;
+		};
+
+		if (!StateIsValid(FirstPlayerState))
+		{
+			return false;
+		}
+		if (!StateIsValid(SecondPlayerState))
+		{
+			return true;
+		}
+
+		return FirstPlayerState->GetLastCompletedHoleScore() < SecondPlayerState->GetLastCompletedHoleScore();
+	});
 }
 
 void UGolfTurnBasedDirectorComponent::MarkPlayersFinishedHole()
