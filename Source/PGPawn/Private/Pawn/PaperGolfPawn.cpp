@@ -528,8 +528,6 @@ void APaperGolfPawn::DoFlick(FFlickParams FlickParams)
 	// Turn off physics at first so can move the actor
 	_PaperGolfMesh->SetSimulatePhysics(true);
 
-	RefreshMass();
-
 	const auto& Impulse = GetFlickForce(FlickParams.ShotType, FlickParams.Accuracy, FlickParams.PowerFraction);
 	const auto& Location = GetFlickLocation(FlickParams.LocalZOffset, FlickParams.Accuracy, FlickParams.PowerFraction);
 
@@ -949,6 +947,8 @@ void APaperGolfPawn::PostInitializeComponents()
 			_FlickReference = *FindResult;
 			ensureMsgf(_FlickReference, TEXT("%s: FlickReference is NULL"), *GetName());
 		}
+
+		Mass = CalculateMass();
 	}
 }
 
@@ -974,7 +974,7 @@ float APaperGolfPawn::GetFlickDragForceMultiplier(float Power) const
 
 float APaperGolfPawn::GetMass() const
 {
-	return Mass = CalculateMass();
+	return Mass;
 }
 
 void APaperGolfPawn::SetCameraForFlick()
@@ -1083,6 +1083,19 @@ float APaperGolfPawn::CalculateMass() const
 	if (!ensure(_PaperGolfMesh))
 	{
 		return 0.0f;
+	}
+
+	// Need to set an override on the mass to avoid needing to calculate it at runtime. Make sure that has been done
+	const auto BodyInstance = _PaperGolfMesh->GetBodyInstance();
+	if (!ensure(BodyInstance))
+	{
+		return 0.0f;
+	}
+
+	if(const auto OverrideMass = BodyInstance->GetMassOverride(); 
+		ensureMsgf(!FMath::IsNearlyZero(OverrideMass), TEXT("%s: CalculateMass - OverrideMass is zero - set this to a non-zero value in the blueprint"), *GetName()))
+	{
+		return OverrideMass;
 	}
 
 	bool bSetSimulatePhysics{};

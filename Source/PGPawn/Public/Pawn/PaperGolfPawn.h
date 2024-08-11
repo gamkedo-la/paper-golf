@@ -223,7 +223,6 @@ private:
 	void SampleState();
 
 	float CalculateMass() const;
-	void RefreshMass();
 
 	UFUNCTION()
 	void OnRep_FocusActor();
@@ -320,7 +319,7 @@ private:
 
 	float OriginalCameraRotationLag{};
 
-	mutable float Mass{};
+	float Mass{};
 	bool bReadyForShot{};
 
 	// TODO: move component set up to C++
@@ -361,11 +360,6 @@ FORCEINLINE FVector APaperGolfPawn::GetAngularVelocity() const
 FORCEINLINE float APaperGolfPawn::GetFlickOffsetZTraceSize() const
 {
 	return FlickOffsetZTraceSize;
-}
-
-FORCEINLINE void APaperGolfPawn::RefreshMass()
-{
-	Mass = CalculateMass();
 }
 
 FORCEINLINE AActor* APaperGolfPawn::GetFocusActor() const
