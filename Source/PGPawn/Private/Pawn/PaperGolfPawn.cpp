@@ -49,7 +49,7 @@ namespace
 APaperGolfPawn::APaperGolfPawn()
 {
 	PrimaryActorTick.bCanEverTick = false;
-	bAlwaysRelevant = false;
+	bAlwaysRelevant = true;
 	bReplicates = true;
 }
 
