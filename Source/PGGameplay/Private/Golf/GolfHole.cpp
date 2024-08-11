@@ -16,10 +16,19 @@
 #include "Utils/ArrayUtils.h"
 #include "PGGameplayLogging.h"
 
+#include "Net/UnrealNetwork.h"
+
 
 AGolfHole::AGolfHole()
 {
 	PrimaryActorTick.bCanEverTick = false;
+
+	bReplicates = true;
+	// Needs to be marked as always relevant; 
+	// otherwise, even a ForceNetUpdate won't replicate the property if it is irrelevant which causes the wrong color to show when it comes into view
+	// We make the actor dormant and only trigger the explicit changes
+	bAlwaysRelevant = true;
+	NetDormancy = ENetDormancy::DORM_DormantAll;
 }
 
 AGolfHole* AGolfHole::GetCurrentHole(const UObject* WorldContextObject)
@@ -122,6 +131,13 @@ void AGolfHole::Reset()
 	UpdateColliderRegistration();
 }
 
+void AGolfHole::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AGolfHole, bActiveHole);
+}
+
 void AGolfHole::SetCollider(UPrimitiveComponent* InCollider)
 {
 	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: SetCollider - %s"), *GetName(), *LoggingUtils::GetName(InCollider));
@@ -134,6 +150,8 @@ void AGolfHole::SetCollider(UPrimitiveComponent* InCollider)
 	Collider = InCollider;
 
 	UpdateColliderRegistration();
+
+	bInitialized = true;
 }
 
 void AGolfHole::OnComponentBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -245,7 +263,16 @@ void AGolfHole::UpdateColliderRegistration()
 
 	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: UpdateColliderRegistration: CurrentHole=%d; MyHoleNumber=%d"), *GetName(), GameState->GetCurrentHoleNumber(), HoleNumber);
  
-	if (GameState->GetCurrentHoleNumber() == HoleNumber)
+	const bool bNewActiveHoleStatus = GameState->GetCurrentHoleNumber() == HoleNumber;
+
+	// If we haven't been initialized yet then we always need to call this
+	if(bInitialized && bNewActiveHoleStatus == bActiveHole)
+	{
+		UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: UpdateColliderRegistration: No change in active hole status: bActiveHole=%s - skipping collider registration change"), *GetName(), LoggingUtils::GetBoolString(bActiveHole));
+		return;
+	}
+
+	if (bNewActiveHoleStatus)
 	{
 		RegisterCollider();
 	}
@@ -253,6 +280,12 @@ void AGolfHole::UpdateColliderRegistration()
 	{
 		UnregisterCollider();
 	}
+
+	bActiveHole = bNewActiveHoleStatus;
+	ForceNetUpdate();
+
+	// Call directly on server
+	OnActiveHoleChanged();
 }
 
 void AGolfHole::RegisterCollider()
@@ -281,4 +314,16 @@ void AGolfHole::UnregisterCollider()
 
 	Collider->OnComponentBeginOverlap.RemoveDynamic(this, &AGolfHole::OnComponentBeginOverlap);
 	Collider->OnComponentEndOverlap.RemoveDynamic(this, &AGolfHole::OnComponentEndOverlap);
+}
+
+void AGolfHole::OnRep_ActiveHole()
+{
+	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: OnRep_ActiveHole - bActiveHole=%s"), *GetName(), LoggingUtils::GetBoolString(bActiveHole));
+
+	OnActiveHoleChanged();
+}
+
+void AGolfHole::OnActiveHoleChanged()
+{
+	BlueprintOnActiveHoleChanged(bActiveHole);
 }

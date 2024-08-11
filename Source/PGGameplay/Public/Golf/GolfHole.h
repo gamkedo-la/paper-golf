@@ -27,9 +27,14 @@ public:
 
 	virtual void Reset() override;
 
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
+
 protected:
 	UFUNCTION(BlueprintCallable)
 	void SetCollider(UPrimitiveComponent* InCollider);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void BlueprintOnActiveHoleChanged(bool bIsActiveHole);
 
 private:
 
@@ -53,6 +58,11 @@ private:
 	void RegisterCollider();
 	void UnregisterCollider();
 
+	UFUNCTION()
+	void OnRep_ActiveHole();
+
+	void OnActiveHoleChanged();
+
 private:
 	FTimerHandle CheckScoredTimerHandle{};
 
@@ -63,6 +73,12 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Config")
 	int32 HoleNumber{};
+
+	// Set to true initially as by default the hole is active so need to detect the flipped condition
+	UPROPERTY(ReplicatedUsing = OnRep_ActiveHole)
+	bool bActiveHole{ true };
+
+	bool bInitialized{};
 };
 
 #pragma region Inline Definitions
