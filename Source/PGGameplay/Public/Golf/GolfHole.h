@@ -6,18 +6,33 @@
 
 #include "Interfaces/FocusableActor.h"
 #include "GameFramework/Actor.h"
+#include "VisualLogger/VisualLoggerDebugSnapshotInterface.h"
+
 #include "GolfHole.generated.h"
 
 class APaperGolfPawn;
 class APaperGolfGameStateBase;
 
+UENUM(BlueprintType)
+enum class EGolfHoleState : uint8
+{
+	None,
+	Active,
+	Inactive
+};
+
 UCLASS()
-class PGGAMEPLAY_API AGolfHole : public AActor, public IFocusableActor
+class PGGAMEPLAY_API AGolfHole : public AActor, public IFocusableActor, public IVisualLoggerDebugSnapshotInterface
 {
 	GENERATED_BODY()
 	
 public:	
 	AGolfHole();
+
+
+#if ENABLE_VISUAL_LOG
+	virtual void GrabDebugSnapshot(FVisualLogEntry* Snapshot) const override;
+#endif
 
 	UFUNCTION(BlueprintPure, Category = "Hole", meta = (DefaultToSelf = "WorldContextObject"))
 	static AGolfHole* GetCurrentHole(const UObject* WorldContextObject);
@@ -30,7 +45,7 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
 
 protected:
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	void SetCollider(UPrimitiveComponent* InCollider);
 
 	UFUNCTION(BlueprintImplementableEvent)
@@ -59,7 +74,7 @@ private:
 	void UnregisterCollider();
 
 	UFUNCTION()
-	void OnRep_ActiveHole();
+	void OnRep_GolfHoleState();
 
 	void OnActiveHoleChanged();
 
@@ -75,10 +90,8 @@ private:
 	int32 HoleNumber{};
 
 	// Set to true initially as by default the hole is active so need to detect the flipped condition
-	UPROPERTY(ReplicatedUsing = OnRep_ActiveHole)
-	bool bActiveHole{ true };
-
-	bool bInitialized{};
+	UPROPERTY(ReplicatedUsing = OnRep_GolfHoleState)
+	EGolfHoleState GolfHoleState{};
 };
 
 #pragma region Inline Definitions

@@ -135,7 +135,7 @@ void AGolfHole::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(AGolfHole, bActiveHole);
+	DOREPLIFETIME(AGolfHole, GolfHoleState);
 }
 
 void AGolfHole::SetCollider(UPrimitiveComponent* InCollider)
@@ -150,8 +150,6 @@ void AGolfHole::SetCollider(UPrimitiveComponent* InCollider)
 	Collider = InCollider;
 
 	UpdateColliderRegistration();
-
-	bInitialized = true;
 }
 
 void AGolfHole::OnComponentBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -263,16 +261,18 @@ void AGolfHole::UpdateColliderRegistration()
 
 	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: UpdateColliderRegistration: CurrentHole=%d; MyHoleNumber=%d"), *GetName(), GameState->GetCurrentHoleNumber(), HoleNumber);
  
-	const bool bNewActiveHoleStatus = GameState->GetCurrentHoleNumber() == HoleNumber;
+	const EGolfHoleState NewState = GameState->GetCurrentHoleNumber() == HoleNumber ? EGolfHoleState::Active : EGolfHoleState::Inactive;
 
 	// If we haven't been initialized yet then we always need to call this
-	if(bInitialized && bNewActiveHoleStatus == bActiveHole)
+	if(GolfHoleState == NewState)
 	{
-		UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: UpdateColliderRegistration: No change in active hole status: bActiveHole=%s - skipping collider registration change"), *GetName(), LoggingUtils::GetBoolString(bActiveHole));
+		UE_VLOG_UELOG(this, LogPGGameplay, Log, 
+			TEXT("%s: UpdateColliderRegistration: No change in active hole status: GolfHoleState=%s - skipping collider registration change"),
+			*GetName(), *LoggingUtils::GetName(GolfHoleState));
 		return;
 	}
 
-	if (bNewActiveHoleStatus)
+	if (NewState == EGolfHoleState::Active)
 	{
 		RegisterCollider();
 	}
@@ -281,7 +281,7 @@ void AGolfHole::UpdateColliderRegistration()
 		UnregisterCollider();
 	}
 
-	bActiveHole = bNewActiveHoleStatus;
+	GolfHoleState = NewState;
 	ForceNetUpdate();
 
 	// Call directly on server
@@ -316,14 +316,43 @@ void AGolfHole::UnregisterCollider()
 	Collider->OnComponentEndOverlap.RemoveDynamic(this, &AGolfHole::OnComponentEndOverlap);
 }
 
-void AGolfHole::OnRep_ActiveHole()
+void AGolfHole::OnRep_GolfHoleState()
 {
-	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: OnRep_ActiveHole - bActiveHole=%s"), *GetName(), LoggingUtils::GetBoolString(bActiveHole));
+	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: OnRep_GolfHoleState - GolfHoleState=%s"), *GetName(), *LoggingUtils::GetName(GolfHoleState));
 
 	OnActiveHoleChanged();
 }
 
 void AGolfHole::OnActiveHoleChanged()
 {
-	BlueprintOnActiveHoleChanged(bActiveHole);
+	if (GolfHoleState == EGolfHoleState::None)
+	{
+		UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: OnActiveHoleChanged: Skipping GolfHoleState=None"), *GetName());
+		return;
+	}
+
+	BlueprintOnActiveHoleChanged(GolfHoleState == EGolfHoleState::Active);
 }
+
+#pragma region Visual Logger
+#if ENABLE_VISUAL_LOG
+
+void AGolfHole::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
+{
+	FVisualLogStatusCategory Category;
+	Category.Category = FString::Printf(TEXT("Hole %d"), HoleNumber);
+
+	Category.Add(TEXT("Hole Number"), FString::Printf(TEXT("%d"), HoleNumber));
+	Category.Add(TEXT("State"), LoggingUtils::GetName(GolfHoleState));
+
+	if (HasAuthority())
+	{
+		Category.Add(TEXT("OverlappingPaperGolfPawn"), LoggingUtils::GetName(OverlappingPaperGolfPawn));
+		Category.Add(TEXT("Score timer Active"), LoggingUtils::GetBoolString(CheckScoredTimerHandle.IsValid()));
+	}
+
+	Snapshot->Status.Add(Category);
+}
+
+#endif
+#pragma endregion Visual Logger
