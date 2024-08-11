@@ -17,6 +17,9 @@ class PGGAMEPLAY_API ABasePaperGolfVolume : public ATriggerVolume
 {
 	GENERATED_BODY()
 
+public:
+	ABasePaperGolfVolume();
+
 protected:
 
 	virtual void OnPaperGolfPawnOverlap(APaperGolfPawn& PaperGolfPawn, UGolfEventsSubsystem& GolfEvents) {}

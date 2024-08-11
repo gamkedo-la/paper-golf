@@ -528,8 +528,6 @@ void APaperGolfPawn::DoFlick(FFlickParams FlickParams)
 	// Turn off physics at first so can move the actor
 	_PaperGolfMesh->SetSimulatePhysics(true);
 
-	RefreshMass();
-
 	const auto& Impulse = GetFlickForce(FlickParams.ShotType, FlickParams.Accuracy, FlickParams.PowerFraction);
 	const auto& Location = GetFlickLocation(FlickParams.LocalZOffset, FlickParams.Accuracy, FlickParams.PowerFraction);
 
@@ -876,8 +874,6 @@ void APaperGolfPawn::BeginPlay()
 
 	States.Reserve(NumSamples);
 
-//	InitializePhysicsState();
-
 	InitDebugDraw();
 }
 
@@ -951,6 +947,8 @@ void APaperGolfPawn::PostInitializeComponents()
 			_FlickReference = *FindResult;
 			ensureMsgf(_FlickReference, TEXT("%s: FlickReference is NULL"), *GetName());
 		}
+
+		Mass = CalculateMass();
 	}
 }
 
@@ -976,7 +974,7 @@ float APaperGolfPawn::GetFlickDragForceMultiplier(float Power) const
 
 float APaperGolfPawn::GetMass() const
 {
-	return Mass = CalculateMass();
+	return Mass;
 }
 
 void APaperGolfPawn::SetCameraForFlick()
@@ -1001,21 +999,6 @@ void APaperGolfPawn::ResetPhysicsState() const
 	check(_PaperGolfMesh);
 
 	UPaperGolfPawnUtilities::ResetPhysicsState(_PaperGolfMesh, PaperGolfMeshInitialTransform);
-}
-
-void APaperGolfPawn::InitializePhysicsState()
-{
-	if(!ensure(_PaperGolfMesh))
-	{
-		return;
-	}
-
-	// Toggle physics state to fix initial offset issues
-	if(!_PaperGolfMesh->IsSimulatingPhysics())
-	{
-		_PaperGolfMesh->SetSimulatePhysics(true);
-		ResetPhysicsState();
-	}
 }
 
 void APaperGolfPawn::ResetCameraForShotSetup()
@@ -1087,6 +1070,11 @@ void APaperGolfPawn::SampleState()
 
 float APaperGolfPawn::CalculateMass() const
 {
+	// TODO: Should we be setting Mass as replicated and then this can only be called on the server to avoid needing to change the physics simulation state on clients?
+	// Would need to call early on in PostInitializeComponents for instance so that the value can propagate to clients before they need to read that value
+	// even then there could be a race condition
+	// Ideally we want to remove all calls to SetSimulatePhysics on clients and only do that on server as it also affects attachment setup that should be done on server so it can replicate properly
+	// Alternatively this could just be a property
 	if(!FMath::IsNearlyZero(Mass))
 	{
 		return Mass;
@@ -1095,6 +1083,19 @@ float APaperGolfPawn::CalculateMass() const
 	if (!ensure(_PaperGolfMesh))
 	{
 		return 0.0f;
+	}
+
+	// Need to set an override on the mass to avoid needing to calculate it at runtime. Make sure that has been done
+	const auto BodyInstance = _PaperGolfMesh->GetBodyInstance();
+	if (!ensure(BodyInstance))
+	{
+		return 0.0f;
+	}
+
+	if(const auto OverrideMass = BodyInstance->GetMassOverride(); 
+		ensureMsgf(!FMath::IsNearlyZero(OverrideMass), TEXT("%s: CalculateMass - OverrideMass is zero - set this to a non-zero value in the blueprint"), *GetName()))
+	{
+		return OverrideMass;
 	}
 
 	bool bSetSimulatePhysics{};
