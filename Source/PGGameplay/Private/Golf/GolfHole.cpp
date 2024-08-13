@@ -193,7 +193,15 @@ void AGolfHole::OnCheckScored()
 {
 	if (CheckedScored())
 	{
+		const auto PaperGolfPawn = OverlappingPaperGolfPawn.Get();
 		ClearTimer();
+
+		// Fire scored event
+		// PaperGolfPawn should be defined here as the scored check validates that
+		if (auto GolfEventsSubsystem = GetWorld()->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventsSubsystem) && ensure(PaperGolfPawn))
+		{
+			GolfEventsSubsystem->OnPaperGolfPawnScored.Broadcast(PaperGolfPawn);
+		}
 	}
 }
 
@@ -211,13 +219,7 @@ bool AGolfHole::CheckedScored() const
 		return false;
 	}
 
-	// Fire scored event
 	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: CheckedScored - Player %s has scored"), *GetName(), *PaperGolfPawn->GetName());
-
-	if(auto GolfEventsSubsystem = GetWorld()->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventsSubsystem))
-	{
-		GolfEventsSubsystem->OnPaperGolfPawnScored.Broadcast(PaperGolfPawn);
-	}
 
 	return true;
 }
@@ -318,7 +320,7 @@ void AGolfHole::UnregisterCollider()
 
 void AGolfHole::OnRep_GolfHoleState()
 {
-	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: OnRep_GolfHoleState - GolfHoleState=%s"), *GetName(), *LoggingUtils::GetName(GolfHoleState));
+	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: OnRep_GolfHoleState - HoleNumber=%d; GolfHoleState=%s"), *GetName(), HoleNumber, *LoggingUtils::GetName(GolfHoleState));
 
 	OnActiveHoleChanged();
 }
@@ -327,7 +329,7 @@ void AGolfHole::OnActiveHoleChanged()
 {
 	if (GolfHoleState == EGolfHoleState::None)
 	{
-		UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: OnActiveHoleChanged: Skipping GolfHoleState=None"), *GetName());
+		UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: OnActiveHoleChanged - HoleNumber=%d - Skipping GolfHoleState=None"), *GetName(), HoleNumber);
 		return;
 	}
 
