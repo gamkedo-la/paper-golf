@@ -31,6 +31,11 @@
 #include "Utils/VisualLoggerUtils.h"
 #include "PGPawnLogging.h"
 
+// Used for drawing the pawn
+#if ENABLE_VISUAL_LOG
+	#include "State/GolfPlayerState.h"
+#endif
+
 #include "Net/UnrealNetwork.h"
 
 
@@ -1172,7 +1177,11 @@ void APaperGolfPawn::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 		Category.AddChild(MeshCategory);
 	}
 
-	DrawPawn(FColor::Blue, Snapshot);
+	// Draw with player state color if available
+	auto GolfPlayerState = GetPlayerState<AGolfPlayerState>();
+	const auto PawnColor = GolfPlayerState ? GolfPlayerState->GetPlayerColor().ToFColor(true) : FColor::Blue;
+
+	DrawPawn(PawnColor, Snapshot);
 
 	Snapshot->Status.Add(Category);
 }

@@ -900,7 +900,7 @@ void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* I
 		return;
 	}
 
-	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: Spectate - InPawn=%s; InPlayerState=%s called on client!"), 
+	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: Spectate - InPawn=%s; InPlayerState=%s"), 
 		*GetName(), *LoggingUtils::GetName(InPawn), InPlayerState ? *InPlayerState->GetPlayerName() : TEXT("NULL"));
 
 	// TODO: Hide the player pawn and UI and switch to spectate the input player pawn
@@ -1031,7 +1031,7 @@ void AGolfPlayerController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 		FVisualLogStatusCategory PlayerStateCategory;
 		PlayerStateCategory.Category = FString::Printf(TEXT("PlayerState"));
 
-		PlayerStateCategory.Add(TEXT("Name"), FString::Printf(TEXT("%d"), GolfPlayerState->GetPlayerName()));
+		PlayerStateCategory.Add(TEXT("Name"), FString::Printf(TEXT("%d"), *GolfPlayerState->GetPlayerName()));
 		PlayerStateCategory.Add(TEXT("Shots"), FString::Printf(TEXT("%d"), GolfPlayerState->GetShots()));
 		PlayerStateCategory.Add(TEXT("TotalShots"), FString::Printf(TEXT("%d"), GolfPlayerState->GetTotalShots()));
 		PlayerStateCategory.Add(TEXT("IsReadyForShot"), LoggingUtils::GetBoolString(GolfPlayerState->IsReadyForShot()));

@@ -65,6 +65,8 @@ private:
 
 	void SortPlayersForNextHole();
 
+	bool IsActivePlayer(const IGolfController* Player) const;
+
 private:
 	// TODO: Use APGTurnBasedGameMode if need the functionality of it.  Keeping it to the base class for now for maximum reuse
 	UPROPERTY(Transient)
@@ -81,6 +83,10 @@ private:
 
 	int32 ActivePlayerIndex{};
 
+	// Need to keep this mapping in order to make sure we can mark scored if turn ends before it is detected
+	// TODO: This is a workaround as we should be checking for shot finished and scored in same place to avoid these timing issues
+	TMap<TWeakObjectPtr<APaperGolfPawn>, TWeakObjectPtr<UObject>> PlayerPawnToController{};
+ 
 	/*
 	* Skip human players and only spectate the AI. Used for testing.
 	*/

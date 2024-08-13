@@ -583,7 +583,7 @@ void AGolfAIController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 		FVisualLogStatusCategory PlayerStateCategory;
 		PlayerStateCategory.Category = FString::Printf(TEXT("PlayerState"));
 
-		PlayerStateCategory.Add(TEXT("Name"), FString::Printf(TEXT("%d"), GolfPlayerState->GetPlayerName()));
+		PlayerStateCategory.Add(TEXT("Name"), FString::Printf(TEXT("%d"), *GolfPlayerState->GetPlayerName()));
 		PlayerStateCategory.Add(TEXT("Shots"), FString::Printf(TEXT("%d"), GolfPlayerState->GetShots()));
 		PlayerStateCategory.Add(TEXT("TotalShots"), FString::Printf(TEXT("%d"), GolfPlayerState->GetTotalShots()));
 		PlayerStateCategory.Add(TEXT("IsReadyForShot"), LoggingUtils::GetBoolString(GolfPlayerState->IsReadyForShot()));

@@ -108,7 +108,31 @@ void UGolfTurnBasedDirectorComponent::RemovePlayer(AController* Player)
 		return;
 	}
 
+	// invalid active player index if GolfPlayer is the active player
+	TScriptInterface<IGolfController> CurrentActivePlayer{};
+
+	if (ActivePlayerIndex != INDEX_NONE)
+	{
+		checkf(ActivePlayerIndex >= 0 && ActivePlayerIndex < Players.Num(), 
+			TEXT("%s: ActivePlayerIndex=%d >= Players.Num()=%d"), *GetName(), ActivePlayerIndex, Players.Num());
+		CurrentActivePlayer = Players[ActivePlayerIndex];
+	}
+	
 	Players.Remove(GolfPlayer);
+
+	if (CurrentActivePlayer == GolfPlayer.GetInterface())
+	{
+		ActivePlayerIndex = INDEX_NONE;
+	}
+	// Get new index after removal
+	else if (CurrentActivePlayer)
+	{
+		ActivePlayerIndex = Players.IndexOfByKey(CurrentActivePlayer);
+	}
+	else
+	{
+		check(ActivePlayerIndex == INDEX_NONE);
+	}
 }
 
 void UGolfTurnBasedDirectorComponent::InitializeComponent()
@@ -166,13 +190,31 @@ void UGolfTurnBasedDirectorComponent::OnPaperGolfShotFinished(APaperGolfPawn* Pa
 {
 	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: OnPaperGolfShotFinished: PaperGolfPawn=%s"), *GetName(), *LoggingUtils::GetName(PaperGolfPawn));
 
+	bool bIsPlayerTurn{};
+
 	if (IsValid(PaperGolfPawn))
 	{
 		// Make sure that collision disabled for simulated proxies
 		PaperGolfPawn->MulticastSetCollisionEnabled(false);
+
+		if (auto GolfController = Cast<IGolfController>(PaperGolfPawn->GetController()); GolfController)
+		{
+			// Cache this as the turn might be over before the score event comes in
+			PlayerPawnToController.Add(PaperGolfPawn, PaperGolfPawn->GetController());
+			bIsPlayerTurn = IsActivePlayer(GolfController);
+		}
 	}
 	
-	DoNextTurn();
+	// Only do next turn if the current pawn is the active player as there is a possible race condition between finishing shots and detecting if player scored
+	if(bIsPlayerTurn)
+	{
+		DoNextTurn();
+	}
+	else
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: OnPaperGolfShotFinished - Skipping do next turn as PaperGolfPawn=%s is not the active player"),
+			*GetName(), *LoggingUtils::GetName(PaperGolfPawn));
+	}
 }
 
 void UGolfTurnBasedDirectorComponent::OnPaperGolfPlayerScored(APaperGolfPawn* PaperGolfPawn)
@@ -181,8 +223,23 @@ void UGolfTurnBasedDirectorComponent::OnPaperGolfPlayerScored(APaperGolfPawn* Pa
 
 	check(PaperGolfPawn);
 
-	if (auto GolfController = Cast<IGolfController>(PaperGolfPawn->GetController()); ensure(GolfController))
+	// Try to find the controller from the pawn, but if we got unpossessed then look for the cached controller from when the shot finished (turn started too early in the case of first turn as pawn may not have spawned)
+	IGolfController* GolfController = Cast<IGolfController>(PaperGolfPawn->GetController());
+	if (!GolfController)
 	{
+		auto ControllerFindResult = PlayerPawnToController.Find(PaperGolfPawn);
+		if (ControllerFindResult)
+		{
+			GolfController = Cast<IGolfController>(ControllerFindResult->Get());
+		}
+	}
+
+	bool bIsPlayerTurn{};
+
+	if (ensure(GolfController))
+	{
+		bIsPlayerTurn = IsActivePlayer(GolfController);
+
 		GolfController->MarkScored();
 	}
 	else
@@ -191,7 +248,31 @@ void UGolfTurnBasedDirectorComponent::OnPaperGolfPlayerScored(APaperGolfPawn* Pa
 			*GetName(), *LoggingUtils::GetName(PaperGolfPawn), *LoggingUtils::GetName(PaperGolfPawn->GetController()));
 	}
 
-	DoNextTurn();
+	// Only do next turn if it was currently our turn as may have selected next turn before scoring detected
+	if (bIsPlayerTurn)
+	{
+		DoNextTurn();
+	}
+	else
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: OnPaperGolfPlayerScored - Skipping do next turn as PaperGolfPawn=%s is not the active player"),
+			*GetName(), *LoggingUtils::GetName(PaperGolfPawn));
+	}
+}
+
+bool UGolfTurnBasedDirectorComponent::IsActivePlayer(const IGolfController* Player) const
+{
+	if (!Player)
+	{
+		return false;
+	}
+
+	if (!ensure(GameState))
+	{
+		return false;
+	}
+
+	return GameState->GetActivePlayer() == Player->GetGolfPlayerState();
 }
 
 void UGolfTurnBasedDirectorComponent::OnPaperGolfEnteredHazard(APaperGolfPawn* PaperGolfPawn, EHazardType HazardType)
@@ -395,6 +476,8 @@ void UGolfTurnBasedDirectorComponent::NextHole()
 
 void UGolfTurnBasedDirectorComponent::InitializePlayersForHole()
 {
+	PlayerPawnToController.Reset();
+
 	SortPlayersForNextHole();
 
 	for (auto Player : Players)
