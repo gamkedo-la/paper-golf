@@ -700,6 +700,12 @@ void AGolfPlayerController::OnUnPossess()
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnUnPossess - ExistingPawn=%s"), *GetName(), *LoggingUtils::GetName(GetPawn()));
 
 	Super::OnUnPossess();
+
+	if (!HasAuthority())
+	{
+		// Pawn destructions come in as unposess on clients after scoring - be sure to end any active turn
+		EndAnyActiveTurn();
+	}
 }
 
 void AGolfPlayerController::SetPawn(APawn* InPawn)
@@ -912,20 +918,13 @@ void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientSpectate - InPawn=%s; InPlayerState=%s"),
 		*GetName(), *LoggingUtils::GetName(InPawn), InPlayerState ? *InPlayerState->GetPlayerName() : TEXT("NULL"));
 
-	// TODO: Do we need to wait for Spectate to propagate?
-	// Allow the spectator pawn to take over the controls; otherwise, some of the bindings will be disabled
-
-	//DisableInput(this);
-
 	// Turn off collision on our own pawn
 	if (IsValid(PlayerPawn))
 	{
 		PlayerPawn->SetCollisionEnabled(false);
 	}
 
-	SetInputEnabled(false);
-	bTurnActivated = false;
-	GolfControllerCommonComponent->EndTurn();
+	EndAnyActiveTurn();
 
 	BlueprintSpectate(InPawn, InPlayerState);
 
@@ -948,6 +947,13 @@ void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn
 			});
 		}
 	}
+}
+
+void AGolfPlayerController::EndAnyActiveTurn()
+{
+	SetInputEnabled(false);
+	bTurnActivated = false;
+	GolfControllerCommonComponent->EndTurn();
 }
 
 void AGolfPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -1025,6 +1031,7 @@ void AGolfPlayerController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 		FVisualLogStatusCategory PlayerStateCategory;
 		PlayerStateCategory.Category = FString::Printf(TEXT("PlayerState"));
 
+		PlayerStateCategory.Add(TEXT("Name"), FString::Printf(TEXT("%d"), GolfPlayerState->GetPlayerName()));
 		PlayerStateCategory.Add(TEXT("Shots"), FString::Printf(TEXT("%d"), GolfPlayerState->GetShots()));
 		PlayerStateCategory.Add(TEXT("TotalShots"), FString::Printf(TEXT("%d"), GolfPlayerState->GetTotalShots()));
 		PlayerStateCategory.Add(TEXT("IsReadyForShot"), LoggingUtils::GetBoolString(GolfPlayerState->IsReadyForShot()));

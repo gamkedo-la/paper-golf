@@ -200,6 +200,7 @@ private:
 	virtual void DoAdditionalFallThroughFloor() override;
 
 	void DoReset();
+	void EndAnyActiveTurn();
 
 	bool IsLocalClient() const;
 	bool IsLocalServer() const;

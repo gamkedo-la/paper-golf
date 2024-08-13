@@ -100,6 +100,9 @@ void UGolfControllerCommonComponent::DestroyPawn()
 	{
 		PaperGolfPawn->Destroy();
 	}
+
+	// Unregister any active timers
+	UnregisterShotFinishedTimer();
 }
 
 AActor* UGolfControllerCommonComponent::GetShotFocusActor(EShotFocusType ShotFocusType) const
@@ -466,6 +469,12 @@ void UGolfControllerCommonComponent::SetPositionTo(const FVector& Position, cons
 
 void UGolfControllerCommonComponent::CheckForNextShot()
 {
+	// Make sure we didn't get unregistered in this frame
+	if (!NextShotTimerHandle.IsValid())
+	{
+		return;
+	}
+
 	if (!ensure(GolfController))
 	{
 		return;
