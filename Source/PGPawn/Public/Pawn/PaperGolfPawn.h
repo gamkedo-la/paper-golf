@@ -175,8 +175,7 @@ public:
 	void ResetCameraRelativeRotation();
 	void AddCameraZoomDelta(float ZoomDelta);
 
-	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly)
-	void OnShotFinished();
+	void ShotFinished();
 
 	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly)
 	void OnTurnStarted();
@@ -186,6 +185,9 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void PostInitializeComponents() override;
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly)
+	void OnShotFinished();
 
 private:
 

@@ -77,10 +77,7 @@ void IGolfController::OnShotFinished()
 			TEXT("%s-%s: OnShotFinished - Setting final authoritative position for pawn: %s"),
 			*ToString(), *PaperGolfPawn->GetName(), *PaperGolfPawn->GetPaperGolfPosition().ToCompactString());
 
-		if (Controller->HasAuthority())
-		{
-			PaperGolfPawn->OnShotFinished();
-		}
+		PaperGolfPawn->ShotFinished();
 	}
 
 	DoAdditionalOnShotFinished();

@@ -19,6 +19,7 @@
 UPlayerIndicatorComponent::UPlayerIndicatorComponent()
 {
 	bWantsInitializeComponent = true;
+	SetIsReplicated(false);
 }
 
 void UPlayerIndicatorComponent::SetVisibleForPlayer(AGolfPlayerState* Player)
@@ -36,8 +37,6 @@ void UPlayerIndicatorComponent::SetVisibleForPlayer(AGolfPlayerState* Player)
 		const auto Text = FText::FromString(Player->GetPlayerName());
 
 		ITextDisplayingWidget::Execute_SetText(TextWidget, Text);
-
-		//UE_VLOG_LOCATION(GetOwner(), LogPGUI, Log, GetOwner()->GetActorLocation(), 25.0f, FColor::Green, TEXT("Show Indicator: %s"), *Text.ToString());
 	}
 	else
 	{
@@ -50,7 +49,6 @@ void UPlayerIndicatorComponent::SetVisibleForPlayer(AGolfPlayerState* Player)
 void UPlayerIndicatorComponent::Hide()
 {
 	UE_VLOG_UELOG(GetOwner(), LogPGUI, Log, TEXT("%s: Hide"), *GetName());
-	//UE_VLOG_LOCATION(GetOwner(), LogPGUI, Log, GetOwner()->GetActorLocation(), 25.0f, FColor::Orange, TEXT("Hide Indicator"));
 
 	if (auto TextWidget = GetUserWidgetObject(); TextWidget)
 	{
@@ -67,4 +65,5 @@ void UPlayerIndicatorComponent::InitializeComponent()
 	Super::InitializeComponent();
 
 	SetVisibility(false);
+	SetIsReplicated(false);
 }
