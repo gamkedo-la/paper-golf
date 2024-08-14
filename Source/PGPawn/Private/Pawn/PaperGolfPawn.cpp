@@ -477,7 +477,7 @@ void APaperGolfPawn::Flick(const FFlickParams& FlickParams)
 	if (HasAuthority())
 	{
 		// Broadcast to other clients
-		MulticastFlick(ToNetworkParams(FlickParams));
+		//MulticastFlick(ToNetworkParams(FlickParams));
 	}
 	else
 	{
@@ -937,6 +937,7 @@ void APaperGolfPawn::PostInitializeComponents()
 	{
 		ensureMsgf(_PaperGolfMesh != _PivotComponent, TEXT("%s: PaperGolfMesh is the same as the root component"), *GetName());
 
+		_PaperGolfMesh->SetIsReplicated(true);
 		PaperGolfMeshInitialTransform = _PaperGolfMesh->GetRelativeTransform();
 
 		TArray<USceneComponent*> Components;
