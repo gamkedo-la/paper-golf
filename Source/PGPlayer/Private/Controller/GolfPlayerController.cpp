@@ -356,7 +356,7 @@ void AGolfPlayerController::ClientSetTransformTo_Implementation(const FVector_Ne
 	// Disable any timers so we don't overwrite the position
 	GolfControllerCommonComponent->EndTurn();
 
-	SetPositionTo(Position, Rotation);
+	//SetPositionTo(Position, Rotation);
 }
 
 void AGolfPlayerController::DoAdditionalOnShotFinished()
@@ -612,7 +612,7 @@ void AGolfPlayerController::ResetShotAfterOutOfBounds()
 		}
 
 		ClientResetShotAfterOutOfBounds(ResetPosition);
-		PaperGolfPawn->MulticastReliableSetTransform(ResetPosition, true, true, PaperGolfPawn->GetActorRotation());
+		//PaperGolfPawn->MulticastReliableSetTransform(ResetPosition, true, true, PaperGolfPawn->GetActorRotation());
 	}
 	// TODO: What to do if we bail out early as user will still have the HUD message for out of bounds displaying
 }

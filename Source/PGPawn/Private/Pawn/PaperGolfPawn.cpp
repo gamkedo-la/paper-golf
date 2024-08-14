@@ -298,10 +298,10 @@ void APaperGolfPawn::SnapToGround()
 		TEXT("SnapToGround")
 	);
 
-	if (HasAuthority())
-	{
-		MulticastReliableSetTransform(Location, true);
-	}
+	//if (HasAuthority())
+	//{
+	//	MulticastReliableSetTransform(Location, true);
+	//}
 }
 
 void APaperGolfPawn::ResetRotation()

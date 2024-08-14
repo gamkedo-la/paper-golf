@@ -85,8 +85,11 @@ void UPaperGolfPawnUtilities::BlueprintResetPhysicsState(UPrimitiveComponent* Ph
 		return;
 	}
 
-	// TODO: We should also only do this on the server or at least only on autonomous proxies but waiting to change this until we remove the multicast SetTransforms
-	PhysicsComponent->SetSimulatePhysics(false);
+	if(auto Owner = PhysicsComponent->GetOwner(); Owner && Owner->GetLocalRole() != ROLE_SimulatedProxy)
+	{
+		// Need to disable physics simulation on clients since client movement happens immediately and cannot apply rotation if simulating physics
+		PhysicsComponent->SetSimulatePhysics(false);
+	}
 
 	// When we simulate physics and the primitive component is not the root component, it becomes detached from its parent
 	// In this case we need to manually reattach it to its original parent, move the parent to where it was and then reset any relative transform of the physics component
