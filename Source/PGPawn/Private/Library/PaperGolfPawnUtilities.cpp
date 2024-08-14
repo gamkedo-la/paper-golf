@@ -125,8 +125,8 @@ void UPaperGolfPawnUtilities::ReattachPhysicsComponent(UPrimitiveComponent* Phys
 		*Owner->GetName(), *PhysicsComponent->GetName(), *RelativeTransform.ToString(),
 		*RootComponent->GetComponentTransform().ToString(), *PhysicsComponent->GetComponentTransform().ToString());
 
-	RootComponent->SetWorldLocation(PhysicsComponent->GetComponentLocation() - RelativeTransform.GetLocation());
-	RootComponent->SetWorldRotation(PhysicsComponent->GetComponentRotation() - RelativeTransform.GetRotation().Rotator());
+	RootComponent->SetWorldLocation(PhysicsComponent->GetComponentLocation()); // -RelativeTransform.GetLocation());
+	RootComponent->SetWorldRotation(PhysicsComponent->GetComponentRotation()); // RelativeTransform.GetRotation().Rotator());
 
 	PhysicsComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 	PhysicsComponent->SetRelativeTransform(RelativeTransform);
