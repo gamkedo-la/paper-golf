@@ -547,8 +547,6 @@ void AGolfAIController::ResetShotAfterOutOfBounds()
 		const auto& ResetPosition = LastShotOptional->Position;
 		SetPositionTo(ResetPosition);
 		ActivateTurn();
-
-		PaperGolfPawn->MulticastReliableSetTransform(ResetPosition, true, true, PaperGolfPawn->GetActorRotation());
 	}
 }
 

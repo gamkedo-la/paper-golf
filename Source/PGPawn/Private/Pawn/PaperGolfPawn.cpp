@@ -297,11 +297,6 @@ void APaperGolfPawn::SnapToGround()
 		FColor::Green,
 		TEXT("SnapToGround")
 	);
-
-	//if (HasAuthority())
-	//{
-	//	MulticastReliableSetTransform(Location, true);
-	//}
 }
 
 void APaperGolfPawn::ResetRotation()
@@ -376,34 +371,6 @@ void APaperGolfPawn::SetUpForNextShot()
 	ResetPhysicsState();
 }
 
-void APaperGolfPawn::MulticastReliableSetTransform_Implementation(const FVector_NetQuantize& Position, bool bSnapToGround, bool bUseRotation, const FRotator& Rotation)
-{
-	if (GetLocalRole() != ENetRole::ROLE_SimulatedProxy)
-	{
-		// Skip on non-authoritative clients that are controlling the pawn as they receive a more substantial client event from server
-		UE_VLOG_UELOG(this, LogPGPawn, Log,
-			TEXT("%s: MulticastReliableSetTransform_Implementation - Skipping as LocalRole=%s"),
-			*GetName(), *LoggingUtils::GetName(GetLocalRole())
-		);
-		return;
-	}
-
-	UE_VLOG_UELOG(this, LogPGPawn, Log,
-		TEXT("%s: MulticastReliableSetTransform_Implementation - Position=%s; bUseRotation=%s; Rotation=%s"),
-		*GetName(), *Position.ToCompactString(), LoggingUtils::GetBoolString(bUseRotation), *Rotation.ToCompactString()
-	);
-
-	// FIXME: Should we be calling this anymore on simulated proxies?
-	// Re-evaluate all the multicast and client position update calls since it should be handled via replication now
-	SetTransform(Position, bUseRotation ? TOptional<FRotator> {Rotation} : TOptional<FRotator>{});
-
-	if (bSnapToGround)
-	{
-		UPaperGolfPawnUtilities::ReattachPhysicsComponent(_PaperGolfMesh, PaperGolfMeshInitialTransform);
-		SnapToGround();
-	}
-}
-
 void APaperGolfPawn::SetTransform(const FVector& Position, const TOptional<FRotator>& Rotation)
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log,
@@ -436,23 +403,6 @@ void APaperGolfPawn::SetTransform(const FVector& Position, const TOptional<FRota
 	UE_VLOG_LOCATION(this, LogPGPawn, Log, Position, 20.0f, FColor::Red, TEXT("SetPositionTo"));
 }
 
-void APaperGolfPawn::MulticastSetCollisionEnabled_Implementation(bool bEnabled)
-{
-	if (GetLocalRole() != ENetRole::ROLE_SimulatedProxy)
-	{
-		// Skip on non-authoritative clients that are controlling the pawn as they receive a more substantial client event from server
-		UE_VLOG_UELOG(this, LogPGPawn, Log,
-			TEXT("%s: MulticastSetCollisionEnabled_Implementation - bEnabled=%s: Skip as LocalRole=%s"),
-			*GetName(), LoggingUtils::GetBoolString(bEnabled), *LoggingUtils::GetName(GetLocalRole())
-		);
-		return;
-	}
-
-	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: MulticastSetCollisionEnabled_Implementation - bEnabled=%s"), *GetName(), LoggingUtils::GetBoolString(bEnabled));
-
-	SetCollisionEnabled(bEnabled);
-}
-
 void APaperGolfPawn::SetCollisionEnabled(bool bEnabled)
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: SetCollisionEnabled - bEnabled=%s"), *GetName(), LoggingUtils::GetBoolString(bEnabled));
@@ -474,12 +424,7 @@ void APaperGolfPawn::Flick(const FFlickParams& FlickParams)
 
 	DoFlick(FlickParams);
 
-	if (HasAuthority())
-	{
-		// Broadcast to other clients
-		//MulticastFlick(ToNetworkParams(FlickParams));
-	}
-	else
+	if(!HasAuthority())
 	{
 		// Send to server
 		ServerFlick(ToNetworkParams(FlickParams));
@@ -565,26 +510,6 @@ void APaperGolfPawn::DoNetworkFlick(const FNetworkFlickParams& Params)
 	DoFlick(Params.FlickParams);
 }
 
-void APaperGolfPawn::MulticastFlick_Implementation(const FNetworkFlickParams& Params)
-{
-	if (GetLocalRole() != ENetRole::ROLE_SimulatedProxy)
-	{
-		// Skip on non-authoritative clients that are controlling the pawn as they receive a more substantial client event from server
-		UE_VLOG_UELOG(this, LogPGPawn, Log,
-			TEXT("%s: MulticastFlick_Implementation - Skip as LocalRole=%s"),
-			*GetName(), *LoggingUtils::GetName(GetLocalRole())
-		);
-		return;
-	}
-
-	UE_VLOG_UELOG(this, LogPGPawn, Log,
-		TEXT("%s: MulticastFlick_Implementation - Rotation=%s; LocalZOffset=%f; PowerFraction=%f; Accuracy=%f"),
-		*GetName(), *Params.Rotation.ToCompactString(), Params.FlickParams.LocalZOffset, Params.FlickParams.PowerFraction, Params.FlickParams.Accuracy
-	);
-
-	DoNetworkFlick(Params);
-}
-
 void APaperGolfPawn::ServerFlick_Implementation(const FNetworkFlickParams& Params)
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log,
@@ -593,9 +518,6 @@ void APaperGolfPawn::ServerFlick_Implementation(const FNetworkFlickParams& Param
 	);
 
 	DoNetworkFlick(Params);
-
-	// Broadcast to other clients
-	MulticastFlick(Params);
 }
 
 bool APaperGolfPawn::ServerFlick_Validate(const FNetworkFlickParams& Params)

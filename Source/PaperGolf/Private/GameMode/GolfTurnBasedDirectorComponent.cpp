@@ -194,9 +194,6 @@ void UGolfTurnBasedDirectorComponent::OnPaperGolfShotFinished(APaperGolfPawn* Pa
 
 	if (IsValid(PaperGolfPawn))
 	{
-		// Make sure that collision disabled for simulated proxies
-		PaperGolfPawn->MulticastSetCollisionEnabled(false);
-
 		if (auto GolfController = Cast<IGolfController>(PaperGolfPawn->GetController()); GolfController)
 		{
 			// Cache this as the turn might be over before the score event comes in

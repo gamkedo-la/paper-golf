@@ -435,12 +435,6 @@ bool UGolfControllerCommonComponent::SetupNextShot(bool bSetCanFlick)
 		{
 			GolfPlayerState->SetReadyForShot(true);
 		}
-
-		// Broadcast new upright ready position and rotation
-		if (GetOwner()->HasAuthority())
-		{
-			PaperGolfPawn->MulticastReliableSetTransform(PaperGolfPawn->GetActorLocation(), true, true, PaperGolfPawn->GetActorRotation());
-		}
 	}
 
 	return true;
@@ -464,7 +458,6 @@ void UGolfControllerCommonComponent::SetPositionTo(const FVector& Position, cons
 	}
 
 	PaperGolfPawn->SetTransform(Position, OptionalRotation);
-	PaperGolfPawn->MulticastReliableSetTransform(Position, false, OptionalRotation.IsSet(), OptionalRotation ? OptionalRotation.GetValue() : FRotator::ZeroRotator);
 }
 
 void UGolfControllerCommonComponent::CheckForNextShot()

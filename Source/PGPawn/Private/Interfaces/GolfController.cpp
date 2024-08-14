@@ -81,8 +81,6 @@ void IGolfController::OnShotFinished()
 		{
 			PaperGolfPawn->OnShotFinished();
 		}
-
-		PaperGolfPawn->MulticastReliableSetTransform(PaperGolfPawn->GetPaperGolfPosition(), false, true, PaperGolfPawn->GetPaperGolfRotation());
 	}
 
 	DoAdditionalOnShotFinished();

@@ -129,14 +129,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void AddDeltaRotation(const FRotator& DeltaRotation);
 
-	// Cannot use TOptional in a UFUNCTION
-	UFUNCTION(NetMulticast, Reliable)
-	void MulticastReliableSetTransform(const FVector_NetQuantize& Position, bool bSnapToGround, bool bUseRotation = false, const FRotator& Rotation = FRotator::ZeroRotator);
-
 	void SetTransform(const FVector& Position, const TOptional<FRotator>& Rotation = {});
-
-	UFUNCTION(NetMulticast, Reliable)
-	void MulticastSetCollisionEnabled(bool bEnabled);
 
 	void SetCollisionEnabled(bool bEnabled);
 
@@ -203,9 +196,6 @@ private:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerFlick(const FNetworkFlickParams& Params);
-
-	UFUNCTION(NetMulticast, Reliable)
-	void MulticastFlick(const FNetworkFlickParams& Params);
 
 	// Making a copy as need to clamp
 	void DoFlick(FFlickParams FlickParams);
