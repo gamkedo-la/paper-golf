@@ -85,15 +85,15 @@ void UPaperGolfPawnUtilities::BlueprintResetPhysicsState(UPrimitiveComponent* Ph
 		return;
 	}
 
+	// TODO: We should also only do this on the server or at least only on autonomous proxies but waiting to change this until we remove the multicast SetTransforms
 	PhysicsComponent->SetSimulatePhysics(false);
 
 	// When we simulate physics and the primitive component is not the root component, it becomes detached from its parent
 	// In this case we need to manually reattach it to its original parent, move the parent to where it was and then reset any relative transform of the physics component
 	// back to the original values (RelativeTransform)
-	// FIXME: Putting check for role as a workaround for "phantom pawns" replicated from SetTransform and a concurrency issue with the actor attachments - this messes up the camera
-	// Note that ideally we might check for Owner->HasAuthority() as the components attachments should only be changed on the server (this includes SetSimulatePhysics(true/false) as setting to true detaches
-	// the static mesh from the actor's root component. But using Owner->HasAuthority() results in the client sometimes not seeing the rotation of their paper football
-	if (auto Owner = PhysicsComponent->GetOwner(); Owner && Owner->GetLocalRole() != ENetRole::ROLE_SimulatedProxy) // Owner->HasAuthority())
+	// Check for Owner->HasAuthority() as the components attachments should only be changed on the server (this includes SetSimulatePhysics(true/false) as setting to true detaches
+	// the static mesh from the actor's root component.
+	if (auto Owner = PhysicsComponent->GetOwner(); Owner && Owner->HasAuthority())
 	{
 		ReattachPhysicsComponent(PhysicsComponent, RelativeTransform);
 	}

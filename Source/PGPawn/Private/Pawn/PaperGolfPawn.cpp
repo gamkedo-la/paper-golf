@@ -918,7 +918,10 @@ void APaperGolfPawn::PostInitializeComponents()
 
 	_PivotComponent = GetRootComponent();
 
-	ensureMsgf(_PivotComponent, TEXT("%s: PivotComponent is NULL"), *GetName());
+	if (ensureMsgf(_PivotComponent, TEXT("%s: PivotComponent is NULL"), *GetName()))
+	{
+		_PivotComponent->SetIsReplicated(true);
+	}
 
 	_CameraSpringArm = FindComponentByClass<USpringArmComponent>();
 
