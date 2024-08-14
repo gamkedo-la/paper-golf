@@ -119,10 +119,10 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	TSoftClassPtr<UUserWidget> TutorialWidgetClass{};
 
-	UPROPERTY(EditDefaultsOnly, Category = "Config", meta= (MustImplement = "PGUI.TextDisplayingWidget"))
+	UPROPERTY(EditDefaultsOnly, Category = "Config", meta= (MustImplement = "/Script/PGUI.TextDisplayingWidget"))
 	TSoftClassPtr<UUserWidget> ActiveTurnWidgetClass{};
 
-	UPROPERTY(EditDefaultsOnly, Category = "Config", meta = (MustImplement = "PGUI.TextDisplayingWidget"))
+	UPROPERTY(EditDefaultsOnly, Category = "Config", meta = (MustImplement = "/Script/PGUI.TextDisplayingWidget"))
 	TSoftClassPtr<UUserWidget> SpectatingWidgetClass{};
 
 	UPROPERTY(Transient)
