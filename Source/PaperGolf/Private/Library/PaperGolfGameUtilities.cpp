@@ -6,6 +6,8 @@
 
 #include "GameFramework/PlayerController.h"
 
+#include UE_INLINE_GENERATED_CPP_BY_NAME(PaperGolfGameUtilities)
+
 APlayerController* UPaperGolfGameUtilities::GetLocalPlayerController(UObject* WorldContextObject)
 {
 	auto GameInstance = UGameplayStatics::GetGameInstance(WorldContextObject);

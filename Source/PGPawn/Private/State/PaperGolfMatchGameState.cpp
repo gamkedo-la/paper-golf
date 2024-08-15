@@ -17,6 +17,8 @@
 #include <array>
 #include <algorithm>
 
+#include UE_INLINE_GENERATED_CPP_BY_NAME(PaperGolfMatchGameState)
+
 const FGolfMatchScoring APaperGolfMatchGameState::DefaultScoring{ 0, { 1 } };
 
 

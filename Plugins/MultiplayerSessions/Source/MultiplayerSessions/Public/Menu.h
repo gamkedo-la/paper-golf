@@ -10,7 +10,7 @@ class UButton;
 class UMultiplayerSessionsSubsystem;
 class FOnlineSessionSearchResult;
 
-namespace EOnJoinSessionCompleteResult { enum Type; }
+namespace EOnJoinSessionCompleteResult { enum Type : int; }
 
 /**
  * 

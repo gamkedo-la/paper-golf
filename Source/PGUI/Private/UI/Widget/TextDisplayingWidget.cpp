@@ -3,4 +3,4 @@
 
 #include "UI/Widget/TextDisplayingWidget.h"
 
-// Add default functionality here for any ITextDisplayingWidget functions that are not pure virtual.
+#include UE_INLINE_GENERATED_CPP_BY_NAME(TextDisplayingWidget)

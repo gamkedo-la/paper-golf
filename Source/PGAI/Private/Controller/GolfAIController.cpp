@@ -608,8 +608,8 @@ void AGolfAIController::CleanupDebugDraw()
 
 #else
 
-void AGolfPlayerController::InitDebugDraw() {}
-void AGolfPlayerController::CleanupDebugDraw() {}
+void AGolfAIController::InitDebugDraw() {}
+void AGolfAIController::CleanupDebugDraw() {}
 
 #endif
 

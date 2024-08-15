@@ -12,6 +12,8 @@
 #include <tuple>
 #include <compare>
 
+#include UE_INLINE_GENERATED_CPP_BY_NAME(GolfMatchPlayerState)
+
 int32 AGolfMatchPlayerState::GetDisplayScore() const
 {
     return DisplayScore;
