@@ -10,6 +10,8 @@
 
 class USpringArmComponent;
 class UCameraComponent;
+class UPaperGolfPawnAudioComponent;
+
 enum class EShotType : uint8;
 struct FPredictProjectilePathResult;
 class UCurveFloat;
@@ -331,6 +333,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UCameraComponent> _Camera{};
+
+	UPROPERTY(VisibleDefaultsOnly, Category = "Components")
+	TObjectPtr< UPaperGolfPawnAudioComponent> PawnAudioComponent{};
 };
 
 #pragma region Inline Definitions

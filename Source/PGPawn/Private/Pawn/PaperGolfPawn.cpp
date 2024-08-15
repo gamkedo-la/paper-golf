@@ -23,6 +23,8 @@
 
 #include "Subsystems/GolfEventsSubsystem.h"
 
+#include "Components/PaperGolfPawnAudioComponent.h"
+
 #include "VisualLogger/VisualLogger.h"
 #include "Logging/LoggingUtils.h"
 #include "Utils/StringUtils.h"
@@ -56,6 +58,8 @@ APaperGolfPawn::APaperGolfPawn()
 	PrimaryActorTick.bCanEverTick = false;
 	bAlwaysRelevant = true;
 	bReplicates = true;
+
+	PawnAudioComponent = CreateDefaultSubobject<UPaperGolfPawnAudioComponent>(TEXT("Audio"));
 }
 
 void APaperGolfPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

@@ -35,7 +35,8 @@ public class PGCore : ModuleRules
 
 		var enginePrivateDependencyModuleNames = new string[] 
 		{
-		};
+            "PhysicsCore",
+        };
 
 		PrivateDependencyModuleNames.AddRange(enginePrivateDependencyModuleNames);
 		PrivateDependencyModuleNames.AddRange(modulePrivateDependencyModuleNames);

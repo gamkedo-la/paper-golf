@@ -36,6 +36,7 @@ public class PGPawn : ModuleRules
 
 		var enginePrivateDependencyModuleNames = new string[] 
 		{
+			"PhysicsCore",
 		};
 
 		PrivateDependencyModuleNames.AddRange(enginePrivateDependencyModuleNames);
