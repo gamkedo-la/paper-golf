@@ -22,7 +22,7 @@ UPlayerIndicatorComponent::UPlayerIndicatorComponent()
 
 	// TODO: Need to set replicated to avoid excessive warnings: LogNetPackageMap: Warning: FNetGUIDCache::SupportsObject: TextRenderComponent
 	// Still get 4 of these at the end of the hole
-	SetIsReplicated(true);
+	SetIsReplicatedByDefault(true);
 	// This removes the warning LogNet: Warning: UActorChannel::ProcessBunch: ReadContentBlockPayload failed to find/create object. RepObj: NULL, Channel: 13
 	// Not sure where TextRenderComponent is being spawned as WidgetComponent base class does not explicitly spawn it
 	bReplicateUsingRegisteredSubObjectList = true;
