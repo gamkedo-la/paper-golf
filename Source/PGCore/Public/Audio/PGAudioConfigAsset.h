@@ -12,7 +12,7 @@ class USoundBase;
 /**
  * 
  */
-UCLASS()
+UCLASS(Blueprintable)
 class PGCORE_API UPGAudioConfigAsset : public UDataAsset
 {
 	GENERATED_BODY()

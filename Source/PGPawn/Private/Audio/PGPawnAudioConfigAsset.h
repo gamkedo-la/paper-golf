@@ -9,7 +9,7 @@
 /**
  * 
  */
-UCLASS()
+UCLASS(Blueprintable)
 class UPGPawnAudioConfigAsset : public UPGAudioConfigAsset
 {
 	GENERATED_BODY()
