@@ -22,6 +22,7 @@ namespace
 
 	// Fine for these to be file scoped variables as only accessed on game thread
 	bool bStartedAutomaticVisualLoggerRecording = false;
+	bool bVisualLoggerStartedByUs = false;
 	ContextPtr RecordingContext = nullptr;
 }
 
@@ -134,7 +135,12 @@ void PG::VisualLoggerUtils::StartAutomaticRecording(const UObject* Context)
 	{
 		bStartedAutomaticVisualLoggerRecording = true;
 		RecordingContext = Context;
-		FVisualLogger::Get().SetIsRecordingToFile(true);
+
+		auto& VisualLogger = FVisualLogger::Get();
+		if (!VisualLogger.IsRecording()) {
+			bVisualLoggerStartedByUs = true;
+		}
+		VisualLogger.SetIsRecordingToFile(true);
 	}
 	else if(auto ExistingContext = RecordingContext.Get(); ExistingContext)
 	{
@@ -177,7 +183,13 @@ void PG::VisualLoggerUtils::StopAutomaticRecording(const UObject* Context)
 				*LoggingUtils::GetName(Context));
 		}
 
-		FVisualLogger::Get().SetIsRecordingToFile(false);
+		auto& VisualLogger = FVisualLogger::Get();
+		VisualLogger.SetIsRecordingToFile(false);
+
+		if (bVisualLoggerStartedByUs) {
+			VisualLogger.SetIsRecording(false);
+		}
+
 		bStartedAutomaticVisualLoggerRecording = false;
 		RecordingContext = nullptr;
 	}
