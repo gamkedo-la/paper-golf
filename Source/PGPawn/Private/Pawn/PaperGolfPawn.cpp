@@ -440,7 +440,12 @@ void APaperGolfPawn::Flick(const FFlickParams& FlickParams)
 
 	DoFlick(FlickParams);
 
-	if(!HasAuthority())
+	if (HasAuthority())
+	{
+		// Broadcast to other clients for SFX
+		MulticastFlick(ToNetworkParams(FlickParams));
+	}
+	else
 	{
 		// Send to server
 		ServerFlick(ToNetworkParams(FlickParams));
@@ -512,6 +517,8 @@ void APaperGolfPawn::DoFlick(FFlickParams FlickParams)
 	_PaperGolfMesh->AddImpulseAtLocation(Impulse, Location);
 
 	OnFlick.Broadcast();
+
+	PawnAudioComponent->PlayFlick();
 }
 
 void APaperGolfPawn::DoNetworkFlick(const FNetworkFlickParams& Params)
@@ -534,6 +541,29 @@ void APaperGolfPawn::ServerFlick_Implementation(const FNetworkFlickParams& Param
 	);
 
 	DoNetworkFlick(Params);
+
+	// Broadcast to other clients
+	MulticastFlick(Params);
+}
+
+void APaperGolfPawn::MulticastFlick_Implementation(const FNetworkFlickParams& Params)
+{
+	if (GetLocalRole() != ENetRole::ROLE_SimulatedProxy)
+	{
+		// Skip on non-authoritative clients that are controlling the pawn as already played the SFX
+		UE_VLOG_UELOG(this, LogPGPawn, Log,
+			TEXT("%s: MulticastFlick_Implementation - Skip as LocalRole=%s"),
+			*GetName(), *LoggingUtils::GetName(GetLocalRole())
+		);
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogPGPawn, Log,
+		TEXT("%s: MulticastFlick_Implementation - Rotation=%s; LocalZOffset=%f; PowerFraction=%f; Accuracy=%f"),
+		*GetName(), *Params.Rotation.ToCompactString(), Params.FlickParams.LocalZOffset, Params.FlickParams.PowerFraction, Params.FlickParams.Accuracy
+	);
+
+	PawnAudioComponent->PlayFlick();
 }
 
 bool APaperGolfPawn::ServerFlick_Validate(const FNetworkFlickParams& Params)
@@ -924,6 +954,16 @@ float APaperGolfPawn::GetFlickDragForceMultiplier(float Power) const
 float APaperGolfPawn::GetMass() const
 {
 	return Mass;
+}
+
+void APaperGolfPawn::SetReadyForShot(bool bReady)
+{
+	bReadyForShot = bReady;
+
+	if (bReady)
+	{
+		PawnAudioComponent->PlayTurnStart();
+	}
 }
 
 void APaperGolfPawn::SetCameraForFlick()

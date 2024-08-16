@@ -146,8 +146,7 @@ public:
 
 	float GetMass() const;
 
-	// Used for server validation
-	void SetReadyForShot(bool bReady) { bReadyForShot = bReady; }
+	void SetReadyForShot(bool bReady);
 
 	bool PredictFlick(const FFlickParams& FlickParams, const FFlickPredictParams& FlickPredictParams, FPredictProjectilePathResult& Result) const;
 
@@ -200,6 +199,10 @@ private:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerFlick(const FNetworkFlickParams& Params);
+
+	// Used to trigger SFX
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastFlick(const FNetworkFlickParams& Params);
 
 	// Making a copy as need to clamp
 	void DoFlick(FFlickParams FlickParams);
@@ -334,8 +337,8 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UCameraComponent> _Camera{};
 
-	UPROPERTY(VisibleDefaultsOnly, Category = "Components")
-	TObjectPtr< UPaperGolfPawnAudioComponent> PawnAudioComponent{};
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UPaperGolfPawnAudioComponent> PawnAudioComponent{};
 };
 
 #pragma region Inline Definitions

@@ -10,11 +10,11 @@
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PGAudioConfigAsset)
 
 
-USoundBase* UPGAudioConfigAsset::GetHitSfx(UPrimitiveComponent* Component, UPhysicalMaterial* PhysicalMaterial) const
+USoundBase* UPGAudioConfigAsset::GetHitSfx(UPrimitiveComponent* OwnerComponent, UPrimitiveComponent* HitComponent, UPhysicalMaterial* PhysicalMaterial) const
 {
 	if (PhysicalMaterial)
 	{
-		const auto& PhysicalMaterialToSfx = SelectPhysicalMaterialSoundsForComponent(Component);
+		const auto& PhysicalMaterialToSfx = SelectPhysicalMaterialSoundsForComponent(OwnerComponent, HitComponent);
 
 		auto MatchedPhysicalMaterialSfx = PhysicalMaterialToSfx.Find(PhysicalMaterial);
 		if (MatchedPhysicalMaterialSfx)
@@ -27,7 +27,7 @@ USoundBase* UPGAudioConfigAsset::GetHitSfx(UPrimitiveComponent* Component, UPhys
 		}
 	}
 
-	const auto SelectedDefaultHitSfx = SelectDefaultHitSoundForComponent(Component);
+	const auto SelectedDefaultHitSfx = SelectDefaultHitSoundForComponent(OwnerComponent, HitComponent);
 
 	UE_VLOG_UELOG(this, LogPGCore, Log, TEXT("%s: GetHitSound: Using No match to PhysicalMaterial=%s; using DefaultHitSfx=%s"),
 		*GetName(), *LoggingUtils::GetName(PhysicalMaterial), *LoggingUtils::GetName(SelectedDefaultHitSfx));

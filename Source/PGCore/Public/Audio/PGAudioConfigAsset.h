@@ -18,11 +18,11 @@ class PGCORE_API UPGAudioConfigAsset : public UDataAsset
 	GENERATED_BODY()
 
 public:
-	USoundBase* GetHitSfx(UPrimitiveComponent* Component, UPhysicalMaterial* PhysicalMaterial) const;
+	USoundBase* GetHitSfx(UPrimitiveComponent* OwnerComponent, UPrimitiveComponent* HitComponent, UPhysicalMaterial* PhysicalMaterial) const;
 
 protected:
-	virtual const TMap<UPhysicalMaterial*, USoundBase*>& SelectPhysicalMaterialSoundsForComponent(UPrimitiveComponent* Component) const { return PhysicalMaterialHitToSfx; }
-	virtual USoundBase* SelectDefaultHitSoundForComponent(UPrimitiveComponent* Component) const { return DefaultHitSfx; }
+	virtual const TMap<UPhysicalMaterial*, USoundBase*>& SelectPhysicalMaterialSoundsForComponent(UPrimitiveComponent* OwnerComponent, UPrimitiveComponent* HitComponent) const { return PhysicalMaterialHitToSfx; }
+	virtual USoundBase* SelectDefaultHitSoundForComponent(UPrimitiveComponent* OwnerComponent, UPrimitiveComponent* HitComponent) const { return DefaultHitSfx; }
 
 public:
 

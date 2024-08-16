@@ -74,6 +74,10 @@ void UBaseCollisionRelevanceComponent::RegisterComponent(UPrimitiveComponent* Co
 		return;
 	}
 
+	UE_VLOG_UELOG(GetOwner(), LogPGCore, Log,
+		TEXT("%s-%s: RegisterComponent - Registered hit callback on %s"),
+		*GetName(), *LoggingUtils::GetName(GetOwner()), *Component->GetName());
+
 	Component->OnComponentHit.AddUniqueDynamic(this, &ThisClass::OnComponentHit);
 }
 

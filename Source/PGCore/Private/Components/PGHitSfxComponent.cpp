@@ -77,17 +77,13 @@ void UPGHitSfxComponent::RegisterCollisions()
 	MyOwner->ForEachComponent<UPrimitiveComponent>(false, [&](auto Component)
 		{
 			++RegisteredComponents;
-			UE_VLOG_UELOG(GetOwner(), LogPGCore, Log,
-				TEXT("%s-%s: InitEventBindings - Registered hit callback on %s"),
-				*GetName(), *LoggingUtils::GetName(GetOwner()), *Component->GetName());
-
 			RegisterComponent(Component);
 		});
 
 	if (!RegisteredComponents)
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPGCore, Warning,
-			TEXT("%s-%s: InitEventBindings - Could not find any PrimitiveComponents to register for hit callbacks!"),
+			TEXT("%s-%s: RegisterCollisions - Could not find any PrimitiveComponents to register for hit callbacks!"),
 			*GetName(), *LoggingUtils::GetName(GetOwner()));
 	}
 }
@@ -155,7 +151,7 @@ void UPGHitSfxComponent::OnNotifyRelevantCollision(UPrimitiveComponent* HitCompo
 		return;
 	}
 
-	const auto HitSfx = AudioConfigAsset->GetHitSfx(Hit.GetComponent(), Hit.PhysMaterial.Get());
+	const auto HitSfx = AudioConfigAsset->GetHitSfx(HitComponent, Hit.GetComponent(), Hit.PhysMaterial.Get());
 	if (!HitSfx)
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPGCore, Warning,

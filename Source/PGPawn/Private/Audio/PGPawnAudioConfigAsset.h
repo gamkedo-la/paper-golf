@@ -14,9 +14,16 @@ class UPGPawnAudioConfigAsset : public UPGAudioConfigAsset
 {
 	GENERATED_BODY()
 	
+public:
+	UPROPERTY(Category = "Audio", EditDefaultsOnly)
+	TObjectPtr<USoundBase> FlickSfx{};
+
+	UPROPERTY(Category = "Audio", EditDefaultsOnly)
+	TObjectPtr<USoundBase> TurnStartSfx{};
+
 protected:
-	virtual const TMap<UPhysicalMaterial*, USoundBase*>& SelectPhysicalMaterialSoundsForComponent(UPrimitiveComponent* Component) const override;
-	virtual USoundBase* SelectDefaultHitSoundForComponent(UPrimitiveComponent* Component) const override;
+	virtual const TMap<UPhysicalMaterial*, USoundBase*>& SelectPhysicalMaterialSoundsForComponent(UPrimitiveComponent* OwnerComponent, UPrimitiveComponent* HitComponent) const override;
+	virtual USoundBase* SelectDefaultHitSoundForComponent(UPrimitiveComponent* OwnerComponent, UPrimitiveComponent* HitComponent) const override;
 
 
 private:
@@ -34,4 +41,10 @@ private:
 
 	UPROPERTY(Category = "Audio | Landing", EditDefaultsOnly)
 	TObjectPtr<USoundBase> DefaultLandingSfx{};
+
+	UPROPERTY(Category = "Audio | Landing", EditDefaultsOnly)
+	float LandingMaxLinearVelocity{ 100.0f };
+
+	UPROPERTY(Category = "Audio | Landing", EditDefaultsOnly)
+	float LandingMaxAngularVelocityDegrees{ 30.0f };
 };

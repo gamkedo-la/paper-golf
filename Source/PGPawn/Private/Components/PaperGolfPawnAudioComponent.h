@@ -6,6 +6,8 @@
 #include "Components/PGHitSfxComponent.h"
 #include "PaperGolfPawnAudioComponent.generated.h"
 
+class UPGPawnAudioConfigAsset;
+
 /**
  * 
  */
@@ -17,8 +19,18 @@ class UPaperGolfPawnAudioComponent : public UPGHitSfxComponent
 public:
 	UPaperGolfPawnAudioComponent();
 
+	UFUNCTION(BlueprintCallable)
 	void PlayFlick();
-	void PlayTurnStart(); 
+
+	UFUNCTION(BlueprintCallable)
+	void PlayTurnStart();
+
+protected:
+	virtual void BeginPlay() override;
+
+	virtual void RegisterCollisions() override;
 
 private:
+	UPROPERTY(Transient)
+	TObjectPtr<UPGPawnAudioConfigAsset> PawnAudioConfig{};
 };

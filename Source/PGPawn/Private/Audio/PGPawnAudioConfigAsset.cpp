@@ -9,9 +9,9 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PGPawnAudioConfigAsset)
 
-const TMap<UPhysicalMaterial*, USoundBase*>& UPGPawnAudioConfigAsset::SelectPhysicalMaterialSoundsForComponent(UPrimitiveComponent* Component) const
+const TMap<UPhysicalMaterial*, USoundBase*>& UPGPawnAudioConfigAsset::SelectPhysicalMaterialSoundsForComponent(UPrimitiveComponent* OwnerComponent, UPrimitiveComponent* HitComponent) const
 {
-	const auto SfxType = SelectSfxType(Component);
+	const auto SfxType = SelectSfxType(OwnerComponent);
 	switch (SfxType)
 	{
 		case ESfxType::Bounce:
@@ -20,13 +20,13 @@ const TMap<UPhysicalMaterial*, USoundBase*>& UPGPawnAudioConfigAsset::SelectPhys
 			return PhysicalMaterialLandingToSfx;
 		default:
 			ensureMsgf(false, TEXT("Unhandled SfxType=%d"), SfxType);
-			return Super::SelectPhysicalMaterialSoundsForComponent(Component);
+			return Super::SelectPhysicalMaterialSoundsForComponent(OwnerComponent, HitComponent);
 	}
 }
 
-USoundBase* UPGPawnAudioConfigAsset::SelectDefaultHitSoundForComponent(UPrimitiveComponent* Component) const
+USoundBase* UPGPawnAudioConfigAsset::SelectDefaultHitSoundForComponent(UPrimitiveComponent* OwnerComponent, UPrimitiveComponent* HitComponent) const
 {
-	const auto SfxType = SelectSfxType(Component);
+	const auto SfxType = SelectSfxType(OwnerComponent);
 	switch (SfxType)
 	{
 	case ESfxType::Bounce:
@@ -35,13 +35,28 @@ USoundBase* UPGPawnAudioConfigAsset::SelectDefaultHitSoundForComponent(UPrimitiv
 		return DefaultLandingSfx;
 	default:
 		ensureMsgf(false, TEXT("Unhandled SfxType=%d"), SfxType);
-		return Super::SelectDefaultHitSoundForComponent(Component);
+		return Super::SelectDefaultHitSoundForComponent(OwnerComponent, HitComponent);
 	}
 }
 
 UPGPawnAudioConfigAsset::ESfxType UPGPawnAudioConfigAsset::SelectSfxType(UPrimitiveComponent* Component) const
 {
-	// TODO: Implement by looking at the angular and linear velocity of component and if coming to rest then using the landing one
-	// GetPhysicsAngularVelocityInDegrees and GetPhysicsLinearVelocity 
-	return ESfxType::Bounce;
+	if(!ensure(Component))
+	{
+		return ESfxType::Bounce;
+	}
+
+	const auto LinearVelocity = Component->GetPhysicsLinearVelocity();
+	const auto AngularVelocity = Component->GetPhysicsAngularVelocityInDegrees();
+
+	const auto bIsLanding = LinearVelocity.Size() <= LandingMaxLinearVelocity && AngularVelocity.Size() <= LandingMaxAngularVelocityDegrees;
+	const auto SfxType = bIsLanding ? ESfxType::Landing : ESfxType::Bounce;
+
+	UE_VLOG_UELOG(Component->GetOwner(), LogPGPawn, Verbose, TEXT("%s-%s: SelectSfxType - LinearVelocity=%s->%f m/s; AngularVelocity=%s -> %f deg/s; bIsLanding=%s"),
+		*LoggingUtils::GetName(Component->GetOwner()), *GetName(),
+		*LinearVelocity.ToCompactString(), LinearVelocity.Size() / 100,
+		*AngularVelocity.ToCompactString(), AngularVelocity.Size(),
+		LoggingUtils::GetBoolString(bIsLanding));
+
+	return SfxType;
 }
