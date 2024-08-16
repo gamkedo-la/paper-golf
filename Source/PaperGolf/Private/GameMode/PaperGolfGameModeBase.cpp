@@ -43,8 +43,7 @@ APaperGolfGameModeBase::APaperGolfGameModeBase()
 
 void APaperGolfGameModeBase::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
-	// TODO: May want to do this from the GameInstance Init but then there will only be one giant visual log for whole session
-	PG::VisualLoggerUtils::StartAutomaticRecording();
+	PG::VisualLoggerUtils::StartAutomaticRecording(this);
 
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: InitGame - MapName=%s, Options=%s; DefaultDesiredNumberOfPlayers=%d"), *GetName(), *MapName, *Options, DefaultDesiredNumberOfPlayers);
 
@@ -317,7 +316,7 @@ void APaperGolfGameModeBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 	Super::EndPlay(EndPlayReason);
 
-	PG::VisualLoggerUtils::StopAutomaticRecording();
+	PG::VisualLoggerUtils::StopAutomaticRecording(this);
 }
 
 void APaperGolfGameModeBase::NotifyHoleAboutToStart()

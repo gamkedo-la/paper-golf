@@ -6,6 +6,9 @@
 
 #include "PhysicsEngine/BodySetup.h"
 #include "Utils/CollisionUtils.h"
+
+#include "Logging/LoggingUtils.h"
+#include "PGCoreLogging.h"
 #include "VisualLogger/VisualLogger.h"
 
 #include "Debug/PGConsoleVars.h"
@@ -16,6 +19,9 @@
 namespace
 {
 	std::atomic_bool bStartedAutomaticVisualLoggerRecording(false);
+
+	using ContextPtr = TWeakObjectPtr<const UObject>;
+	std::atomic<ContextPtr> RecordingContext(nullptr);
 }
 
 void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, const UStaticMeshComponent& Component, const FColor& Color)
@@ -108,26 +114,50 @@ void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, c
 	}
 }
 
-void PG::VisualLoggerUtils::StartAutomaticRecording()
+void PG::VisualLoggerUtils::StartAutomaticRecording(const UObject* Context)
 {
 #if PG_DEBUG_ENABLED
 
-	const bool bStartRecord = bStartedAutomaticVisualLoggerRecording = CAutomaticVisualLoggerRecording.GetValueOnGameThread();
+	check(Context);
 
-	if (bStartRecord)
+	const bool bStartRecord = CAutomaticVisualLoggerRecording.GetValueOnGameThread();
+	ContextPtr ExistingContext{};
+
+	if (bStartRecord && RecordingContext.compare_exchange_strong(ExistingContext, Context))
 	{
+		bStartedAutomaticVisualLoggerRecording = true;
 		FVisualLogger::Get().SetIsRecordingToFile(true);
+	}
+	else if(bStartRecord && ExistingContext.IsValid())
+	{
+		UE_VLOG_UELOG(Context, LogPGCore, Log, TEXT("StartAutomaticRecording - ignored in %s as already started by %s"),
+			*LoggingUtils::GetName(Context), *LoggingUtils::GetName(ExistingContext.Get()));
 	}
 
 #endif
 }
 
-void PG::VisualLoggerUtils::StopAutomaticRecording()
+void PG::VisualLoggerUtils::StopAutomaticRecording(const UObject* Context)
 {
-	if(bStartedAutomaticVisualLoggerRecording)
+#if PG_DEBUG_ENABLED
+
+	check(Context);
+
+	const bool bHasStarted = bStartedAutomaticVisualLoggerRecording;
+	const UObject* ExistingContext = RecordingContext.load().Get();
+
+	// benign race condition here
+	if(bHasStarted && Context == ExistingContext)
 	{
 		FVisualLogger::Get().SetIsRecordingToFile(false);
 		bStartedAutomaticVisualLoggerRecording = false;
+		RecordingContext = nullptr;
 	}
+	else if (bHasStarted && ExistingContext)
+	{
+		UE_VLOG_UELOG(Context, LogPGCore, Log, TEXT("StopAutomaticRecording - ignored in %s as was started by %s"),
+			*LoggingUtils::GetName(Context), *ExistingContext->GetName());
+	}
+#endif
 }
 #endif
