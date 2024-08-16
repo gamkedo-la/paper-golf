@@ -18,10 +18,11 @@
 
 namespace
 {
-	std::atomic_bool bStartedAutomaticVisualLoggerRecording(false);
-
 	using ContextPtr = TWeakObjectPtr<const UObject>;
-	std::atomic<ContextPtr> RecordingContext(nullptr);
+
+	// Fine for these to be file scoped variables as only accessed on game thread
+	bool bStartedAutomaticVisualLoggerRecording = false;
+	ContextPtr RecordingContext = nullptr;
 }
 
 void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, const UStaticMeshComponent& Component, const FColor& Color)
@@ -119,19 +120,31 @@ void PG::VisualLoggerUtils::StartAutomaticRecording(const UObject* Context)
 #if PG_DEBUG_ENABLED
 
 	check(Context);
+	check(IsInGameThread());
 
 	const bool bStartRecord = CAutomaticVisualLoggerRecording.GetValueOnGameThread();
-	ContextPtr ExistingContext{};
+	if (!bStartRecord)
+	{
+		UE_VLOG_UELOG(Context, LogPGCore, Log, TEXT("StartAutomaticRecording - ignored in %s as console variable is false"),
+			*LoggingUtils::GetName(Context));
+		return;
+	}
 
-	if (bStartRecord && RecordingContext.compare_exchange_strong(ExistingContext, Context))
+	if (RecordingContext.IsExplicitlyNull())
 	{
 		bStartedAutomaticVisualLoggerRecording = true;
+		RecordingContext = Context;
 		FVisualLogger::Get().SetIsRecordingToFile(true);
 	}
-	else if(bStartRecord && ExistingContext.IsValid())
+	else if(auto ExistingContext = RecordingContext.Get(); ExistingContext)
 	{
 		UE_VLOG_UELOG(Context, LogPGCore, Log, TEXT("StartAutomaticRecording - ignored in %s as already started by %s"),
-			*LoggingUtils::GetName(Context), *LoggingUtils::GetName(ExistingContext.Get()));
+			*LoggingUtils::GetName(Context), *ExistingContext->GetName());
+	}
+	else
+	{
+		UE_VLOG_UELOG(Context, LogPGCore, Warning, TEXT("StartAutomaticRecording - Ignoring Context=%s as previous recording was never stopped"),
+			*LoggingUtils::GetName(Context));
 	}
 
 #endif
@@ -142,21 +155,36 @@ void PG::VisualLoggerUtils::StopAutomaticRecording(const UObject* Context)
 #if PG_DEBUG_ENABLED
 
 	check(Context);
+	check(IsInGameThread());
 
 	const bool bHasStarted = bStartedAutomaticVisualLoggerRecording;
-	const UObject* ExistingContext = RecordingContext.load().Get();
 
-	// benign race condition here
-	if(bHasStarted && Context == ExistingContext)
+	if (!bHasStarted)
 	{
+		UE_VLOG_UELOG(Context, LogPGCore, Warning, TEXT("StopAutomaticRecording - Ignoring Context=%s as recording was never started"),
+			*LoggingUtils::GetName(Context));
+		return;
+	}
+
+	const auto ExistingContext = RecordingContext.Get();
+	const bool bExistingContextIsValid = RecordingContext.IsValid();
+
+	if(Context == ExistingContext || !bExistingContextIsValid)
+	{
+		if (!bExistingContextIsValid)
+		{
+			UE_VLOG_UELOG(Context, LogPGCore, Warning, TEXT("StopAutomaticRecording - Stopping by Context=%s but previous start was not properly stopped"),
+				*LoggingUtils::GetName(Context));
+		}
+
 		FVisualLogger::Get().SetIsRecordingToFile(false);
 		bStartedAutomaticVisualLoggerRecording = false;
 		RecordingContext = nullptr;
 	}
-	else if (bHasStarted && ExistingContext)
+	else
 	{
-		UE_VLOG_UELOG(Context, LogPGCore, Log, TEXT("StopAutomaticRecording - ignored in %s as was started by %s"),
-			*LoggingUtils::GetName(Context), *ExistingContext->GetName());
+		UE_VLOG_UELOG(Context, LogPGCore, Log, TEXT("StopAutomaticRecording - Ignoring Context=%s as was started by %s"),
+			*LoggingUtils::GetName(Context), *LoggingUtils::GetName(ExistingContext));
 	}
 #endif
 }
