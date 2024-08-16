@@ -66,11 +66,13 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 
 		const auto& MatchType = Subsystem->GetDesiredMatchType();
 		const auto FoundMatchTypeGameMode = MatchTypesToModes.Find(MatchType);
-		if (!FoundMatchTypeGameMode || !FoundMatchTypeGameMode->IsValid())
+		if (!FoundMatchTypeGameMode)
 		{
 			UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: MatchType=%s not found in MatchTypesToMode"), *GetName(), *MatchType);
 			return;
 		}
+
+		check(!FoundMatchTypeGameMode->IsNull());
 
 		const FString GameModeName = FoundMatchTypeGameMode->ToSoftObjectPath().ToString();
 		const FString MapPath = GetPathForMap(GetRandomMap());
@@ -135,7 +137,7 @@ void ALobbyGameMode::ValidateGameModes()
 			UE_VLOG_UELOG(this, LogPaperGolfGame, Warning, TEXT("%s: Invalid matchType in MatchTypesToModes array"), *GetName());
 			It.RemoveCurrent();
 		}
-		else if (!It.Value().IsValid())
+		else if (It.Value().IsNull())
 		{
 			UE_VLOG_UELOG(this, LogPaperGolfGame, Warning, TEXT("%s: Invalid game mode in MatchTypesToModes array for MatchType=%s"), *GetName(), *It.Key());
 			It.RemoveCurrent();
