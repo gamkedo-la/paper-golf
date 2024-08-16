@@ -11,6 +11,8 @@
 
 #include "Controller/GolfAIController.h"
 
+#include "Interfaces/GolfController.h"
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PGTurnBasedGameMode)
 
 
@@ -25,9 +27,13 @@ void APGTurnBasedGameMode::Logout(AController* Exiting)
 
 	Super::Logout(Exiting);
 
-	check(TurnBasedDirectorComponent);
+	// Only remove players that implement GolfController - this is mostly for PIE simulated players but could be any spectators that join as well
+	if (auto GolfController = Cast<IGolfController>(Exiting); GolfController)
+	{
+		check(TurnBasedDirectorComponent);
 
-	TurnBasedDirectorComponent->RemovePlayer(Exiting);
+		TurnBasedDirectorComponent->RemovePlayer(Exiting);
+	}
 }
 
 void APGTurnBasedGameMode::OnPostLogin(AController* NewPlayer)
@@ -36,9 +42,13 @@ void APGTurnBasedGameMode::OnPostLogin(AController* NewPlayer)
 
 	Super::OnPostLogin(NewPlayer);
 
-	check(TurnBasedDirectorComponent);
+	// Only add players that implement GolfController - this is mostly for PIE simulated players but could be any specatators that join as well
+	if (auto GolfController = Cast<IGolfController>(NewPlayer); GolfController)
+	{
+		check(TurnBasedDirectorComponent);
 
-	TurnBasedDirectorComponent->AddPlayer(NewPlayer);
+		TurnBasedDirectorComponent->AddPlayer(NewPlayer);
+	}
 }
 
 void APGTurnBasedGameMode::OnGameStart()
