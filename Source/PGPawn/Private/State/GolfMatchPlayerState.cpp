@@ -51,3 +51,22 @@ void AGolfMatchPlayerState::OnRep_DisplayScore()
     UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_DisplayScore - DisplayScore=%d"), *GetName(), DisplayScore);
     OnDisplayScoreUpdated.Broadcast(*this);
 }
+
+#pragma region Visual Logger
+
+#if ENABLE_VISUAL_LOG
+
+void AGolfMatchPlayerState::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
+{
+	Super::GrabDebugSnapshot(Snapshot);
+
+	check(!Snapshot->Status.IsEmpty());
+
+	auto& PlayerStateCategory = Snapshot->Status.Last();
+
+	PlayerStateCategory.Add(TEXT("DisplayScore"), FString::Printf(TEXT("%d"), DisplayScore));
+}
+
+#endif
+
+#pragma endregion Visual Logger

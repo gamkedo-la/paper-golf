@@ -85,3 +85,30 @@ void AGolfPlayerState::OnRep_ScoreByHole()
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_ScoreByHole - ScoreByHole=%s"), *GetName(), *PG::ToString(ScoreByHole));
 	OnTotalShotsUpdated.Broadcast(*this);
 }
+
+#pragma region Visual Logger
+
+#if ENABLE_VISUAL_LOG
+
+void AGolfPlayerState::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
+{
+	FVisualLogStatusCategory PlayerStateCategory;
+	PlayerStateCategory.Category = FString::Printf(TEXT("PlayerState"));
+
+	PlayerStateCategory.Add(TEXT("Name"), *GetPlayerName());
+	PlayerStateCategory.Add(TEXT("Shots"), FString::Printf(TEXT("%d"), GetShots()));
+	PlayerStateCategory.Add(TEXT("TotalShots"), FString::Printf(TEXT("%d"), GetTotalShots()));
+	PlayerStateCategory.Add(TEXT("IsReadyForShot"), LoggingUtils::GetBoolString(IsReadyForShot()));
+
+	// Decide if going to add as a top level category or child
+	if (Snapshot->Status.IsEmpty())
+	{
+		Snapshot->Status.Add(PlayerStateCategory);
+	}
+
+	Snapshot->Status.Last().AddChild(PlayerStateCategory);
+}
+
+#endif
+
+#pragma endregion Visual Logger

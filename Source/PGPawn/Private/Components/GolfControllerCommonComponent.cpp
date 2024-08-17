@@ -547,8 +547,8 @@ void UGolfControllerCommonComponent::InitFocusableActors()
 	TArray<AActor*> InterfaceActors;
 	UGameplayStatics::GetAllActorsWithInterface(GetWorld(), UFocusableActor::StaticClass(), InterfaceActors);
 
-	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: InitFocusableActors - Found %d instances of UFocusableActor in world: %s"),
-		*GetName(), *LoggingUtils::GetName(GetOwner()), InterfaceActors.Num(), *PG::ToStringObjectElements(InterfaceActors));
+	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: InitFocusableActors - HoleNumber=%d - Found %d candidate instances of UFocusableActor in world: %s"),
+		*GetName(), *LoggingUtils::GetName(GetOwner()), HoleNumber, InterfaceActors.Num(), *PG::ToStringObjectElements(InterfaceActors));
 
 
 	for (auto Actor : InterfaceActors)
@@ -598,7 +598,14 @@ void UGolfControllerCommonComponent::InitFocusableActors()
 		}
 	} // for InterfaceActors
 
-	if (FocusableActors.IsEmpty())
+	if (!FocusableActors.IsEmpty())
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log,
+			TEXT("%s-%s: InitFocusableActors - HoleNumber=%d; GolfHole=%s; Found %d total focusable actors: %s"),
+			*GetName(), *LoggingUtils::GetName(GetOwner()), HoleNumber, *LoggingUtils::GetName(GolfHole), 
+			FocusableActors.Num(), *PG::ToStringObjectElements(FocusableActors));
+	}
+	else
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Warning,
 			TEXT("%s-%s: InitFocusableActors - no non-hole instances of UFocusableActor present in world. Aim targeting impacted."),

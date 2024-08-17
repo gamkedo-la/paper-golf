@@ -40,6 +40,10 @@ public:
 	/** Remove PlayerState from the PlayerArray - called on both clients and server */
 	virtual void RemovePlayerState(APlayerState* PlayerState) override;
 
+#if ENABLE_VISUAL_LOG
+	virtual void GrabDebugSnapshot(FVisualLogEntry* Snapshot) const override;
+#endif
+
 protected:
 
 	virtual bool AllScoresSynced() const;

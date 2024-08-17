@@ -6,6 +6,7 @@
 
 #include "VisualLogger/VisualLogger.h"
 #include "Logging/LoggingUtils.h"
+#include "Utils/ArrayUtils.h"
 #include "PGPawnLogging.h"
 
 #include "State/GolfPlayerState.h"
@@ -282,3 +283,23 @@ void APaperGolfGameStateBase::MulticastOnPlayerScored_Implementation(APaperGolfP
 }
 
 #pragma endregion Client Golf Events
+
+#pragma region Visual Logger
+
+#if ENABLE_VISUAL_LOG
+
+void APaperGolfGameStateBase::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
+{
+	FVisualLogStatusCategory Category;
+	Category.Category = FString::Printf(TEXT("GolfGameState (%s)"), *GetName());
+
+	Category.Add(TEXT("CurrentHoleNumber"), FString::Printf(TEXT("%d"), CurrentHoleNumber));
+	Category.Add(TEXT("ActivePlayer"), LoggingUtils::GetName(ActivePlayer));
+	Category.Add(TEXT("UpdatedPlayerStates"), PG::ToStringObjectElements(UpdatedPlayerStates));
+
+	Snapshot->Status.Add(Category);
+}
+
+#endif
+
+#pragma endregion Visual Logger

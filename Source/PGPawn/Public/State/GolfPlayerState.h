@@ -4,13 +4,15 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerState.h"
+#include "VisualLogger/VisualLoggerDebugSnapshotInterface.h"
+
 #include "GolfPlayerState.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class PGPAWN_API AGolfPlayerState : public APlayerState
+class PGPAWN_API AGolfPlayerState : public APlayerState, public IVisualLoggerDebugSnapshotInterface
 {
 	GENERATED_BODY()
 
@@ -23,6 +25,10 @@ public:
 	FOnTotalShotsUpdated OnTotalShotsUpdated{};
 	
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
+
+#if ENABLE_VISUAL_LOG
+	virtual void GrabDebugSnapshot(FVisualLogEntry* Snapshot) const override;
+#endif
 
 	UFUNCTION(BlueprintCallable)
 	void AddShot() 

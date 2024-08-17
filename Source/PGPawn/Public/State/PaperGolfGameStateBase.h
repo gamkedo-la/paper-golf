@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameState.h"
+#include "VisualLogger/VisualLoggerDebugSnapshotInterface.h"
+
 #include "PaperGolfGameStateBase.generated.h"
 
 class AGolfPlayerState;
@@ -13,7 +15,7 @@ class APaperGolfPawn;
  * 
  */
 UCLASS()
-class PGPAWN_API APaperGolfGameStateBase : public AGameState
+class PGPAWN_API APaperGolfGameStateBase : public AGameState, public IVisualLoggerDebugSnapshotInterface
 {
 	GENERATED_BODY()
 
@@ -26,6 +28,10 @@ public:
 	FOnScoresSynced OnScoresSynced{};
 
 	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const override;
+
+#if ENABLE_VISUAL_LOG
+	virtual void GrabDebugSnapshot(FVisualLogEntry* Snapshot) const override;
+#endif
 
 	UFUNCTION(BlueprintPure)
 	int32 GetCurrentHoleNumber() const { return CurrentHoleNumber; }

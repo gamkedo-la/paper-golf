@@ -1025,18 +1025,9 @@ void AGolfPlayerController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 
 	Snapshot->Status.Add(Category);
 
-	// TODO: Consider moving logic to PlayerState itself
 	if (auto GolfPlayerState = GetGolfPlayerState(); GolfPlayerState)
 	{
-		FVisualLogStatusCategory PlayerStateCategory;
-		PlayerStateCategory.Category = FString::Printf(TEXT("PlayerState"));
-
-		PlayerStateCategory.Add(TEXT("Name"), FString::Printf(TEXT("%d"), *GolfPlayerState->GetPlayerName()));
-		PlayerStateCategory.Add(TEXT("Shots"), FString::Printf(TEXT("%d"), GolfPlayerState->GetShots()));
-		PlayerStateCategory.Add(TEXT("TotalShots"), FString::Printf(TEXT("%d"), GolfPlayerState->GetTotalShots()));
-		PlayerStateCategory.Add(TEXT("IsReadyForShot"), LoggingUtils::GetBoolString(GolfPlayerState->IsReadyForShot()));
-
-		Snapshot->Status.Last().AddChild(PlayerStateCategory);
+		GolfPlayerState->GrabDebugSnapshot(Snapshot);
 	}
 
 	// Only server seems to log the pawn - so grab a snapshot explicitly if locally controlled so we can compare to the server state

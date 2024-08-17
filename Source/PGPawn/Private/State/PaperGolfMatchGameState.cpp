@@ -7,6 +7,7 @@
 
 #include "VisualLogger/VisualLogger.h"
 #include "Logging/LoggingUtils.h"
+#include "Utils/ArrayUtils.h"
 
 #include "Utils/ArrayUtils.h"
 #include "PGPawnLogging.h"
@@ -289,3 +290,22 @@ void APaperGolfMatchGameState::OnDisplayScoreUpdated(AGolfMatchPlayerState& Play
 
 	CheckScoreSyncState();
 }
+
+#pragma region Visual Logger
+
+#if ENABLE_VISUAL_LOG
+
+void APaperGolfMatchGameState::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
+{
+	Super::GrabDebugSnapshot(Snapshot);
+
+	check(!Snapshot->Status.IsEmpty());
+
+	auto& Category = Snapshot->Status.Last();
+
+	Category.Add(TEXT("UpdatedMatchPlayerStates"), PG::ToStringObjectElements(UpdatedMatchPlayerStates));
+}
+
+#endif
+
+#pragma endregion Visual Logger
