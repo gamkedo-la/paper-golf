@@ -31,18 +31,17 @@ UGolfAIShotComponent::FAIShotSetupResult UGolfAIShotComponent::SetupShot(const F
 
 	ShotContext = InShotContext;
 
-	auto FlickParams = CalculateFlickParams();
-	if (!FlickParams)
+	auto ShotParams = CalculateShotParams();
+	if (!ShotParams)
 	{
-		FlickParams = CalculateDefaultFlickParams();
+		ShotParams = CalculateDefaultShotParams();
 	}
 
-	check(FlickParams);
+	check(ShotParams);
 
-	const auto Result = FAIShotSetupResult{ .FlickParams = *FlickParams };
 	ShotContext = {};
 
-	return Result;
+	return *ShotParams;
 }
 
 void UGolfAIShotComponent::BeginPlay()
@@ -52,7 +51,7 @@ void UGolfAIShotComponent::BeginPlay()
 	Super::BeginPlay();
 }
 
-TOptional<FFlickParams> UGolfAIShotComponent::CalculateFlickParams() const
+TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::CalculateShotParams() const
 {
 	if (!ensure(ShotContext.PlayerPawn))
 	{
@@ -65,16 +64,11 @@ TOptional<FFlickParams> UGolfAIShotComponent::CalculateFlickParams() const
 	auto FocusActor = PlayerPawn->GetFocusActor();
 	if (!ensure(FocusActor))
 	{
-		UE_VLOG_UELOG(this, LogPGAI, Error, TEXT("%s: CalculateFlickParams - FocusActor is NULL"), *GetName());
+		UE_VLOG_UELOG(this, LogPGAI, Error, TEXT("%s: CalculateShotParams - FocusActor is NULL"), *GetName());
 		return {};
 	}
 
 	UE_VLOG_LOCATION(GetOwner(), LogPGAI, Log, FocusActor->GetActorLocation(), 10.0f, FColor::Green, TEXT("Target"));
-
-	// TODO: Refine logic - this is a very basic implementation
-	// Try to hit at approx 45 degree angle
-	// TODO: Technically this should be done outside this const function as it has a side effect
-	PlayerPawn->AddActorLocalRotation(FRotator(45, 0, 0));
 
 	auto World = GetWorld();
 	if (!ensure(World))
@@ -87,6 +81,9 @@ TOptional<FFlickParams> UGolfAIShotComponent::CalculateFlickParams() const
 
 	FFlickParams FlickParams;
 	FlickParams.ShotType = ShotContext.ShotType;
+	FlickParams.LocalZOffset = CalculateZOffset();
+
+	const auto ShotPitch = CalculateShotPitch();
 
 	const auto FlickLocation = PlayerPawn->GetFlickLocation(FlickParams.LocalZOffset);
 	const auto RawFlickMaxForce = PlayerPawn->GetFlickMaxForce(FlickParams.ShotType);
@@ -111,7 +108,7 @@ TOptional<FFlickParams> UGolfAIShotComponent::CalculateFlickParams() const
 	// if TotalHorizontalDistance + VerticalDistance <= 0 then we use minimum power as so far above the target
 	if (DistanceSum <= 0)
 	{
-		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateFlickParams - Way above target, using min force. HorizontalDistance=%.1fm; VerticalDistance=%.1fm"),
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateShotParams - Way above target, using min force. HorizontalDistance=%.1fm; VerticalDistance=%.1fm"),
 			*GetName(), HorizontalDistance / 100, VerticalDistance / 100);
 
 		PowerFraction = MinShotPower;
@@ -127,7 +124,7 @@ TOptional<FFlickParams> UGolfAIShotComponent::CalculateFlickParams() const
 		if (Speed >= FlickMaxSpeed)
 		{
 			UE_VLOG_UELOG(this, LogPGAI, Log,
-				TEXT("%s: CalculateFlickParams - Coming up short hit full power - Speed=%.1f; FlickMaxSpeed=%.1f, HorizontalDistance=%.1fm; VerticalDistance=%.1fm"),
+				TEXT("%s: CalculateShotParams - Coming up short hit full power - Speed=%.1f; FlickMaxSpeed=%.1f, HorizontalDistance=%.1fm; VerticalDistance=%.1fm"),
 				*GetName(), Speed, FlickMaxSpeed, HorizontalDistance / 100, VerticalDistance / 100);
 
 			PowerFraction = 1.0f;
@@ -142,7 +139,7 @@ TOptional<FFlickParams> UGolfAIShotComponent::CalculateFlickParams() const
 			PowerFraction = FMath::Max(MinShotPower, RawPowerFraction);
 
 			UE_VLOG_UELOG(this, LogPGAI, Log,
-				TEXT("%s: CalculateFlickParams - Overhit - Speed=%.1f; FlickMaxSpeed=%.1f, HorizontalDistance=%.1fm; VerticalDistance=%.1fm; RawPowerFraction=%.2f; PowerFraction=%.2f"),
+				TEXT("%s: CalculateShotParams - Overhit - Speed=%.1f; FlickMaxSpeed=%.1f, HorizontalDistance=%.1fm; VerticalDistance=%.1fm; RawPowerFraction=%.2f; PowerFraction=%.2f"),
 				*GetName(), Speed, FlickMaxSpeed, HorizontalDistance / 100, VerticalDistance / 100, RawPowerFraction, PowerFraction);
 		}
 	}
@@ -155,10 +152,14 @@ TOptional<FFlickParams> UGolfAIShotComponent::CalculateFlickParams() const
 	FlickParams.PowerFraction = GeneratePowerFraction(PowerFraction);
 	FlickParams.Accuracy = GenerateAccuracy();
 
-	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateFlickParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f; FlickDragForceMultiplier=%1.f"),
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateShotParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f; FlickDragForceMultiplier=%1.f"),
 		*GetName(), *LoggingUtils::GetName(FlickParams.ShotType), FlickParams.PowerFraction, FlickParams.Accuracy, FlickParams.LocalZOffset, FlickDragForceMultiplier);
 
-	return FlickParams;
+	return FAIShotSetupResult
+	{
+		.FlickParams = FlickParams,
+		.ShotPitch = ShotPitch
+	};
 }
 
 float UGolfAIShotComponent::GenerateAccuracy() const
@@ -171,7 +172,28 @@ float UGolfAIShotComponent::GeneratePowerFraction(float InPowerFraction) const
 	return FMath::Clamp(InPowerFraction * (1 + FMath::RandRange(-PowerDeviation, PowerDeviation)), MinShotPower, 1.0f);
 }
 
-FFlickParams UGolfAIShotComponent::CalculateDefaultFlickParams() const
+float UGolfAIShotComponent::CalculateZOffset() const
+{
+	switch (ShotContext.ShotType)
+	{
+	case EShotType::Close:
+			return MinZOffset;
+	case EShotType::Medium:
+		return MinZOffset / 2;
+	default: //FullShot
+		return MaxZOffset;
+	}
+}
+
+float UGolfAIShotComponent::CalculateShotPitch() const
+{
+	// TODO: Refine logic - this is a very basic implementation
+	// Try to hit at approx 45 degree angle
+
+	return 45.0f;
+}
+
+UGolfAIShotComponent::FAIShotSetupResult UGolfAIShotComponent::CalculateDefaultShotParams() const
 {
 	const auto Box = PG::CollisionUtils::GetAABB(*ShotContext.PlayerPawn);
 	const auto ZExtent = Box.GetExtent().Z;
@@ -185,10 +207,14 @@ FFlickParams UGolfAIShotComponent::CalculateDefaultFlickParams() const
 		.Accuracy = GenerateAccuracy()
 	};
 
-	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateDefaultFlickParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f"),
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateShotParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f"),
 		*GetName(), *LoggingUtils::GetName(FlickParams.ShotType), FlickParams.PowerFraction, FlickParams.Accuracy, FlickParams.LocalZOffset);
 
-	return FlickParams;
+	return FAIShotSetupResult
+	{
+		.FlickParams = FlickParams,
+		.ShotPitch = 45.0f
+	};
 }
 
 FString FAIShotContext::ToString() const

@@ -309,6 +309,9 @@ void AGolfAIController::ExecuteTurn()
 
 	this->ShotType = ShotSetupResult.FlickParams.ShotType;
 
+	PaperGolfPawn->AddActorLocalRotation(
+		FRotator(ShotSetupResult.ShotPitch, 0.0f, 0.0f));
+
 	PaperGolfPawn->Flick(ShotSetupResult.FlickParams);
 
 	if (auto GolfPlayerState = GetGolfPlayerState(); ensure(GolfPlayerState))

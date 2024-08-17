@@ -41,6 +41,7 @@ public:
 	struct FAIShotSetupResult
 	{
 		FFlickParams FlickParams{};
+		float ShotPitch{};
 	};
 
 	UGolfAIShotComponent();
@@ -52,15 +53,18 @@ protected:
 
 private:
 
-	TOptional<FFlickParams> CalculateFlickParams() const;
-	FFlickParams CalculateDefaultFlickParams() const;
+	TOptional<FAIShotSetupResult> CalculateShotParams() const;
+	FAIShotSetupResult CalculateDefaultShotParams() const;
 
 	float GenerateAccuracy() const;
 	float GeneratePowerFraction(float InPowerFraction) const;
 
+	float CalculateZOffset() const;
+	float CalculateShotPitch() const;
+
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
-	float BounceOverhitCorrectionFactor{ 0.075f };
+	float BounceOverhitCorrectionFactor{ 0.1f };
 
 	// TODO: Use curve table
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
@@ -71,6 +75,12 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float MinShotPower{ 0.1f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	float MinZOffset{ -50.f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	float MaxZOffset{ 50.f };
 
 	UPROPERTY(Transient)
 	FAIShotContext ShotContext{};
