@@ -14,6 +14,8 @@
 #include "GolfAIController.generated.h"
 
 class UGolfControllerCommonComponent;
+class UGolfAIShotComponent;
+
 class APaperGolfPawn;
 class AGolfPlayerState;
 
@@ -75,9 +77,6 @@ private:
 	void ResetShotAfterOutOfBounds();
 	void SetPositionTo(const FVector& Position, const TOptional<FRotator>& OptionalRotation = {});
 
-	TOptional<FFlickParams> CalculateFlickParams() const;
-	FFlickParams CalculateDefaultFlickParams() const;
-
 	UFUNCTION()
 	void OnFellThroughFloor(APaperGolfPawn* InPaperGolfPawn);
 
@@ -86,8 +85,6 @@ private:
 	virtual void DoAdditionalOnShotFinished() override;
 	virtual void DoAdditionalFallThroughFloor() override;
 
-	float GenerateAccuracy() const;
-	float GeneratePowerFraction(float InPowerFraction) const;
 
 	void InitDebugDraw();
 	void CleanupDebugDraw();
@@ -95,6 +92,9 @@ private:
 private:
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly)
 	TObjectPtr<UGolfControllerCommonComponent> GolfControllerCommonComponent{};
+
+	UPROPERTY(Category = "Components", VisibleDefaultsOnly)
+	TObjectPtr<UGolfAIShotComponent> GolfAIShotComponent{};
 
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	float MinFlickReactionTime{ 1.5f };
@@ -104,19 +104,6 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float OutOfBoundsDelayTime{ 3.0f };
-
-	UPROPERTY(EditDefaultsOnly, Category = "Config")
-	float BounceOverhitCorrectionFactor{ 0.075f };
-
-	// TODO: Use curve table
-	UPROPERTY(EditDefaultsOnly, Category = "Config")
-	float AccuracyDeviation{ 0.3f };
-
-	UPROPERTY(EditDefaultsOnly, Category = "Config")
-	float PowerDeviation{ 0.1f };
-
-	UPROPERTY(EditDefaultsOnly, Category = "Config")
-	float MinShotPower{ 0.1f };
 
 	UPROPERTY(Transient)
 	TObjectPtr<APaperGolfPawn> PlayerPawn{};
