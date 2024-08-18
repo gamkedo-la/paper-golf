@@ -21,7 +21,7 @@ namespace PG::StringUtils
 	};
 
 	template<typename Func, typename T>
-	concept ToStringFunctorConcept = requires(const T t, Func f)
+	concept ToStringFunctorConcept = requires(const T& t, Func f)
 	{
 		{
 			f(t)
@@ -29,7 +29,7 @@ namespace PG::StringUtils
 	};
 
 	template<typename T>
-	concept ToStringConcept = requires(const T t)
+	concept ToStringConcept = requires(const T& t)
 	{
 		{
 			t.ToString()
@@ -37,18 +37,18 @@ namespace PG::StringUtils
 	};
 
 	template<typename T>
-	concept GetNameConcept = requires(const T t)
+	concept GetNameConcept = requires(const T& t)
 	{
 		{
 			t.GetName()
 		} -> std::convertible_to<FString>;
-	} || (requires(const T t)
+	} || (requires(const T& t)
 	{
 		{
 			t->GetName()
 		} -> std::convertible_to<FString>;
 		// smart pointers are convertible to bool
-	} && (std::convertible_to<T, bool> || (ToStringConcept<T> && requires(const T t)
+	} && (std::convertible_to<T, bool> || (ToStringConcept<T> && requires(const T& t)
 	{
 		// soft references have an "IsNull" function but we have to also check if it's valid to access name; otherwise, use ToString that prints the path
 		{
@@ -57,7 +57,7 @@ namespace PG::StringUtils
 		{
 			t.IsValid()
 		} -> std::convertible_to<bool>;
-	}) || (requires(const T t)
+	}) || (requires(const T& t)
 	{
 		// Weak ptr types
 		{
