@@ -310,7 +310,7 @@ void AGolfAIController::ExecuteTurn()
 	this->ShotType = ShotSetupResult.FlickParams.ShotType;
 
 	PaperGolfPawn->AddActorLocalRotation(
-		FRotator(ShotSetupResult.ShotPitch, 0.0f, 0.0f));
+		FRotator(ShotSetupResult.ShotPitch, ShotSetupResult.ShotYaw, 0.0f));
 
 	PaperGolfPawn->Flick(ShotSetupResult.FlickParams);
 
@@ -321,8 +321,6 @@ void AGolfAIController::ExecuteTurn()
 
 	bCanFlick = false;
 }
-
-
 
 void AGolfAIController::DoAdditionalOnShotFinished()
 {

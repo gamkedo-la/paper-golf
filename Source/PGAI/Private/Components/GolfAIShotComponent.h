@@ -42,6 +42,7 @@ public:
 	{
 		FFlickParams FlickParams{};
 		float ShotPitch{};
+		float ShotYaw{};
 	};
 
 	UGolfAIShotComponent();
