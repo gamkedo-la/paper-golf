@@ -27,6 +27,10 @@
 #include "Config/PlayerConfig.h"
 #include "Config/PlayerStateConfigurator.h"
 
+#if WITH_EDITOR
+	#include "Settings/LevelEditorPlaySettings.h"
+#endif
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PaperGolfGameModeBase)
 
 APaperGolfGameModeBase::APaperGolfGameModeBase()
