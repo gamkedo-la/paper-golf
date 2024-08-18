@@ -4,14 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+
+#include "Interfaces/OnlineSessionInterface.h"
+
 #include "Menu.generated.h"
 
 class UButton;
 class UMultiplayerSessionsSubsystem;
 class FOnlineSessionSearchResult;
-
-namespace EOnJoinSessionCompleteResult { enum Type : int; }
-
 /**
  * 
  */
