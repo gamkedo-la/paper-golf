@@ -61,7 +61,10 @@ private:
 	float GeneratePowerFraction(float InPowerFraction) const;
 
 	float CalculateZOffset() const;
-	float CalculateShotPitch() const;
+	float CalculateShotPitch(const FVector& FlickLocation, float FlickMaxSpeed, float PowerFraction) const;
+
+	float GetMaxProjectileHeight(float FlickPitchAngle, float FlickSpeed) const;
+	bool TraceShotAngle(const APaperGolfPawn& PlayerPawn, const FVector& TraceStart, const FVector& FlickDirection, float FlickSpeed, float FlickAngleDegrees) const;
 
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
@@ -82,6 +85,9 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float MaxZOffset{ 50.f };
+
+	UPROPERTY(Category = "Shot Arc Prediction", EditDefaultsOnly)
+	float MinTraceDistance{ 1000.0f };
 
 	UPROPERTY(Transient)
 	FAIShotContext ShotContext{};

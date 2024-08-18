@@ -135,7 +135,7 @@ void UShotArcPreviewComponent::RegisterPowerText(const APaperGolfPawn& Pawn)
 	}
 
 	PowerText = NewObject<UTextRenderComponent>(const_cast<APaperGolfPawn*>(&Pawn));
-
+	PowerText->SetIsReplicated(false);
 	PowerText->RegisterComponent();
 	PowerText->SetTextRenderColor(ShotPowerColor.ToFColor(true));
 	PowerText->SetWorldSize(ShotPowerTextSize);

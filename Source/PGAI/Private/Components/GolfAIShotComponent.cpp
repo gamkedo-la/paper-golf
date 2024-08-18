@@ -10,14 +10,23 @@
 
 #include "VisualLogger/VisualLogger.h"
 #include "Logging/LoggingUtils.h"
-
+#include "PGAILogging.h"
 #include "Utils/CollisionUtils.h"
 
 #include "Subsystems/GolfEventsSubsystem.h"
 
-#include "PGAILogging.h"
+#include "Kismet/GameplayStatics.h"
+
+#include <array>
+
+#include <ranges>
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GolfAIShotComponent)
+
+namespace
+{
+	constexpr const std::array ShotPitchAngles = { 45.0f, 60.0f, 75.0f, 30.0f, 0.0f, -15.0f };
+}
 
 UGolfAIShotComponent::UGolfAIShotComponent()
 {
@@ -82,8 +91,6 @@ TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::Calcul
 	FFlickParams FlickParams;
 	FlickParams.ShotType = ShotContext.ShotType;
 	FlickParams.LocalZOffset = CalculateZOffset();
-
-	const auto ShotPitch = CalculateShotPitch();
 
 	const auto FlickLocation = PlayerPawn->GetFlickLocation(FlickParams.LocalZOffset);
 	const auto RawFlickMaxForce = PlayerPawn->GetFlickMaxForce(FlickParams.ShotType);
@@ -152,8 +159,10 @@ TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::Calcul
 	FlickParams.PowerFraction = GeneratePowerFraction(PowerFraction);
 	FlickParams.Accuracy = GenerateAccuracy();
 
-	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateShotParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f; FlickDragForceMultiplier=%1.f"),
-		*GetName(), *LoggingUtils::GetName(FlickParams.ShotType), FlickParams.PowerFraction, FlickParams.Accuracy, FlickParams.LocalZOffset, FlickDragForceMultiplier);
+	const auto ShotPitch = CalculateShotPitch(FlickLocation, FlickMaxSpeed, FlickParams.PowerFraction);
+
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateShotParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f; ShotPitch=%.1f; FlickDragForceMultiplier=%1.f"),
+		*GetName(), *LoggingUtils::GetName(FlickParams.ShotType), FlickParams.PowerFraction, FlickParams.Accuracy, FlickParams.LocalZOffset, ShotPitch, FlickDragForceMultiplier);
 
 	return FAIShotSetupResult
 	{
@@ -185,12 +194,73 @@ float UGolfAIShotComponent::CalculateZOffset() const
 	}
 }
 
-float UGolfAIShotComponent::CalculateShotPitch() const
+float UGolfAIShotComponent::CalculateShotPitch(const FVector& FlickLocation, float FlickMaxSpeed, float PowerFraction) const
 {
-	// TODO: Refine logic - this is a very basic implementation
-	// Try to hit at approx 45 degree angle
+	static_assert(ShotPitchAngles.size() > 0, "ShotPitchAngles must have at least one element");
 
-	return 45.0f;
+	if constexpr(ShotPitchAngles.size() == 1)
+	{
+		return ShotPitchAngles.front();
+	}
+	else
+	{
+		const auto PlayerPawn = ShotContext.PlayerPawn;
+		check(PlayerPawn);
+
+		auto World = GetWorld();
+		check(World);
+
+		// Via the work energy principle, reducing the power by N will reduce the speed by factor of sqrt(N)
+		const auto FlickSpeed = FlickMaxSpeed * FMath::Sqrt(PowerFraction);
+		const auto FlickDirection = PlayerPawn->GetFlickDirection();
+
+		for (float PitchAngle : ShotPitchAngles | std::ranges::views::take(ShotPitchAngles.size() - 1))
+		{
+			bool bPass = TraceShotAngle(*PlayerPawn, FlickLocation, FlickDirection, FlickSpeed, PitchAngle);
+			if (bPass)
+			{
+				return PitchAngle;
+			}
+		}
+
+		// return default angle, which is last element
+		return ShotPitchAngles.back();
+	}
+}
+
+bool UGolfAIShotComponent::TraceShotAngle(const APaperGolfPawn& PlayerPawn, const FVector& TraceStart, const FVector& FlickDirection, float FlickSpeed, float FlickAngleDegrees) const
+{
+	auto World = GetWorld();
+	check(World);
+
+	const auto MaxHeight = FlickAngleDegrees > 0 ? FMath::Max(GetMaxProjectileHeight(45.0f, FlickSpeed), MinTraceDistance) : MinTraceDistance;
+
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(&PlayerPawn);
+
+	// Pitch up or down based on the FlickAngleDegrees
+	const auto PitchedFlickDirection = FlickDirection.RotateAngleAxis(FlickAngleDegrees, -PlayerPawn.GetActorRightVector());
+
+	const FVector TraceEnd = TraceStart + PitchedFlickDirection * MaxHeight;
+
+	// Try line trace directly to max height as an approximation
+	bool bPass = !World->LineTraceTestByChannel(TraceStart, TraceEnd, PG::CollisionChannel::FlickTraceType, QueryParams);
+
+	UE_VLOG_ARROW(GetOwner(), LogPGAI, Log, TraceStart, TraceEnd, bPass ? FColor::Green : FColor::Red, TEXT("Trace %.1f"), FlickAngleDegrees);
+	UE_VLOG_UELOG(GetOwner(), LogPGAI, Verbose, TEXT("%s-%s: TraceShotAngle - TraceStart=%s; FlickDirection=%s; PitchedFlickDirection=%s; FlickAngle=%.1f; FlickSpeed=%.1f; MaxHeight=%.1f; bPass=%s"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(),
+		*TraceStart.ToCompactString(), *FlickDirection.ToCompactString(), *PitchedFlickDirection.ToCompactString(), FlickAngleDegrees, FlickSpeed, MaxHeight, LoggingUtils::GetBoolString(bPass));
+
+	return bPass;
+}
+
+float UGolfAIShotComponent::GetMaxProjectileHeight(float FlickPitchAngle, float FlickSpeed) const
+{
+	// H = v^2 * sin^2(theta) / 2g
+	auto World = GetWorld();
+	check(World);
+
+	return FMath::Square(FlickSpeed) * FMath::Square(FMath::Sin(FMath::DegreesToRadians(FlickPitchAngle))) / (2 * FMath::Abs(World->GetGravityZ()));
 }
 
 UGolfAIShotComponent::FAIShotSetupResult UGolfAIShotComponent::CalculateDefaultShotParams() const
