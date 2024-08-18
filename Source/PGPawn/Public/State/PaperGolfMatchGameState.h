@@ -12,7 +12,7 @@
 class AGolfMatchPlayerState;
 
 USTRUCT()
-struct FGolfMatchScoring
+struct PGPAWN_API FGolfMatchScoring
 {
 	GENERATED_BODY()
 

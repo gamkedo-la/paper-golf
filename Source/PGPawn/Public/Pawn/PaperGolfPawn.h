@@ -17,7 +17,7 @@ struct FPredictProjectilePathResult;
 class UCurveFloat;
 
 USTRUCT(BlueprintType)
-struct FFlickParams
+struct PGPAWN_API FFlickParams
 {
 	GENERATED_BODY()
 
@@ -39,7 +39,7 @@ struct FFlickParams
 };
 
 USTRUCT(BlueprintType)
-struct FFlickPredictParams
+struct PGPAWN_API FFlickPredictParams
 {
 	GENERATED_BODY()
 
@@ -56,7 +56,7 @@ struct FFlickPredictParams
 bool operator ==(const FFlickParams& First, const FFlickParams& Second);
 
 USTRUCT()
-struct FNetworkFlickParams
+struct PGPAWN_API FNetworkFlickParams
 {
 	GENERATED_BODY()
 

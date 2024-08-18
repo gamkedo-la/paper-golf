@@ -11,7 +11,7 @@ namespace PG::CollisionUtils
 
 	PGCORE_API FBox GetAABB(const USceneComponent& Component);
 
-	PGCORE_API struct FGroundData
+	struct PGCORE_API FGroundData
 	{
 		FVector Location;
 		FVector Normal;
