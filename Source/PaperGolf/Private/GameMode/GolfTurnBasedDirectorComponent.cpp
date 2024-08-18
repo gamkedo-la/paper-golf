@@ -53,7 +53,7 @@ UGolfTurnBasedDirectorComponent::UGolfTurnBasedDirectorComponent()
 void UGolfTurnBasedDirectorComponent::StartHole()
 {
 	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: StartHole with %d player%s: %s"), *GetName(), Players.Num(), LoggingUtils::Pluralize(Players.Num()), 
-		*PG::ToString < TScriptInterface<IGolfController>, decltype([](const auto& Player) { return Player ? Player->ToString() : TEXT("NULL");  })> (Players));
+		*PG::ToString<TScriptInterface<IGolfController>, decltype([](const auto& Player) -> FString { return Player ? Player->ToString() : TEXT("NULL");  }), decltype(Players)::AllocatorType>(Players));
 
 	if (!ensureMsgf(!Players.IsEmpty(), TEXT("%s: StartHole - No players"), *GetName()))
 	{
