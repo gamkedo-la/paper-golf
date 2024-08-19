@@ -9,6 +9,7 @@
 class APaperGolfGameStateBase;
 class AGolfPlayerStart;
 class AGolfHole;
+class APlayerStart;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class UHoleTransitionComponent : public UActorComponent

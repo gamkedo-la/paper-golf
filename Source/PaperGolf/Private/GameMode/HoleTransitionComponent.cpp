@@ -29,10 +29,13 @@
 #include "Golf/GolfHole.h"
 
 #include "PlayerStart/GolfPlayerStart.h"
-#include "GameFramework/PlayerStart.h"
 
+#if WITH_EDITOR
 #include "Engine/PlayerStartPIE.h"
+#include "GameFramework/PlayerStart.h"
 #include "EngineUtils.h"
+
+#endif
 
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(HoleTransitionComponent)
