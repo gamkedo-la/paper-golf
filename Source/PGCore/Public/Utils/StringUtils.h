@@ -98,7 +98,7 @@ namespace PG::StringUtils
 			{
 				if (obj.IsNull())
 				{
-					return  TEXT("NULL");
+					return TEXT("NULL");
 				}
 				if (!obj.IsValid())
 				{
@@ -130,7 +130,12 @@ namespace PG::StringUtils
 			}
 			else
 			{
+#ifdef _MSC_VER
 				static_assert(false, "Mismatch between GetNameConcept and this type");
+// This fails to compile on Clang 16 (works on 17), fails on GCC 12.4 but works on 13, and the assert is triggered just from an include so just return placeholder text instead for non MSVC
+#else
+				return TEXT("<PLACEHOLDER NAME>");
+#endif
 			}
 		}
 	};

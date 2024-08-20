@@ -18,8 +18,7 @@
 #include "Kismet/GameplayStatics.h"
 
 #include <array>
-
-#include <ranges>
+#include <iterator>
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GolfAIShotComponent)
 
@@ -214,8 +213,10 @@ float UGolfAIShotComponent::CalculateShotPitch(const FVector& FlickLocation, flo
 		const auto FlickSpeed = FlickMaxSpeed * FMath::Sqrt(PowerFraction);
 		const auto FlickDirection = PlayerPawn->GetFlickDirection();
 
-		for (float PitchAngle : ShotPitchAngles | std::ranges::views::take(ShotPitchAngles.size() - 1))
+		for (auto It = ShotPitchAngles.begin(), End = std::next(ShotPitchAngles.begin(), ShotPitchAngles.size() - 1); It != End; ++It)
 		{
+			const auto PitchAngle = *It;
+
 			bool bPass = TraceShotAngle(*PlayerPawn, FlickLocation, FlickDirection, FlickSpeed, PitchAngle);
 			if (bPass)
 			{
