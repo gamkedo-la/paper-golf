@@ -6,13 +6,19 @@
 #include "PaperGolfLogging.h"
 #include "Logging/LoggingUtils.h"
 #include "Utils/VisualLoggerUtils.h"
-
 #include "VisualLogger/VisualLogger.h"
+
+#include "Input/InputCharacteristics.h"
 
 #include "MoviePlayer.h"
 
+#include "GenericPlatform/GenericPlatformInputDeviceMapper.h"
+#include "GenericPlatform/GenericApplication.h" 
+#include "SlateBasics.h"
+
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PGGameInstance)
+
 
 void UPGGameInstance::Init()
 {
@@ -26,6 +32,7 @@ void UPGGameInstance::Init()
 
 	Super::Init();
 
+	InitGamepadAvailable();
 	InitLoadingScreen();
 }
 
@@ -40,6 +47,8 @@ void UPGGameInstance::Shutdown()
 	PG::VisualLoggerUtils::StopAutomaticRecording(this);
 #endif
 }
+
+#pragma region Loading Screen
 
 void UPGGameInstance::InitLoadingScreen()
 {
@@ -74,3 +83,55 @@ void UPGGameInstance::DoLoadingScreen()
 
 	GetMoviePlayer()->SetupLoadingScreen(LoadingScreen);
 }
+
+#pragma endregion Loading Screen
+
+#pragma region Gamepad Support
+
+void UPGGameInstance::InitGamepadAvailable()
+{
+	/* See:
+	https://couchlearn.com/how-to-use-the-game-instance-in-unreal-engine-4/
+	https://github.com/Noesis/UE4-ShooterGame/blob/master/Source/ShooterGame/Public/ShooterGameInstance.h
+	https://github.com/Noesis/UE4-ShooterGame/blob/master/Source/ShooterGame/Private/ShooterGameInstance.cpp
+	*/
+
+	auto& PlatformInputDeviceMapper = IPlatformInputDeviceMapper::Get();
+	PlatformInputDeviceMapper.GetOnInputDeviceConnectionChange().AddUObject(this, &ThisClass::HandleControllerConnectionChange);
+	PlatformInputDeviceMapper.GetOnInputDevicePairingChange().AddUObject(this, &ThisClass::HandleControllerPairingChanged);
+
+	// See https://answers.unrealengine.com/questions/142358/question-is-there-a-way-to-detect-a-gamepad.html?childToView=706040#answer-706040
+	// for a solution as ControllerId will be 0 for player 1 regardless if the "controller" is a gamepad and the connection change only fires if connecting after game starts
+
+	// See also https://answers.unrealengine.com/questions/463722/how-do-you-detect-a-second-gamepad-for-splitscreen.html
+	// also https://answers.unrealengine.com/questions/291285/index.html
+
+	// See  https://answers.unrealengine.com/questions/142358/view.html for below
+
+	auto genericApplication = FSlateApplication::Get().GetPlatformApplication();
+	bool bGamepadAvailable = genericApplication.IsValid() && genericApplication->IsGamepadAttached();
+
+	PG::FInputCharacteristics::SetGamepadAvailable(bGamepadAvailable);
+
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitGamepadAvailable - controller gamepad available=%s"), *GetName(), LoggingUtils::GetBoolString(bGamepadAvailable));
+}
+
+void UPGGameInstance::HandleControllerConnectionChange(EInputDeviceConnectionState InputDeviceConnectionState, FPlatformUserId UserId, FInputDeviceId ControllerId)
+{
+	const bool bConnected = InputDeviceConnectionState == EInputDeviceConnectionState::Connected;
+
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: HandleControllerConnectionChange - bConnected=%s;InputDeviceConnectionState=%d;UserId=%d;ControllerId=%d"),
+		*GetName(), LoggingUtils::GetBoolString(bConnected), InputDeviceConnectionState, UserId.GetInternalId(), ControllerId.GetId());
+
+	PG::FInputCharacteristics::SetGamepadAvailable(bConnected);
+}
+
+void UPGGameInstance::HandleControllerPairingChanged(FInputDeviceId ControllerId, FPlatformUserId NewUserId, FPlatformUserId OldUserId)
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: HandleControllerPairingChanged - bConnected=TRUE; ControllerIndex=%d;NewUserId=%d;OldUserId=%d"),
+		*GetName(), ControllerId.GetId(), NewUserId.GetInternalId(), OldUserId.GetInternalId());
+
+	PG::FInputCharacteristics::SetGamepadAvailable(true);
+}
+
+#pragma endregion Gamepad Support

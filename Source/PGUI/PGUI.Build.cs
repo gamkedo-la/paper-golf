@@ -38,6 +38,9 @@ public class PGUI : ModuleRules
 
 		var enginePrivateDependencyModuleNames = new string[] 
 		{
+			"Slate",
+			"SlateCore",
+            "InputCore",
 		};
 
 		PrivateDependencyModuleNames.AddRange(enginePrivateDependencyModuleNames);

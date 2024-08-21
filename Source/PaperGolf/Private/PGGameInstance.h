@@ -4,6 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
+
+#include "Input/InputCharacteristics.h"
+
 #include "PGGameInstance.generated.h"
 
 /**
@@ -18,6 +21,9 @@ public:
 	virtual void Init() override;
 	virtual void Shutdown() override;
 
+	UFUNCTION(BlueprintPure, Category = "Controls")
+	bool IsGamepadAvailable() const;
+
 private:
 	void InitLoadingScreen();
 
@@ -28,4 +34,17 @@ private:
 	void EndLoadingScreen(UWorld* InLoadedWorld);
 
 	void DoLoadingScreen();
+
+	void InitGamepadAvailable();
+	void HandleControllerConnectionChange(EInputDeviceConnectionState InputDeviceConnectionState, FPlatformUserId UserId, FInputDeviceId ControllerId);
+	void HandleControllerPairingChanged(FInputDeviceId ControllerId, FPlatformUserId NewUserId, FPlatformUserId OldUserId);
 };
+
+#pragma region Inline Definitions
+
+FORCEINLINE bool UPGGameInstance::IsGamepadAvailable() const
+{
+	return PG::FInputCharacteristics::IsGamepadAvailable();
+}
+
+#pragma endregion Inline Definitions
