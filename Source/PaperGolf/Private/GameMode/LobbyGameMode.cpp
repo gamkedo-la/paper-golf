@@ -10,10 +10,16 @@
 #include "Logging/LoggingUtils.h"
 #include "PaperGolfLogging.h"
 
+#include "Config/GameModeOptionParams.h"
+
 #include "GameMode/PaperGolfGameModeBase.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(LobbyGameMode)
 
+namespace
+{
+	constexpr int32 BuildUniqueId = -1443884023;
+}
 
 void ALobbyGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
@@ -25,6 +31,8 @@ void ALobbyGameMode::InitGame(const FString& MapName, const FString& Options, FS
 	ValidateMaps();
 	ValidateGameModes();
 #endif
+
+	InitMultiplayerSessionsSubsystem();
 }
 
 void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
@@ -77,9 +85,9 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 		const FString GameModeName = FoundMatchTypeGameMode->ToSoftObjectPath().ToString();
 		const FString MapPath = GetPathForMap(GetRandomMap());
 
-		const FString MatchUrl = FString::Printf(TEXT("%s?game=%s"), *MapPath, *GameModeName);
+		const FString MatchUrl = FString::Printf(TEXT("%s?game=%s?%s%d"), *MapPath, *GameModeName, PG::GameModeOptions::NumPlayers, NumberOfPlayers);
 
-		UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: ServerTravel to Map=%s with GameMode=%s - "),
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: ServerTravel to Map=%s with GameMode=%s - %s"),
 			*GetName(), *MapPath, *GameModeName, *MatchUrl);
 
 		World->ServerTravel(MatchUrl);
@@ -148,4 +156,21 @@ void ALobbyGameMode::ValidateGameModes()
 	{
 		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: No valid game mode mappings defined!"), *GetName());
 	}
+}
+
+void ALobbyGameMode::InitMultiplayerSessionsSubsystem()
+{
+	UGameInstance* GameInstance = GetGameInstance();
+	if (!ensure(GameInstance))
+	{
+		return;
+	}
+
+	auto Subsystem = GameInstance->GetSubsystem<UMultiplayerSessionsSubsystem>();
+	if (!ensure(Subsystem))
+	{
+		return;
+	}
+
+	Subsystem->SetBuildId(BuildUniqueId);
 }

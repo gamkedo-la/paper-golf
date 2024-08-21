@@ -80,7 +80,8 @@ protected:
 
 	virtual bool DelayStartWithTimer() const;
 
-	virtual void OnPostLogin(AController* NewPlayer) override;
+	virtual void OnPostLogin(AController* NewPlayer) override final;
+	virtual void InitSeamlessTravelPlayer(AController* NewController) override final;
 
 	virtual bool ReadyToStartMatch_Implementation() override;
 	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
@@ -110,6 +111,8 @@ protected:
 	*/
 	virtual float DoAdditionalCourseComplete() { return 0.0f; }
 
+	virtual void OnPlayerJoined(AController* NewPlayer);
+
 private:
 	bool SetDesiredNumberOfPlayersFromPIESettings();
 
@@ -135,6 +138,10 @@ private:
 	void SetPlayerColor(IGolfController& Controller);
 
 	void InitPlayerStateDefaults();
+
+	void InitNumberOfPlayers(const FString& Options);
+
+	void SetNumberOfPlayersFromOptions(const FString& Options);
 
 protected:
 	UPROPERTY(Category = "Config", EditDefaultsOnly)

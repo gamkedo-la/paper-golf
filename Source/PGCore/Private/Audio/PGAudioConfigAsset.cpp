@@ -12,6 +12,11 @@
 
 USoundBase* UPGAudioConfigAsset::GetHitSfx(UPrimitiveComponent* OwnerComponent, UPrimitiveComponent* HitComponent, UPhysicalMaterial* PhysicalMaterial) const
 {
+	if (!ensure(OwnerComponent))
+	{
+		return nullptr;
+	}
+
 	if (PhysicalMaterial)
 	{
 		const auto& PhysicalMaterialToSfx = SelectPhysicalMaterialSoundsForComponent(OwnerComponent, HitComponent);
@@ -20,8 +25,8 @@ USoundBase* UPGAudioConfigAsset::GetHitSfx(UPrimitiveComponent* OwnerComponent, 
 		if (MatchedPhysicalMaterialSfx)
 		{
 			const auto HitSurfaceSound = *MatchedPhysicalMaterialSfx;
-			UE_VLOG_UELOG(this, LogPGCore, Log, TEXT("%s: GetHitSound: Matched PhysicalMaterial=%s to HitSFX=%s"),
-				*GetName(), *PhysicalMaterial->GetName(), *LoggingUtils::GetName(HitSurfaceSound));
+			UE_VLOG_UELOG(OwnerComponent->GetOwner(), LogPGCore, Log, TEXT("%s-%s: GetHitSound: Matched PhysicalMaterial=%s to HitSFX=%s"),
+				*LoggingUtils::GetName(OwnerComponent->GetOwner()), *GetName(), *PhysicalMaterial->GetName(), *LoggingUtils::GetName(HitSurfaceSound));
 
 			return HitSurfaceSound;
 		}
@@ -29,8 +34,8 @@ USoundBase* UPGAudioConfigAsset::GetHitSfx(UPrimitiveComponent* OwnerComponent, 
 
 	const auto SelectedDefaultHitSfx = SelectDefaultHitSoundForComponent(OwnerComponent, HitComponent);
 
-	UE_VLOG_UELOG(this, LogPGCore, Log, TEXT("%s: GetHitSound: Using No match to PhysicalMaterial=%s; using DefaultHitSfx=%s"),
-		*GetName(), *LoggingUtils::GetName(PhysicalMaterial), *LoggingUtils::GetName(SelectedDefaultHitSfx));
+	UE_VLOG_UELOG(OwnerComponent->GetOwner(), LogPGCore, Log, TEXT("%s-%s: GetHitSound: Using No match to PhysicalMaterial=%s; using DefaultHitSfx=%s"),
+		*LoggingUtils::GetName(OwnerComponent->GetOwner()), *GetName(), *LoggingUtils::GetName(PhysicalMaterial), *LoggingUtils::GetName(SelectedDefaultHitSfx));
 
 	return SelectedDefaultHitSfx;
 }

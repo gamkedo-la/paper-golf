@@ -29,6 +29,7 @@ private:
 
 	void ValidateMaps();
 	void ValidateGameModes();
+	void InitMultiplayerSessionsSubsystem();
 
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Modes")

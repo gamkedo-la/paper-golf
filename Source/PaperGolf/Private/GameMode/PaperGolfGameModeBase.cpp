@@ -16,6 +16,8 @@
 
 #include "State/PaperGolfGameStateBase.h"
 
+#include "Config/GameModeOptionParams.h"
+
 #include "Pawn/PaperGolfPawn.h"
 
 #include "GameMode/HoleTransitionComponent.h"
@@ -63,19 +65,49 @@ void APaperGolfGameModeBase::InitGame(const FString& MapName, const FString& Opt
 
 #endif
 
-	if (!SetDesiredNumberOfPlayersFromPIESettings() && DesiredNumberOfPlayers == 0)
+	InitNumberOfPlayers(Options);
+
+	InitPlayerStateDefaults();
+}
+
+void APaperGolfGameModeBase::InitNumberOfPlayers(const FString& Options)
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: InitNumberOfPlayers - Options=%s"), *GetName(), *Options);
+
+	if (!SetDesiredNumberOfPlayersFromPIESettings())
 	{
+		SetNumberOfPlayersFromOptions(Options);
+	}
+
+	// fallback to defaults
+	if (DesiredNumberOfPlayers <= 0)
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitNumberOfPlayers - Falling back to default number of players - DefaultDesiredNumberOfPlayers=%d"), *GetName(), DefaultDesiredNumberOfPlayers);
 		DesiredNumberOfPlayers = DefaultDesiredNumberOfPlayers;
 	}
 
-	if(DesiredNumberOfBotPlayers == 0)
+	if (DesiredNumberOfBotPlayers <= 0)
 	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitNumberOfPlayers - Falling back to default number of bot players - DefaultMinDesiredNumberOfBotPlayers=%d"), *GetName(), DefaultMinDesiredNumberOfBotPlayers);
 		DesiredNumberOfBotPlayers = DefaultMinDesiredNumberOfBotPlayers;
 	}
 
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitGame - DesiredNumberOfPlayers=%d; DesiredNumberOfBotPlayers=%d"), *GetName(), DesiredNumberOfPlayers, DesiredNumberOfBotPlayers);
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitNumberOfPlayers - DesiredNumberOfPlayers=%d; DesiredNumberOfBotPlayers=%d"), *GetName(), DesiredNumberOfPlayers, DesiredNumberOfBotPlayers);
+}
 
-	InitPlayerStateDefaults();
+void APaperGolfGameModeBase::SetNumberOfPlayersFromOptions(const FString& Options)
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: SetNumberOfPlayersFromOptions - Options=%s"), *GetName(), *Options);
+
+	if(FParse::Value(*Options, PG::GameModeOptions::NumPlayers, DesiredNumberOfPlayers))
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: SetNumberOfPlayersFromOptions - DesiredNumberOfPlayers=%d"), *GetName(), DesiredNumberOfPlayers);
+	}
+
+	if(FParse::Value(*Options, PG::GameModeOptions::NumBots, DesiredNumberOfBotPlayers))
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: SetNumberOfPlayersFromOptions - DesiredNumberOfBotPlayers=%d"), *GetName(), DesiredNumberOfBotPlayers);
+	}
 }
 
 void APaperGolfGameModeBase::InitPlayerStateDefaults()
@@ -128,6 +160,24 @@ void APaperGolfGameModeBase::OnPostLogin(AController* NewPlayer)
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnPostLogin - NewPlayer=%s"), *GetName(), *LoggingUtils::GetName(NewPlayer));
 
 	Super::OnPostLogin(NewPlayer);
+
+	OnPlayerJoined(NewPlayer);
+}
+
+void APaperGolfGameModeBase::InitSeamlessTravelPlayer(AController* NewController)
+{
+	// Seamless travel is done for hosting player when doing a seamless server travel. PostLogin is not called in this case so standardizing with OnPlayerJoined
+
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: InitSeamlessTravelPlayer - NewController=%s"), *GetName(), *LoggingUtils::GetName(NewController));
+
+	Super::InitSeamlessTravelPlayer(NewController);
+
+	OnPlayerJoined(NewController);
+}
+
+void APaperGolfGameModeBase::OnPlayerJoined(AController* NewPlayer)
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnPlayerJoined - NewPlayer=%s"), *GetName(), *LoggingUtils::GetName(NewPlayer));
 
 	if (NewPlayer)
 	{

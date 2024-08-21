@@ -36,11 +36,9 @@ void APGTurnBasedGameMode::Logout(AController* Exiting)
 	}
 }
 
-void APGTurnBasedGameMode::OnPostLogin(AController* NewPlayer)
+void APGTurnBasedGameMode::OnPlayerJoined(AController* NewPlayer)
 {
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnPostLogin - NewPlayer=%s"), *GetName(), *LoggingUtils::GetName(NewPlayer));
-
-	Super::OnPostLogin(NewPlayer);
+	Super::OnPlayerJoined(NewPlayer);
 
 	// Only add players that implement GolfController - this is mostly for PIE simulated players but could be any specatators that join as well
 	if (auto GolfController = Cast<IGolfController>(NewPlayer); GolfController)

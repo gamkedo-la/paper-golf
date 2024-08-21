@@ -9,8 +9,9 @@
 #include "MultiplayerSessionsSubsystem.h"
 
 #include "Components/Button.h"
+#include "Components/CheckBox.h"
 
-#include "MultiplayerSessionsLogging.h"
+#include "VisualLogger/VisualLogger.h"
 
 #include "Engine/GameInstance.h"
 
@@ -20,10 +21,10 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(Menu)
 
-void UMenu::MenuSetup(int32 NumberOfPublicConnections, const FString& TypeOfMatch, const FString& LobbyPath)
+void UMenu::MenuSetup(int32 NumberOfPublicConnections, bool bIsLanMatch, const FString& TypeOfMatch, const FString& LobbyPath)
 {
-	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: MenuSetup: NumberOfPublicConnections=%d; TypeOfMatch=%s; LobbyPath=%s"), 
-		*GetName(), NumberOfPublicConnections, *TypeOfMatch, *LobbyPath);
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: MenuSetup: NumberOfPublicConnections=%d; bIsLanMatch=%s; TypeOfMatch=%s; LobbyPath=%s"), 
+		*GetName(), NumberOfPublicConnections, bIsLanMatch ? TEXT("TRUE") : TEXT("FALSE"), *TypeOfMatch, *LobbyPath);
 
 	NumPublicConnections = NumberOfPublicConnections;
 	MatchType = TypeOfMatch;
@@ -36,7 +37,7 @@ void UMenu::MenuSetup(int32 NumberOfPublicConnections, const FString& TypeOfMatc
 	UWorld* World = GetWorld();
 	if (!World)
 	{
-		UE_LOG(LogMultiplayerSessions, Error, TEXT("%s: World is NULL"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: World is NULL"), *GetName());
 		return;
 	}
 
@@ -44,21 +45,26 @@ void UMenu::MenuSetup(int32 NumberOfPublicConnections, const FString& TypeOfMatc
 
 	if (!PlayerController)
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: No PlayerController found - unable to change input mode"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: No PlayerController found - unable to change input mode"), *GetName());
 		return;
 	}
 
-	FInputModeUIOnly InputModeData;
+	FInputModeGameAndUI InputModeData;
 	InputModeData.SetWidgetToFocus(TakeWidget());
 	InputModeData.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 
 	PlayerController->SetInputMode(InputModeData);
 	PlayerController->SetShowMouseCursor(true);
 
+	if (ChkLanMatch)
+	{
+		ChkLanMatch->SetIsChecked(bIsLanMatch);
+	}
+
 	UGameInstance* GameInstance = GetGameInstance();
 	if (!GameInstance)
 	{
-		UE_LOG(LogMultiplayerSessions, Error, TEXT("%s: GameInstance is NULL"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: GameInstance is NULL"), *GetName());
 		return;
 	}
 
@@ -66,9 +72,11 @@ void UMenu::MenuSetup(int32 NumberOfPublicConnections, const FString& TypeOfMatc
 
 	if (!MultiplayerSessionsSubsystem)
 	{
-		UE_LOG(LogMultiplayerSessions, Error, TEXT("%s: MultiplayerSessionsSubsystem is NULL"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: MultiplayerSessionsSubsystem is NULL"), *GetName());
 		return;
 	}
+
+	MultiplayerSessionsSubsystem->Configure({ bIsLanMatch });
 
 	MultiplayerSessionsSubsystem->MultiplayerOnCreateSessionComplete.AddDynamic(this, &ThisClass::OnCreateSessionComplete);
 	MultiplayerSessionsSubsystem->MultiplayerOnDestroySessionComplete.AddDynamic(this, &ThisClass::OnDestroySessionComplete);
@@ -85,30 +93,40 @@ bool UMenu::Initialize()
 		return false;
 	}
 
-	if (BtnHost)
+	if (ensureMsgf(BtnHost, TEXT("%s: BtnHost is NULL"), *GetName()))
 	{
 		BtnHost->OnClicked.AddDynamic(this, &ThisClass::HostButtonClicked);
 	}
 	else
 	{
-		UE_LOG(LogMultiplayerSessions, Error, TEXT("%s: BtnHost NULL!"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: BtnHost NULL!"), *GetName());
 	}
 
-	if (BtnJoin)
+	if (ensureMsgf(BtnJoin, TEXT("%s: BtnJoin is NULL"), *GetName()))
 	{
 		BtnJoin->OnClicked.AddDynamic(this, &ThisClass::JoinButtonClicked);
 	}
 	else
 	{
-		UE_LOG(LogMultiplayerSessions, Error, TEXT("%s: BtnJoin NULL!"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: BtnJoin NULL!"), *GetName());
 	}
+
+	if (ensureMsgf(ChkLanMatch, TEXT("%s: ChkLanMatch is NULL"), *GetName()))
+	{
+		ChkLanMatch->OnCheckStateChanged.AddDynamic(this, &ThisClass::OnLanMatchChanged);
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: ChkLanMatch NULL!"), *GetName());
+	}
+
 
 	return true;
 }
 
 void UMenu::NativeDestruct()
 {
-	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: NativeDestruct"), *GetName());
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: NativeDestruct"), *GetName());
 
 	MenuTeardown();
 	
@@ -117,7 +135,7 @@ void UMenu::NativeDestruct()
 
 void UMenu::OnCreateSessionComplete(bool bWasSuccessful)
 {
-	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: OnCreateSessionComplete: bWasSuccessful=%s"), *GetName(), bWasSuccessful ? TEXT("TRUE") : TEXT("FALSE"));
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: OnCreateSessionComplete: bWasSuccessful=%s"), *GetName(), bWasSuccessful ? TEXT("TRUE") : TEXT("FALSE"));
 
 	if (bWasSuccessful)
 	{
@@ -128,7 +146,7 @@ void UMenu::OnCreateSessionComplete(bool bWasSuccessful)
 		}
 		else
 		{
-			UE_LOG(LogMultiplayerSessions, Error, TEXT("%s: HostButtonClicked - World is NULL"), *GetName());
+			UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: HostButtonClicked - World is NULL"), *GetName());
 		}
 	}
 	else
@@ -139,12 +157,12 @@ void UMenu::OnCreateSessionComplete(bool bWasSuccessful)
 
 void UMenu::OnFindSessionsComplete(const TArray<FOnlineSessionSearchResult>& SessionResults, bool bWasSuccessful)
 {
-	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: OnFindSessionsComplete: SessionResultsSize=%d; bWasSuccessful=%s"),
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: OnFindSessionsComplete: SessionResultsSize=%d; bWasSuccessful=%s"),
 		*GetName(), SessionResults.Num(), bWasSuccessful ? TEXT("TRUE") : TEXT("FALSE"));
 
 	if (!MultiplayerSessionsSubsystem)
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: OnFindSessionsComplete - MultiplayerSessionsSubsystem is NULL"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: OnFindSessionsComplete - MultiplayerSessionsSubsystem is NULL"), *GetName());
 		BtnJoin->SetIsEnabled(true);
 		return;
 	}
@@ -190,11 +208,11 @@ void UMenu::OnFindSessionsComplete(const TArray<FOnlineSessionSearchResult>& Ses
 
 void UMenu::OnJoinSessionComplete(EOnJoinSessionCompleteResult::Type Result)
 {
-	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: OnJoinSessionComplete: Result=%d"), *GetName(), Result);
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: OnJoinSessionComplete: Result=%d"), *GetName(), Result);
 
 	if (!MultiplayerSessionsSubsystem)
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: OnJoinSessionComplete - MultiplayerSessionsSubsystem is NULL"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: OnJoinSessionComplete - MultiplayerSessionsSubsystem is NULL"), *GetName());
 		BtnJoin->SetIsEnabled(true);
 
 		return;
@@ -206,7 +224,7 @@ void UMenu::OnJoinSessionComplete(EOnJoinSessionCompleteResult::Type Result)
 
 	if (!OnlineSessionInterface)
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: OnJoinSessionComplete - OnlineSessionInterface is NULL"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: OnJoinSessionComplete - OnlineSessionInterface is NULL"), *GetName());
 		BtnJoin->SetIsEnabled(true);
 
 		return;
@@ -232,12 +250,12 @@ void UMenu::OnJoinSessionComplete(EOnJoinSessionCompleteResult::Type Result)
 
 		if (APlayerController* PlayerController = GetGameInstance()->GetFirstLocalPlayerController(); PlayerController)
 		{
-			UE_LOG(LogMultiplayerSessions, Display, TEXT("%s: OnJoinSessionComplete - Traveling to IpAddress = %s"), *GetName(), *IpAddress);
+			UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: OnJoinSessionComplete - Traveling to IpAddress = %s"), *GetName(), *IpAddress);
 			PlayerController->ClientTravel(IpAddress, ETravelType::TRAVEL_Absolute);
 		}
 		else
 		{
-			UE_LOG(LogMultiplayerSessions, Error, TEXT("%s: OnJoinSessionComplete - No Local player controller to travel to ip address = %s!"), *GetName(), *IpAddress);
+			UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: OnJoinSessionComplete - No Local player controller to travel to ip address = %s!"), *GetName(), *IpAddress);
 			BtnJoin->SetIsEnabled(true);
 		}
 	}
@@ -249,12 +267,12 @@ void UMenu::OnJoinSessionComplete(EOnJoinSessionCompleteResult::Type Result)
 
 void UMenu::OnDestroySessionComplete(bool bWasSuccessful)
 {
-	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: OnDestroySessionComplete: bWasSuccessful=%s"), *GetName(), bWasSuccessful ? TEXT("TRUE") : TEXT("FALSE"));
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: OnDestroySessionComplete: bWasSuccessful=%s"), *GetName(), bWasSuccessful ? TEXT("TRUE") : TEXT("FALSE"));
 }
 
 void UMenu::OnStartSessionComplete(bool bWasSuccessful)
 {
-	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: OnStartSessionComplete: bWasSuccessful=%s"), *GetName(), bWasSuccessful ? TEXT("TRUE") : TEXT("FALSE"));
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: OnStartSessionComplete: bWasSuccessful=%s"), *GetName(), bWasSuccessful ? TEXT("TRUE") : TEXT("FALSE"));
 	BtnHost->SetIsEnabled(true);
 }
 
@@ -262,13 +280,13 @@ void UMenu::HostButtonClicked()
 {
 	if (!MultiplayerSessionsSubsystem)
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: HostButtonClicked - MultiplayerSessionsSubsystem is NULL"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: HostButtonClicked - MultiplayerSessionsSubsystem is NULL"), *GetName());
 		return;
 	}
 
 	BtnHost->SetIsEnabled(false);
 
-	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: HostButtonClicked - NumPublicConnections=%d; MatchType=%s"), *GetName(), NumPublicConnections, *MatchType);
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: HostButtonClicked - NumPublicConnections=%d; MatchType=%s"), *GetName(), NumPublicConnections, *MatchType);
 
 	MultiplayerSessionsSubsystem->CreateSession(NumPublicConnections, MatchType);
 }
@@ -277,7 +295,7 @@ void UMenu::JoinButtonClicked()
 {
 	if (!MultiplayerSessionsSubsystem)
 	{
-		UE_LOG(LogMultiplayerSessions, Warning, TEXT("%s: JoinButtonClicked - MultiplayerSessionsSubsystem is NULL"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: JoinButtonClicked - MultiplayerSessionsSubsystem is NULL"), *GetName());
 		return;
 	}
 
@@ -289,7 +307,7 @@ void UMenu::JoinButtonClicked()
 
 void UMenu::MenuTeardown()
 {
-	UE_LOG(LogMultiplayerSessions, Log, TEXT("%s: MenuTeardown"), *GetName());
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: MenuTeardown"), *GetName());
 
 	RemoveFromParent();
 
@@ -310,4 +328,17 @@ void UMenu::MenuTeardown()
 	FInputModeGameOnly InputGameOnly;
 	PlayerController->SetInputMode(InputGameOnly);
 	PlayerController->SetShowMouseCursor(false);
+}
+
+void UMenu::OnLanMatchChanged(bool bIsChecked)
+{
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: OnLanMatchChanged: bIsChecked=%s"), *GetName(), bIsChecked ? TEXT("TRUE") : TEXT("FALSE"));
+
+	if (!MultiplayerSessionsSubsystem)
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: OnLanMatchChanged - MultiplayerSessionsSubsystem is NULL"), *GetName());
+		return;
+	}
+
+	MultiplayerSessionsSubsystem->Configure({ bIsChecked });
 }

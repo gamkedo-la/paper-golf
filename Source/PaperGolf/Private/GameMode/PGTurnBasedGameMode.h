@@ -25,7 +25,7 @@ protected:
 
 	virtual void StartHole(int32 HoleNumber) override;
 
-	virtual void OnPostLogin(AController* NewPlayer) override;
+	virtual void OnPlayerJoined(AController* NewPlayer) override;
 
 	virtual void OnGameStart() override;
 

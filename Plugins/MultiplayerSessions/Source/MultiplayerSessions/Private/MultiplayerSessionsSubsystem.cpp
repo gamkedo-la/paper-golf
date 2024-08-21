@@ -30,34 +30,73 @@ void UMultiplayerSessionsSubsystem::Initialize(FSubsystemCollectionBase& Collect
 	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: Initialize"), *GetName());
 
 	Super::Initialize(Collection);
+}
 
-	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+void UMultiplayerSessionsSubsystem::Configure(const FSessionsConfiguration& InConfiguration)
+{
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: Configure: bIsLanMatch=%s"), *GetName(), InConfiguration.bIsLanMatch ? TEXT("TRUE") : TEXT("FALSE"));
+
+#if WITH_EDITOR
+	const FName& DesiredSubsystem = NULL_SUBSYSTEM;
+#else
+	const FName& DesiredSubsystem = InConfiguration.bIsLanMatch ? NULL_SUBSYSTEM : STEAM_SUBSYSTEM;
+#endif
+
+	const bool bChangingSubsystems = DesiredSubsystem != LastSubsystemName;
+
+	// If we are switching subsystems based on LAN flag then we need to deinitialize the current subsystem
+	if (bChangingSubsystems && OnlineSessionInterface.IsValid())
+	{
+		DestroyOnlineSubsystem();
+	}
+
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get(DesiredSubsystem);
 
 	if (!OnlineSubsystem)
 	{
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: OnlineSubsystem is NULL"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: Preferred subsystem=%s OnlineSubsystem is NULL"), *GetName(), *DesiredSubsystem.ToString());
 		return;
 	}
 
+	//if (bChangingSubsystems)
+	//{
+	//	UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: Loading subsystem=%s"), *GetName(), *DesiredSubsystem.ToString());
+	//	OnlineSubsystem->Init();
+	//}
+
 	OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+	SessionsConfiguration = InConfiguration;
+	LastSubsystemName = DesiredSubsystem;
 }
 
 void UMultiplayerSessionsSubsystem::Deinitialize()
 {
 	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: Deinitialize"), *GetName());
 
-	if (OnlineSessionInterface.IsValid())
-	{
-		OnlineSessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegateHandle);
-		OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(FindSessionsCompleteDelegateHandle);
-		OnlineSessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegateHandle);
-		OnlineSessionInterface->ClearOnStartSessionCompleteDelegate_Handle(StartSessionCompleteDelegateHandle);
-		OnlineSessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(DestroySessionCompleteDelegateHandle);
-
-		OnlineSessionInterface.Reset();
-	}
+	DestroyOnlineSubsystem();
 
 	Super::Deinitialize();
+}
+
+void UMultiplayerSessionsSubsystem::DestroyOnlineSubsystem()
+{
+	if (!OnlineSessionInterface.IsValid())
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: DestroyOnlineSubsystem=%s"), *GetName(), *LastSubsystemName.ToString());
+
+	OnlineSessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegateHandle);
+	OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(FindSessionsCompleteDelegateHandle);
+	OnlineSessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegateHandle);
+	OnlineSessionInterface->ClearOnStartSessionCompleteDelegate_Handle(StartSessionCompleteDelegateHandle);
+	OnlineSessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(DestroySessionCompleteDelegateHandle);
+
+	OnlineSessionInterface.Reset();
+
+	//IOnlineSubsystem::Destroy(LastSubsystemName);
+	LastSubsystemName = NAME_None;
 }
 
 void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, const FString& MatchType)
@@ -104,7 +143,7 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, co
 	LastSessionSettings->bUsesPresence = true; // Allow us to use presence to find sessions in our region of the world
 	LastSessionSettings->bUseLobbiesIfAvailable = true; // If cannot find sessions - look for lobbies
 	LastSessionSettings->Set(SessionMatchTypeName, MatchType, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-	LastSessionSettings->BuildUniqueId = 1; // So that we can join other sessions
+	LastSessionSettings->BuildUniqueId = BuildId; // So that we can join other sessions
 
 	// Get networkd id of first local player
 	const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
@@ -151,7 +190,10 @@ void UMultiplayerSessionsSubsystem::FindSessions(int32 MaxSearchResults)
 	LastSessionSearch = MakeShared<FOnlineSessionSearch>();
 	LastSessionSearch->MaxSearchResults = MaxSearchResults;
 	LastSessionSearch->bIsLanQuery = IsLanMatch();
-	LastSessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
+	if (!LastSessionSearch->bIsLanQuery)
+	{
+		LastSessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
+	}
 
 	// Get networkd id of first local player
 	const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
@@ -388,21 +430,4 @@ void UMultiplayerSessionsSubsystem::OnJoinSessionComplete(FName SessionName, EOn
 	JoinSessionCompleteDelegateHandle.Reset();
 
 	MultiplayerOnJoinSessionComplete.Broadcast(Result);
-}
-
-bool UMultiplayerSessionsSubsystem::IsLanMatch() const
-{
-	auto OnlineSubsystem = IOnlineSubsystem::Get();
-	if (!OnlineSubsystem)
-	{
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: OnlineSubsystem is NULL"), *GetName());
-		return false;
-	}
-
-	// LAN match if the subsystem is NULL (We are not using steam or other online subsystem)
-	bool bIsLANMatch = OnlineSubsystem->GetSubsystemName() == "NULL";
-
-	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: IsLanMatch=%s"), *GetName(), (bIsLANMatch ? TEXT("TRUE") : TEXT("FALSE")));
-
-	return bIsLANMatch;
 }

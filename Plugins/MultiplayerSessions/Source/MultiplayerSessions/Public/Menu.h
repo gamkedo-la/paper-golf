@@ -10,6 +10,7 @@
 #include "Menu.generated.h"
 
 class UButton;
+class UCheckBox;
 class UMultiplayerSessionsSubsystem;
 class FOnlineSessionSearchResult;
 /**
@@ -23,7 +24,7 @@ class MULTIPLAYERSESSIONS_API UMenu : public UUserWidget
 public:
 
 	UFUNCTION(BlueprintCallable, Category = "Menu")
-	void MenuSetup(int32 NumberOfPublicConnections = 4, const FString& TypeOfMatch = TEXT("FreeForAll"), const FString& LobbyPath = TEXT("/Game/ThirdPerson/Maps/Lobby"));
+	void MenuSetup(int32 NumberOfPublicConnections = 4, bool bIsLanMatch = true, const FString& TypeOfMatch = TEXT("FreeForAll"), const FString& LobbyPath = TEXT("/Game/ThirdPerson/Maps/Lobby"));
 
 protected:
 
@@ -59,17 +60,23 @@ private:
 
 	void MenuTeardown();
 
+	UFUNCTION()
+	void OnLanMatchChanged(bool bIsChecked);
+
 private:
 
 	// Button variable in widget blueprint is bound also in C++ - name needs to match exactly
 	UPROPERTY(meta = (BindWidget))
-	UButton* BtnHost;
+	TObjectPtr<UButton> BtnHost{};
 
 	UPROPERTY(meta = (BindWidget))
-	UButton* BtnJoin;
+	TObjectPtr<UButton> BtnJoin{};
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UCheckBox> ChkLanMatch{};
 
 	// Subsystem to handle all online functionality
-	UPROPERTY()
+	UPROPERTY(Transient)
 	UMultiplayerSessionsSubsystem* MultiplayerSessionsSubsystem {};
 
 	int32 NumPublicConnections { 4 };

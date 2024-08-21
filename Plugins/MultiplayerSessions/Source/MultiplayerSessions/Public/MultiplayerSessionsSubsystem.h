@@ -29,9 +29,17 @@ class MULTIPLAYERSESSIONS_API UMultiplayerSessionsSubsystem : public UGameInstan
 public:
 	UMultiplayerSessionsSubsystem();
 
+	struct FSessionsConfiguration
+	{
+		bool bIsLanMatch{};
+	};
+
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
+	
+	void Configure(const FSessionsConfiguration& InConfiguration);
 
+	void SetBuildId(int32 InBuildId);
 	void CreateSession(int32 NumPublicConnections, const FString& MatchType);
 	void FindSessions(int32 MaxSearchResults);
 	void JoinSession(const FOnlineSessionSearchResult& OnlineSessionSearchResult);
@@ -55,6 +63,9 @@ public:
 	int32 GetDesiredNumPublicConnections() const;
 	FString GetDesiredMatchType() const;
 
+	UFUNCTION(BlueprintPure)
+	bool IsLanMatch() const;
+
 protected:
 
 	// Internal callbacks we'll add for the delegates we'll add to the OnlineSessionInterface delegate list
@@ -66,7 +77,7 @@ protected:
 	void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
 
 private:
-	bool IsLanMatch() const;
+	void DestroyOnlineSubsystem();
 
 private:
 	IOnlineSessionPtr OnlineSessionInterface{};
@@ -98,6 +109,9 @@ private:
 
 	int32 DesiredNumPublicConnections{};
 	FString DesiredMatchType{};
+	int32 BuildId{};
+	FSessionsConfiguration SessionsConfiguration{};
+	FName LastSubsystemName{};
 };
 
 FORCEINLINE IOnlineSessionPtr UMultiplayerSessionsSubsystem::GetOnlineSessionInterface() const
@@ -113,4 +127,14 @@ FORCEINLINE int32 UMultiplayerSessionsSubsystem::GetDesiredNumPublicConnections(
 FORCEINLINE FString UMultiplayerSessionsSubsystem::GetDesiredMatchType() const
 {
 	return DesiredMatchType;
+}
+
+FORCEINLINE void UMultiplayerSessionsSubsystem::SetBuildId(int32 InBuildId)
+{
+	BuildId = InBuildId;
+}
+
+FORCEINLINE bool UMultiplayerSessionsSubsystem::IsLanMatch() const
+{
+	return SessionsConfiguration.bIsLanMatch;
 }
