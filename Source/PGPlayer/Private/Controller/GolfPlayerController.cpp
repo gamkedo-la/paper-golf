@@ -676,16 +676,12 @@ void AGolfPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: EndPlay - %s"), *GetName(), *LoggingUtils::GetName(EndPlayReason));
 
 	Super::EndPlay(EndPlayReason);
-
-	CleanupDebugDraw();
 }
 
 void AGolfPlayerController::Init()
 {
 	// turn is activated manually so we set this to false initially
 	bCanFlick = false;
-
-	InitDebugDraw();
 }
 
 void AGolfPlayerController::OnPossess(APawn* InPawn)
@@ -1009,6 +1005,8 @@ void AGolfPlayerController::SetCameraToViewPawn(APawn* InPawn)
 
 void AGolfPlayerController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 {
+	Super::GrabDebugSnapshot(Snapshot);
+
 	FVisualLogStatusCategory Category;
 	Category.Category = FString::Printf(TEXT("GolfPlayerController (%s)"), *GetName());
 
@@ -1039,28 +1037,6 @@ void AGolfPlayerController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 		}
 	}
 }
-
-void AGolfPlayerController::InitDebugDraw()
-{
-	// Ensure that state logged regularly so we see the updates in the visual logger
-
-	FTimerDelegate DebugDrawDelegate = FTimerDelegate::CreateWeakLambda(this, [this]()
-	{
-		UE_VLOG(this, LogPGPlayer, Log, TEXT("Get Player State"));
-	});
-
-	GetWorldTimerManager().SetTimer(VisualLoggerTimer, DebugDrawDelegate, 0.05f, true);
-}
-
-void AGolfPlayerController::CleanupDebugDraw()
-{
-	GetWorldTimerManager().ClearTimer(VisualLoggerTimer);
-}
-
-#else
-
-void AGolfPlayerController::InitDebugDraw() {}
-void AGolfPlayerController::CleanupDebugDraw() {}
 
 #endif
 

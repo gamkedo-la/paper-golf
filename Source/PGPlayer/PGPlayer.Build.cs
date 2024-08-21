@@ -39,7 +39,8 @@ public class PGPlayer : ModuleRules
 
 		var enginePrivateDependencyModuleNames = new string[] 
 		{
-		};
+            "UMG",
+        };
 
 		PrivateDependencyModuleNames.AddRange(enginePrivateDependencyModuleNames);
 		PrivateDependencyModuleNames.AddRange(modulePrivateDependencyModuleNames);

@@ -6,7 +6,7 @@
 
 #include "PaperGolfTypes.h"
 
-#include "GameFramework/PlayerController.h"
+#include "Controller/BasePlayerController.h"
 
 #include "Interfaces/GolfController.h"
 
@@ -25,7 +25,7 @@ class APaperGolfGameStateBase;
  * 
  */
 UCLASS()
-class PGPLAYER_API AGolfPlayerController : public APlayerController, public IGolfController, public IVisualLoggerDebugSnapshotInterface
+class PGPLAYER_API AGolfPlayerController : public ABasePlayerController, public IGolfController
 {
 	GENERATED_BODY()
 
@@ -130,8 +130,6 @@ private:
 
 	void DetermineShotType();
 
-	void InitDebugDraw();
-	void CleanupDebugDraw();
 	void DestroyPawn();
 
 	bool IsFlickedAtRest() const;
@@ -207,10 +205,6 @@ private:
 	bool IsRemoteServer() const;
 
 private:
-	
-#if ENABLE_VISUAL_LOG
-	FTimerHandle VisualLoggerTimer{};
-#endif
 
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UShotArcPreviewComponent> ShotArcPreviewComponent{};
