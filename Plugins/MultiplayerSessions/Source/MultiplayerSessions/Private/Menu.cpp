@@ -11,6 +11,8 @@
 #include "Components/Button.h"
 #include "Components/CheckBox.h"
 
+#include "Components/EditableText.h"
+
 #include "VisualLogger/VisualLogger.h"
 
 #include "Engine/GameInstance.h"
@@ -120,6 +122,10 @@ bool UMenu::Initialize()
 		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: ChkLanMatch NULL!"), *GetName());
 	}
 
+	if(!ensureMsgf(TxtLanIpAddress, TEXT("%s: TxtLanIpAddress is NULL"), *GetName()))
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: TxtLanIpAddress NULL!"), *GetName());
+	}
 
 	return true;
 }
@@ -301,8 +307,15 @@ void UMenu::JoinButtonClicked()
 
 	BtnJoin->SetIsEnabled(false);
 
-	// Using a large number because if we are using the steam dev app id there could be a lot of other sessions
-	MultiplayerSessionsSubsystem->FindSessions(10000);
+	// If lan mode and we specified an IP - just client travel directly there
+	if (IsDirectIpLanMatch())
+	{
+		IpConnectLanMatch();
+	}
+	else
+	{
+		SubsystemFindMatch();
+	}
 }
 
 void UMenu::MenuTeardown()
@@ -341,4 +354,42 @@ void UMenu::OnLanMatchChanged(bool bIsChecked)
 	}
 
 	MultiplayerSessionsSubsystem->Configure({ bIsChecked });
+}
+
+void UMenu::SubsystemFindMatch()
+{
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: SubsystemFindMatch"), *GetName());
+
+	// Using a large number because if we are using the steam dev app id there could be a lot of other sessions
+	MultiplayerSessionsSubsystem->FindSessions(10000);
+}
+
+void UMenu::IpConnectLanMatch()
+{
+	check(ChkLanMatch);
+	check(TxtLanIpAddress);
+
+	const auto PlayerController = GetOwningPlayer();
+	if (!ensure(PlayerController))
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: IpConnectLanMatch - PlayerController is NULL"), *GetName());
+		BtnHost->SetIsEnabled(true);
+		return;
+	}
+
+	const auto& IpAddress = TxtLanIpAddress->GetText().ToString();
+
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: IpConnectLanMatch - %s"), *GetName(), *IpAddress);
+
+	PlayerController->ClientTravel(IpAddress, ETravelType::TRAVEL_Absolute);
+}
+
+bool UMenu::IsDirectIpLanMatch() const
+{
+	if (!ChkLanMatch || !TxtLanIpAddress)
+	{
+		return false;
+	}
+
+	return ChkLanMatch->IsChecked() && !TxtLanIpAddress->GetText().IsEmpty();
 }

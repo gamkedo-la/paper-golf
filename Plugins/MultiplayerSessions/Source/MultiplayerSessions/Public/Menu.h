@@ -11,6 +11,8 @@
 
 class UButton;
 class UCheckBox;
+class UEditableText;
+
 class UMultiplayerSessionsSubsystem;
 class FOnlineSessionSearchResult;
 /**
@@ -49,31 +51,39 @@ protected:
 	UFUNCTION()
 	virtual void OnStartSessionComplete(bool bWasSuccessful);
 
-
 private:
 
-	UFUNCTION()
+	// Allow invoking from blueprint for Gamepad support
+	UFUNCTION(BlueprintCallable)
 	void HostButtonClicked();
 
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable)
 	void JoinButtonClicked();
+
+	UFUNCTION(BlueprintCallable)
+	void OnLanMatchChanged(bool bIsChecked);
 
 	void MenuTeardown();
 
-	UFUNCTION()
-	void OnLanMatchChanged(bool bIsChecked);
+	void SubsystemFindMatch();
+	void IpConnectLanMatch();
+
+	bool IsDirectIpLanMatch() const;
 
 private:
 
 	// Button variable in widget blueprint is bound also in C++ - name needs to match exactly
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(Category = "Menu", BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
 	TObjectPtr<UButton> BtnHost{};
 
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(Category = "Menu", BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
 	TObjectPtr<UButton> BtnJoin{};
 
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(Category = "Menu", BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
 	TObjectPtr<UCheckBox> ChkLanMatch{};
+
+	UPROPERTY(Category = "Menu", BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
+	TObjectPtr<UEditableText> TxtLanIpAddress{};
 
 	// Subsystem to handle all online functionality
 	UPROPERTY(Transient)
