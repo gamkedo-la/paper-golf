@@ -933,12 +933,17 @@ void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn
 			OnFlickSpectateShotHandle = InPawn->OnFlick.AddWeakLambda(this, 
 				[this, InPawn = MakeWeakObjectPtr(InPawn), HUD = MakeWeakObjectPtr(HUD), InPlayerState = MakeWeakObjectPtr(InPlayerState)]()
 			{
-				InPawn->OnFlick.Remove(OnFlickSpectateShotHandle);
-				OnFlickSpectateShotHandle.Reset();
-
 				if (HUD.IsValid())
 				{
 					HUD->BeginSpectatorShot(InPawn.Get(), InPlayerState.Get());
+				}
+
+				// Removing the handle invalidates the delegate so we need to do it last
+				const auto HandleToRemove = OnFlickSpectateShotHandle;
+				OnFlickSpectateShotHandle.Reset();
+				if (InPawn.IsValid())
+				{
+					InPawn->OnFlick.Remove(OnFlickSpectateShotHandle);
 				}
 			});
 		}
