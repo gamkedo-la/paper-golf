@@ -54,7 +54,7 @@ void UMultiplayerSessionsSubsystem::Configure(const FSessionsConfiguration& InCo
 
 	if (!OnlineSubsystem)
 	{
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: Preferred subsystem=%s OnlineSubsystem is NULL"), *GetName(), *DesiredSubsystem.ToString());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: Configure - Preferred subsystem=%s OnlineSubsystem is NULL"), *GetName(), *DesiredSubsystem.ToString());
 		return;
 	}
 
@@ -63,6 +63,8 @@ void UMultiplayerSessionsSubsystem::Configure(const FSessionsConfiguration& InCo
 	//	UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: Loading subsystem=%s"), *GetName(), *DesiredSubsystem.ToString());
 	//	OnlineSubsystem->Init();
 	//}
+
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: Configure: DesiredSubsystem=%s and using subsystem %s"), *GetName(), *DesiredSubsystem.ToString(), *OnlineSubsystem->GetSubsystemName().ToString());
 
 	OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 	SessionsConfiguration = InConfiguration;
@@ -170,6 +172,16 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, co
 
 		// Don't call MultiplayerOnCreateSessionComplete.Broadcast(true) yet as we need to wait for the OnCreateSessionComplete function to trigger
 	}
+}
+
+void UMultiplayerSessionsSubsystem::CreateLocalSession(int32 NumPublicConnections, const FString& MatchType)
+{
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: CreateLocalSession: NumPublicConnections=%d; MatchType=%s"), *GetName(), NumPublicConnections, *MatchType);
+
+	DesiredNumPublicConnections = NumPublicConnections;
+	DesiredMatchType = MatchType;
+
+	MultiplayerOnCreateSessionComplete.Broadcast(true);
 }
 
 void UMultiplayerSessionsSubsystem::FindSessions(int32 MaxSearchResults)

@@ -41,6 +41,8 @@ public:
 
 	void SetBuildId(int32 InBuildId);
 	void CreateSession(int32 NumPublicConnections, const FString& MatchType);
+	void CreateLocalSession(int32 NumPublicConnections, const FString& MatchType);
+
 	void FindSessions(int32 MaxSearchResults);
 	void JoinSession(const FOnlineSessionSearchResult& OnlineSessionSearchResult);
 

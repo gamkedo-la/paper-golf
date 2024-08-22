@@ -294,7 +294,14 @@ void UMenu::HostButtonClicked()
 
 	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: HostButtonClicked - NumPublicConnections=%d; MatchType=%s"), *GetName(), NumPublicConnections, *MatchType);
 
-	MultiplayerSessionsSubsystem->CreateSession(NumPublicConnections, MatchType);
+	if(IsDirectIpLanMatch())
+	{
+		HostDirectLanMatch();
+	}
+	else
+	{
+		HostDiscoverableMatch();
+	}
 }
 
 void UMenu::JoinButtonClicked()
@@ -341,6 +348,20 @@ void UMenu::MenuTeardown()
 	FInputModeGameOnly InputGameOnly;
 	PlayerController->SetInputMode(InputGameOnly);
 	PlayerController->SetShowMouseCursor(false);
+}
+
+void UMenu::HostDiscoverableMatch()
+{
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: HostDiscoverableMatch"), *GetName());
+
+	MultiplayerSessionsSubsystem->CreateSession(NumPublicConnections, MatchType);
+}
+
+void UMenu::HostDirectLanMatch()
+{
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: HostDirectLanMatch"), *GetName());
+
+	MultiplayerSessionsSubsystem->CreateLocalSession(NumPublicConnections, MatchType);
 }
 
 void UMenu::OnLanMatchChanged(bool bIsChecked)

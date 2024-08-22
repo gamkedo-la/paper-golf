@@ -65,6 +65,9 @@ private:
 
 	void MenuTeardown();
 
+	void HostDiscoverableMatch();
+	void HostDirectLanMatch();
+
 	void SubsystemFindMatch();
 	void IpConnectLanMatch();
 
