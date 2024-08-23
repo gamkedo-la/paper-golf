@@ -22,6 +22,11 @@ UPaperGolfPawnAudioComponent::UPaperGolfPawnAudioComponent()
 
 void UPaperGolfPawnAudioComponent::PlayFlick()
 {
+	if (!ShouldPlayAudio())
+	{
+		return;
+	}
+
 	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: PlayFlick"), *LoggingUtils::GetName(GetOwner()), *GetName());
 
 	if (!PawnAudioConfig)
@@ -35,6 +40,11 @@ void UPaperGolfPawnAudioComponent::PlayFlick()
 
 void UPaperGolfPawnAudioComponent::PlayTurnStart()
 {
+	if (!ShouldPlayAudio())
+	{
+		return;
+	}
+
 	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: PlayTurnStart"), *LoggingUtils::GetName(GetOwner()), *GetName());
 
 	if (!PawnAudioConfig)
@@ -51,6 +61,11 @@ void UPaperGolfPawnAudioComponent::BeginPlay()
 
 	Super::BeginPlay();
 
+	if (!ShouldPlayAudio())
+	{
+		return;
+	}
+
 	PawnAudioConfig = Cast<UPGPawnAudioConfigAsset>(AudioConfigAsset);
 
 	if(!ensureMsgf(PawnAudioConfig, TEXT("%s-%s: Missing AudioConfig=%s is not a UPGPawnAudioConfigAsset"), 
@@ -63,6 +78,11 @@ void UPaperGolfPawnAudioComponent::BeginPlay()
 
 void UPaperGolfPawnAudioComponent::RegisterCollisions()
 {
+	if (!ShouldPlayAudio())
+	{
+		return;
+	}
+
 	if (!bEnableCollisionSounds)
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Display,

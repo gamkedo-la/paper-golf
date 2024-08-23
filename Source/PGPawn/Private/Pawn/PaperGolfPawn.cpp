@@ -436,8 +436,6 @@ void APaperGolfPawn::SetCollisionEnabled(bool bEnabled)
 
 void APaperGolfPawn::Flick(const FFlickParams& FlickParams)
 {
-	SetCameraForFlick();
-
 	DoFlick(FlickParams);
 
 	if (HasAuthority())
@@ -491,6 +489,8 @@ void APaperGolfPawn::DoFlick(FFlickParams FlickParams)
 	);
 
 	check(_PaperGolfMesh);
+
+	SetCameraForFlick();
 
 	FlickParams.Clamp();
 
@@ -562,6 +562,9 @@ void APaperGolfPawn::MulticastFlick_Implementation(const FNetworkFlickParams& Pa
 		TEXT("%s: MulticastFlick_Implementation - Rotation=%s; LocalZOffset=%f; PowerFraction=%f; Accuracy=%f"),
 		*GetName(), *Params.Rotation.ToCompactString(), Params.FlickParams.LocalZOffset, Params.FlickParams.PowerFraction, Params.FlickParams.Accuracy
 	);
+
+	// Reset camera for spectators
+	SetCameraForFlick();
 
 	PawnAudioComponent->PlayFlick();
 }
@@ -1057,7 +1060,8 @@ void APaperGolfPawn::ResetCameraForShotSetup()
 
 	const auto LookAtRotation = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), FocusActor->GetActorLocation());
 
-	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: ResetCameraForShotSetup - FocusActor=%s; LookAtRotationYaw=%f"), *GetName(), *LoggingUtils::GetName(FocusActor), LookAtRotation.Yaw);
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: ResetCameraForShotSetup - FocusActor=%s; LookAtRotationYaw=%f; bEnableCameraRotationLag=%s; CameraRotationLagSpeed=%f"),
+		*GetName(), *LoggingUtils::GetName(FocusActor), LookAtRotation.Yaw, LoggingUtils::GetBoolString(bEnableCameraRotationLag), _CameraSpringArm->CameraRotationLagSpeed);
 	UE_VLOG_LOCATION(this, LogPGPawn, Log, FocusActor->GetActorLocation(), 20.0, FColor::Turquoise, TEXT("Focus"));
 
 	SetActorRotation(FRotator{ 0, LookAtRotation.Yaw, 0 });

@@ -31,6 +31,18 @@ protected:
 	virtual void RegisterCollisions() override;
 
 private:
+	bool ShouldPlayAudio() const;
+
+private:
 	UPROPERTY(Transient)
 	TObjectPtr<UPGPawnAudioConfigAsset> PawnAudioConfig{};
 };
+
+#pragma region Inline Definitions
+
+FORCEINLINE bool UPaperGolfPawnAudioComponent::ShouldPlayAudio() const
+{
+	return GetNetMode() != NM_DedicatedServer;
+}
+
+#pragma endregion Inline Definitions

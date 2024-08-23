@@ -195,7 +195,7 @@ void UPGHitSfxComponent::OnPlayHitSfx_Implementation(UPrimitiveComponent* HitCom
 	++HitPlayCount;
 
 	UE_VLOG_UELOG(GetOwner(), LogPGCore, Log,
-		TEXT("%s-%s: OnPlaySfx - PlayCount=%d"),
+		TEXT("%s-%s: OnPlaySfx - %s: PlayCount=%d"),
 		*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(HitSfx),
 		HitPlayCount)
 }
