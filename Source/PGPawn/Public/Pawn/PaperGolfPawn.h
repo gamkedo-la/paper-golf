@@ -319,6 +319,12 @@ private:
 	float Mass{};
 	bool bReadyForShot{};
 
+	/*
+	* 1 for right handed and -1 for left handed.  Will be set on the pawn by APaperGolfGameModeBase::SpawnDefaultPawnAtTransform_Implementation from player preferences
+	* on the player state.
+	*/
+	int8 HandednessSign : 3 { 1 };
+
 	// TODO: move component set up to C++
 private:
 
