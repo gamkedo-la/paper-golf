@@ -7,6 +7,7 @@
 #include "PaperGolfPawnAudioComponent.generated.h"
 
 class UPGPawnAudioConfigAsset;
+class UAudioComponent;
 
 /**
  * 
@@ -25,17 +26,33 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void PlayTurnStart();
 
+	// Ensure replication always disabled
+	virtual ELifetimeCondition GetReplicationCondition() const override { return ELifetimeCondition::COND_Never; }
+
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	virtual void RegisterCollisions() override;
+
+	virtual void OnNotifyRelevantCollision(UPrimitiveComponent* HitComponent, const FHitResult& Hit, const FVector& NormalImpulse) override;
 
 private:
 	bool ShouldPlayAudio() const;
 
+	void PlayFlight();
+	void StopFlight();
+	void CancelFlightAudioTimer();
+
 private:
 	UPROPERTY(Transient)
 	TObjectPtr<UPGPawnAudioConfigAsset> PawnAudioConfig{};
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> FlightAudioComponent{};
+
+	FTimerHandle FlightAudioTimerHandle{};
+	bool bPlayFlightRequested{};
 };
 
 #pragma region Inline Definitions

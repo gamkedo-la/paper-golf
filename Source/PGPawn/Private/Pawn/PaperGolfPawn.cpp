@@ -7,6 +7,8 @@
 
 #include "DrawDebugHelpers.h"
 #include "Components/PrimitiveComponent.h" 
+#include "Components/AudioComponent.h"
+#include "Components/TextRenderComponent.h"
 
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -828,6 +830,23 @@ bool APaperGolfPawn::PredictFlick(const FFlickParams& FlickParams, const FFlickP
 #endif
 
 	return bHit;
+}
+
+ELifetimeCondition APaperGolfPawn::AllowActorComponentToReplicate(const UActorComponent* ComponentToReplicate) const
+{
+	if(ShouldReplicateComponent(ComponentToReplicate))
+	{
+		return Super::AllowActorComponentToReplicate(ComponentToReplicate);
+	}
+
+	return ELifetimeCondition::COND_Never;
+}
+
+bool APaperGolfPawn::ShouldReplicateComponent(const UActorComponent* ComponentToReplicate) const
+{
+	// Disable replication for audio components and text render components
+
+	return !(Cast<UTextRenderComponent>(ComponentToReplicate) || Cast<UAudioComponent>(ComponentToReplicate));
 }
 
 void APaperGolfPawn::Tick(float DeltaTime)

@@ -30,7 +30,7 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent)
 	bool BlueprintRegisterCollisions();
 
-	virtual void OnNotifyRelevantCollision(UPrimitiveComponent* HitComponent, const FHitResult& Hit, const FVector& NormalImpulse) override final;
+	virtual void OnNotifyRelevantCollision(UPrimitiveComponent* HitComponent, const FHitResult& Hit, const FVector& NormalImpulse) override;
 
 	UFUNCTION(BlueprintNativeEvent)
 	bool ShouldPlayHitSfx(UPrimitiveComponent* HitComponent, const FHitResult& Hit, const FVector& NormalImpulse) const;

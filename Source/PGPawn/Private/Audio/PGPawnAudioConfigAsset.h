@@ -21,10 +21,19 @@ public:
 	UPROPERTY(Category = "Audio", EditDefaultsOnly)
 	TObjectPtr<USoundBase> TurnStartSfx{};
 
+	UPROPERTY(Category = "Audio", EditDefaultsOnly)
+	TObjectPtr<USoundBase> FlightSfx{};
+
+	// TODO: Alternatively can set a min height that need to reach for flight sound and then once goes below that height or hits something, stop playing flight sound
+	UPROPERTY(Category = "Audio | Flight", EditDefaultsOnly)
+	float FlightSfxDelayAfterFlick{ 0.5f };
+
+	UPROPERTY(Category = "Audio | Flight", EditDefaultsOnly)
+	float FlightSfxFadeOutTime{ 1.0f };
+
 protected:
 	virtual const TMap<UPhysicalMaterial*, USoundBase*>& SelectPhysicalMaterialSoundsForComponent(UPrimitiveComponent* OwnerComponent, UPrimitiveComponent* HitComponent) const override;
 	virtual USoundBase* SelectDefaultHitSoundForComponent(UPrimitiveComponent* OwnerComponent, UPrimitiveComponent* HitComponent) const override;
-
 
 private:
 	enum class ESfxType

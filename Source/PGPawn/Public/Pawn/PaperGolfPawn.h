@@ -181,6 +181,8 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly)
 	void OnTurnStarted();
 
+	virtual ELifetimeCondition AllowActorComponentToReplicate(const UActorComponent* ComponentToReplicate) const;
+
 protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void BeginPlay() override;
@@ -191,6 +193,8 @@ protected:
 	void OnShotFinished();
 
 private:
+
+	bool ShouldReplicateComponent(const UActorComponent* ComponentToReplicate) const;
 
 	void InitDebugDraw();
 	void CleanupDebugDraw();
