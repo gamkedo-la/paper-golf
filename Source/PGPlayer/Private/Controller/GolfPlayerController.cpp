@@ -35,6 +35,8 @@
 
 #include "Subsystems/GolfEventsSubsystem.h"
 
+#include "Debug/PGConsoleVars.h"
+
 #include <limits>
 #include "Net/UnrealNetwork.h"
 
@@ -490,7 +492,7 @@ void AGolfPlayerController::ProcessShootInput()
 		*GetName());
 
 	const auto Power = GolfWidget->GetMeterPower();
-	const auto Accuracy = GolfWidget->GetMeterAccuracy();
+	const auto Accuracy = GetAdjustedAccuracy(GolfWidget->GetMeterAccuracy());
 
 	PaperGolfPawn->Flick(FFlickParams
 	{
@@ -503,6 +505,17 @@ void AGolfPlayerController::ProcessShootInput()
 	bCanFlick = false;
 
 	ServerProcessShootInput(TotalRotation);
+}
+
+float AGolfPlayerController::GetAdjustedAccuracy(float Accuracy) const
+{
+	const float AdjustedAccuracy = FMath::Sign(Accuracy) * FMath::Min(MaxAccuracy, FMath::Pow(FMath::Abs(Accuracy), AccuracyAdjustmentExponent));
+
+	UE_VLOG_UELOG(this, LogPGPlayer, Log,
+		TEXT("%s: GetAdjustedAccuracy: %f -> %f"),
+		*GetName(), Accuracy, AdjustedAccuracy);
+
+	return AdjustedAccuracy;
 }
 
 void AGolfPlayerController::ServerProcessShootInput_Implementation(const FRotator& InTotalRotation)
@@ -682,6 +695,26 @@ void AGolfPlayerController::Init()
 {
 	// turn is activated manually so we set this to false initially
 	bCanFlick = false;
+
+	InitFromConsoleVariables();
+}
+
+void AGolfPlayerController::InitFromConsoleVariables()
+{
+#if PG_DEBUG_ENABLED
+	if (const auto OverridePlayerAccuracyExponent = PG::CPlayerAccuracyExponent.GetValueOnGameThread(); OverridePlayerAccuracyExponent > 1.0f)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log,  TEXT("%s: InitFromConsoleVariables - Overriding PlayerAccuracyExponent %f -> %f"),
+			*GetName(), AccuracyAdjustmentExponent, OverridePlayerAccuracyExponent);
+		AccuracyAdjustmentExponent = OverridePlayerAccuracyExponent;
+	}
+	if(const auto OverridePlayerMaxAccuracy = PG::CPlayerMaxAccuracy.GetValueOnGameThread(); OverridePlayerMaxAccuracy >= 0.0f && OverridePlayerMaxAccuracy <= 1.0f)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log,  TEXT("%s: InitFromConsoleVariables - Overriding PlayerMaxAccuracy %f -> %f"),
+			*GetName(), MaxAccuracy, OverridePlayerMaxAccuracy);
+		MaxAccuracy = OverridePlayerMaxAccuracy;
+	}
+#endif
 }
 
 void AGolfPlayerController::OnPossess(APawn* InPawn)

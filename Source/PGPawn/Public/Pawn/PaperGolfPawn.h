@@ -228,6 +228,8 @@ private:
 
 	void ResetPhysicsState() const;
 
+	void Init();
+
 private:
 
 #if ENABLE_VISUAL_LOG
@@ -282,19 +284,16 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Force")
 	TObjectPtr<UCurveFloat> FlickDragForceCurve{};
 
-	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty")
+	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty", meta = (ClampMin = "0.0"))
 	float PowerAccuracyDampenExp{ 0.25f };
 
-	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty")
+	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float MinPowerMultiplier{ 0.5f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty", meta=(ClampMin="0.0"))
 	float PowerAccuracyExp{ 2.0f };
 
-	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty", meta=(ClampMin="0.0"))
-	float LocationAccuracyMultiplier{ 1.0f };
-
-	UPROPERTY(EditDefaultsOnly, Category = "Shot | Difficulty", meta = (ClampMin = "1.0"))
+	UPROPERTY(EditDefaultsOnly, Category = "Shot", meta = (ClampMin = "1.0"))
 	float FlickOffsetZTraceSize{ 5.0f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Camera | Shot")

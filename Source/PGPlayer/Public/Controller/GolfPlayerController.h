@@ -140,6 +140,8 @@ private:
 
 	void Init();
 
+	void InitFromConsoleVariables();
+
 	void ResetShotAfterOutOfBounds();
 
 	UFUNCTION(Client, Reliable)
@@ -174,6 +176,8 @@ private:
 
 	UFUNCTION(Server, Reliable)
 	void ServerProcessShootInput(const FRotator& InTotalRotation);
+
+	float GetAdjustedAccuracy(float Accuracy) const;
 
 	UFUNCTION()
 	void OnRep_Scored();
@@ -219,6 +223,18 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	float RotationRate{ 100.0f };
+	
+	/*
+	* Increase the value to make slight accuracy errors more forgiving. This is on top of the defaults on the pawn.
+	*/
+	UPROPERTY(EditDefaultsOnly, Category = "Difficulty", meta=( ClampMin="1.0" ))
+	float AccuracyAdjustmentExponent{ 1.0f };
+
+	/*
+	* Decrease to make penalty of worst possible shots less severe.
+	*/
+	UPROPERTY(EditDefaultsOnly, Category = "Difficulty", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float MaxAccuracy{ 1.0f };
 
 	float FlickZ{ };
 

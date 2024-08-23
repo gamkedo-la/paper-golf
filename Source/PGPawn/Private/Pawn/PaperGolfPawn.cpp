@@ -31,6 +31,9 @@
 #include "Utils/CollisionUtils.h"
 
 #include "Utils/VisualLoggerUtils.h"
+
+#include "Debug/PGConsoleVars.h"
+
 #include "PGPawnLogging.h"
 
 // Used for drawing the pawn
@@ -324,9 +327,6 @@ FVector APaperGolfPawn::GetFlickDirection() const
 FVector APaperGolfPawn::GetFlickLocation(float LocationZ, float Accuracy, float Power) const
 {
 	check(_FlickReference);
-
-	//const auto RawLocationAccuracyOffset = FMath::Abs(Accuracy) * LocationAccuracyMultiplier;
-	//const auto AccuracyAdjustedLocationZ = LocationZ * (1 - 2 * RawLocationAccuracyOffset);
 
 	const auto& FlickTransform = _FlickReference->GetComponentTransform();
 
@@ -846,6 +846,32 @@ void APaperGolfPawn::BeginPlay()
 	SetReplicateMovement(true);
 
 	States.Reserve(NumSamples);
+
+	Init();
+}
+
+void APaperGolfPawn::Init()
+{
+#if PG_DEBUG_ENABLED
+	if (const auto OverridePowerAccuracyDampenExp = PG::CGlobalPowerAccuracyDampenExponent.GetValueOnGameThread(); OverridePowerAccuracyDampenExp >= 0)
+	{
+		UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: Overriding PowerAccuracyDampenExp %f -> %f"), *GetName(), PowerAccuracyDampenExp, OverridePowerAccuracyDampenExp);
+
+		PowerAccuracyDampenExp = OverridePowerAccuracyDampenExp;
+	}
+	if(const auto OverrideMinPowerMultiplier = PG::CGlobalMinPowerMultiplier.GetValueOnGameThread(); OverrideMinPowerMultiplier >= 0 && OverrideMinPowerMultiplier <= 1)
+	{
+		UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: Overriding MinPowerMultiplier %f -> %f"), *GetName(), MinPowerMultiplier, OverrideMinPowerMultiplier);
+
+		MinPowerMultiplier = OverrideMinPowerMultiplier;
+	}
+	if(const auto OverridePowerAccuracyExp = PG::CGlobalPowerAccuracyExponent.GetValueOnGameThread(); OverridePowerAccuracyExp >= 0)
+	{
+		UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: Overriding PowerAccuracyExp %f -> %f"), *GetName(), PowerAccuracyExp, OverridePowerAccuracyExp);
+
+		PowerAccuracyExp = OverridePowerAccuracyExp;
+	}
+#endif
 
 	InitDebugDraw();
 }
