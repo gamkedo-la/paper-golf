@@ -457,8 +457,6 @@ void APaperGolfPawn::Flick(const FFlickParams& FlickParams)
 
 void APaperGolfPawn::AddDeltaRotation(const FRotator& DeltaRotation)
 {
-	UE_VLOG_UELOG(this, LogPGPawn, VeryVerbose, TEXT("%s: AddDeltaRotation - DeltaRotation=%s"), *GetName(), *DeltaRotation.ToCompactString());
-
 	if (!ensure(_PaperGolfMesh))
 	{
 		return;
@@ -472,6 +470,10 @@ void APaperGolfPawn::AddDeltaRotation(const FRotator& DeltaRotation)
 	{
 		AddActorWorldRotation(DeltaRotation);
 	}
+
+	UE_VLOG_UELOG(this, LogPGPawn, VeryVerbose,
+		TEXT("%s: AddDeltaRotation - DeltaRotation=%s; TotalRelativeRotation=%s; WorldRotation=%s"),
+		*GetName(), *DeltaRotation.ToCompactString(), GetRootComponent() ? *GetRootComponent()->GetRelativeRotation().ToCompactString() : TEXT("N/A"), *GetActorRotation().ToCompactString());
 }
 
 FNetworkFlickParams APaperGolfPawn::ToNetworkParams(const FFlickParams& Params) const

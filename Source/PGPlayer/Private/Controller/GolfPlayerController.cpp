@@ -274,9 +274,18 @@ void AGolfPlayerController::AddPaperGolfPawnRelativeRotation(const FRotator& Del
 		return;
 	}
 
-	auto RotationToApply = DeltaRotation * (RotationRate * GetWorld()->GetDeltaSeconds());
+	const auto RotationToApplyFunc = [&]()
+	{
+		return DeltaRotation * (RotationRate * GetWorld()->GetDeltaSeconds());
+	};
+
+	auto RotationToApply = RotationToApplyFunc();
 
 	UPaperGolfPawnUtilities::ClampDeltaRotation(RotationMax, RotationToApply, TotalRotation);
+
+	UE_VLOG_UELOG(this, LogPGPlayer, VeryVerbose,
+		TEXT("%s: AddPaperGolfPawnRelativeRotation - DeltaRotation=%s; RotationToApply=%s; ClampedRotationToApply=%s; TotalRotation=%s"),
+		*GetName(), *DeltaRotation.ToCompactString(), *RotationToApplyFunc().ToCompactString(), *RotationToApply.ToCompactString(), *TotalRotation.ToCompactString());
 
 	PaperGolfPawn->AddDeltaRotation(RotationToApply);
 

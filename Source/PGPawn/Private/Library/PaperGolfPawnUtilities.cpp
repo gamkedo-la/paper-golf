@@ -23,6 +23,10 @@ namespace
 
 	RotatorArray ToRotatorArray(FRotator& Rotator);
 	ConstRotatorArray ToConstRotatorArray(const FRotator& Rotator);
+
+	// Maximum possible total range of each rotation axis.  Pitch can only go from -90 to 90 so total is 180 but the rest are free to go full 360.
+	constexpr const std::array<bool, 3> AxisSupportsFullRotation{ true, false, true };
+	constexpr const ConstRotatorArray AxisFullRotation{ 360.0, 180.0, 360.0 };
 }
 
 // Define here to avoid C4686 since declaring a template in the return type of a function signature does not instantiate it
@@ -65,15 +69,26 @@ void UPaperGolfPawnUtilities::ClampDeltaRotation(const FRotator& MaxRotationExte
 		const auto MaxRotationAngle = MaxRotatorAngles[i];
 
 		const auto RawSum = *DeltaRotationAngle + *TotalRotationAngle;
+		const auto RawSumAbs = FMath::Abs(RawSum);
+		const auto MaxRotationDiff = MaxRotationAngle - RawSumAbs;
 
-		if (FMath::Abs(RawSum) <= MaxRotationAngle)
+		if (MaxRotationDiff >= 0)
 		{
 			*TotalRotationAngle = RawSum;
 		}
+		else if (MaxRotationAngle >= AxisFullRotation[i] && AxisSupportsFullRotation[i])
+		{
+			// Wrap around to the other side of the rotation axis and preserve the delta rotation
+			*TotalRotationAngle = FMath::Fmod(RawSum, MaxRotationAngle);
+		}
 		else
 		{
-			// zero out the delta component
-			*DeltaRotationAngle = 0;
+			// Add in value up to the clamping to max rotation
+
+			const auto RawSumSign = FMath::Sign(RawSum);
+			*TotalRotationAngle = RawSumSign * MaxRotationAngle;
+			// Adding here since the difference will always be negative and want to reduce the delta rotation by the overshoot
+			*DeltaRotationAngle = *DeltaRotationAngle + RawSumSign * MaxRotationDiff;
 		}
 	}
 }
