@@ -12,6 +12,7 @@ class APaperGolfGameStateBase;
 class APaperGolfPawn;
 class AGolfPlayerState;
 class ITextDisplayingWidget;
+class USoundBase;
 
 UENUM(BlueprintType)
 enum class EMessageWidgetType : uint8
@@ -109,6 +110,10 @@ private:
 
 	void DisplayTurnWidget(const TSoftClassPtr<UUserWidget>& WidgetClass, WidgetMemberPtr WidgetToDisplay, const FText& Message);
 
+	void PlaySound2D(const TSoftObjectPtr<USoundBase>& Sound);
+
+	void PlayWinSoundIfApplicable();
+
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	TSoftClassPtr<UUserWidget> OutOfBoundsWidgetClass{};
@@ -142,6 +147,15 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UUserWidget> ActivePlayerTurnWidget{};
+
+	UPROPERTY(EditDefaultsOnly, Category = "Audio")
+	TSoftObjectPtr<USoundBase> ScoredSfx{};
+
+	UPROPERTY(EditDefaultsOnly, Category = "Audio")
+	TSoftObjectPtr<USoundBase> WinSfx{};
+
+	bool bScoresSynced{};
+	bool bCourseComplete{};
 };
 
 #pragma region Inline Definitions

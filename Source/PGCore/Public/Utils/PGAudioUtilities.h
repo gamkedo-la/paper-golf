@@ -19,10 +19,12 @@ class PGCORE_API UPGAudioUtilities : public UBlueprintFunctionLibrary
 
 public:
 
-	UFUNCTION(BlueprintCallable, BlueprintPure = false, Category = "Audio")
+	UFUNCTION(BlueprintCallable, Category = "Audio")
 	static UAudioComponent* PlaySfxAtActorLocation(const AActor* Actor, USoundBase* Sound);
 
-	UFUNCTION(BlueprintCallable, BlueprintPure = false, Category = "Audio")
+	UFUNCTION(BlueprintCallable, Category = "Audio")
 	static UAudioComponent* PlaySfxAttached(const AActor* Actor, USoundBase* Sound);
-	
+
+	UFUNCTION(BlueprintCallable, Category = "Audio", meta = (DefaultToSelf = "WorldContextObject"))
+	static void PlaySfx2D(const UObject* WorldContextObject, USoundBase* Sound);
 };

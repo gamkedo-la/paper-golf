@@ -36,8 +36,7 @@ void UPaperGolfPawnAudioComponent::PlayFlick()
 		return;
 	}
 
-	// TODO: Play at flick location
-	UPGAudioUtilities::PlaySfxAtActorLocation(GetOwner(), PawnAudioConfig->FlickSfx);
+	UPGAudioUtilities::PlaySfx2D(GetOwner(), PawnAudioConfig->FlickSfx);
 
 	PlayFlight();
 }

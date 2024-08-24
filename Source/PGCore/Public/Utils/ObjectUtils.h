@@ -6,6 +6,10 @@
 #include "Engine/SimpleConstructionScript.h"
 #include "Engine/SCS_Node.h"
 
+#include "Runtime/CoreUObject/Public/UObject/SoftObjectPtr.h"
+#include "Runtime/Engine/Classes/Engine/StreamableManager.h"
+#include "Engine/AssetManager.h"
+
 #include <concepts>
 
 
@@ -40,6 +44,18 @@ namespace PG::ObjectUtils
 
     template<std::derived_from<UInterface> UInterfaceType, typename TInterfaceType>
     TInterfaceType* CastToInterface(UObject* Object);
+
+    template<std::derived_from<UObject> T>
+    void LoadObjectAsync(const TSoftObjectPtr<T>& ObjectPtr, TFunction<void(T*)>&& OnObjectLoaded);
+
+    template<std::derived_from<UObject> T>
+    void LoadClassAsync(const TSoftClassPtr<T>& ClassPtr, TFunction<void(UClass*)>&& OnClassLoaded);
+
+    namespace Private
+    {
+        template<typename PtrType, std::derived_from<UObject> CallbackType>
+        void LoadAsync(const PtrType& Ptr, TFunction<void(CallbackType*)>&& OnLoaded);
+    }
 }
 
 
@@ -56,6 +72,34 @@ T* PG::ObjectUtils::GetClassDefaultObject()
 	ensureMsgf(CDO, TEXT("CDO is incorrect type for %s -> %s"), *Class->GetName(), RawCDO ? *RawCDO->GetName() : TEXT("NULL"));
 
 	return CDO;
+}
+
+template<std::derived_from<UObject> T>
+inline void PG::ObjectUtils::LoadObjectAsync(const TSoftObjectPtr<T>& ObjectPtr, TFunction<void(T*)>&& OnObjectLoaded)
+{
+    Private::LoadAsync(ObjectPtr, MoveTemp(OnObjectLoaded));
+}
+
+template<std::derived_from<UObject> T>
+inline void PG::ObjectUtils::LoadClassAsync(const TSoftClassPtr<T>& ClassPtr, TFunction<void(UClass*)>&& OnClassLoaded)
+{
+    Private::LoadAsync(ClassPtr, MoveTemp(OnClassLoaded));
+}
+
+template<typename PtrType, std::derived_from<UObject> CallbackType>
+void PG::ObjectUtils::Private::LoadAsync(const PtrType& Ptr, TFunction<void(CallbackType*)>&& OnLoaded)
+{
+    if (!ensure(!Ptr.IsNull()))
+    {
+        return;
+    }
+
+    // Must use this version and not just create an instance of FStreamableManager as then the loading doesn't work when the callback fires!
+    auto& StreamableManager = UAssetManager::Get().GetStreamableManager();
+    StreamableManager.RequestAsyncLoad(Ptr.ToSoftObjectPath(), [Ptr, OnLoaded = MoveTemp(OnLoaded)]()
+    {
+        OnLoaded(Ptr.Get());
+    });
 }
 
 template<std::derived_from<UObject> T>

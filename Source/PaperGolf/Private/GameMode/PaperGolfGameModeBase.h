@@ -109,7 +109,7 @@ protected:
 	/*
 	* Called when the course is complete. Returns the time to wait before restarting the game or returning to the main menu.
 	*/
-	virtual float DoAdditionalCourseComplete() { return 0.0f; }
+	virtual float DoAdditionalCourseComplete() { return CourseCompleteActionDelayTimeSeconds; }
 
 	virtual void OnPlayerJoined(AController* NewPlayer);
 
@@ -179,6 +179,9 @@ private:
 	*/
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	bool bRestartGameOnCourseComplete{ true };
+
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	float CourseCompleteActionDelayTimeSeconds{ 5.0f };
 
 	int32 DesiredNumberOfPlayers{};
 	int32 DesiredNumberOfBotPlayers{};

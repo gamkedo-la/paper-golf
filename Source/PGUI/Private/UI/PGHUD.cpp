@@ -5,13 +5,14 @@
 
 #include "Logging/LoggingUtils.h"
 #include "PGUILogging.h"
+#include "Utils/ObjectUtils.h"
+#include "Utils/ArrayUtils.h"
+
+#include "Utils/PGAudioUtilities.h"
 
 #include "Blueprint/UserWidget.h"
 
 #include "Runtime/CoreUObject/Public/UObject/SoftObjectPtr.h"
-#include "Runtime/Engine/Classes/Engine/StreamableManager.h"
-
-#include "Engine/AssetManager.h"
 
 #include "Subsystems/GolfEventsSubsystem.h"
 #include "State/GolfPlayerState.h"
@@ -166,11 +167,8 @@ void APGHUD::DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& Widge
 
 	ActiveMessageWidgetClass = WidgetClass;
 
-	// Must use this versino and not just create an instance of FStreamableManager as then the loading doesn't work when the callback fires!
-	auto& StreamableManager = UAssetManager::Get().GetStreamableManager();
-
 	// Request to load the asset asynchronously
-	StreamableManager.RequestAsyncLoad(WidgetClass.ToSoftObjectPath(), [this, WeakThis = TWeakObjectPtr<APGHUD>(this), WidgetClass]()
+	PG::ObjectUtils::LoadClassAsync<UUserWidget>(WidgetClass, [this, WeakThis = TWeakObjectPtr<APGHUD>(this), WidgetClass](UClass* LoadedClass)
 	{
 		if (auto StrongThis = WeakThis.Get(); !StrongThis)
 		{
@@ -189,8 +187,6 @@ void APGHUD::DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& Widge
 			return;
 		}
 
-		// This lambda is executed once the asset has been loaded
-		UClass* LoadedClass = WidgetClass.Get();
 		if (!LoadedClass)
 		{
 			UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Warning, TEXT("%s: DisplayMessageWidgetByClass: WidgetClass=%s could not be loaded"),
@@ -230,11 +226,8 @@ void APGHUD::LoadWidgetAsync(const TSoftClassPtr<UUserWidget>& WidgetClass, TFun
 
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: LoadWidgetAsync: %s"), *GetName(), *LoggingUtils::GetName(WidgetClass));
 
-	// Must use this versino and not just create an instance of FStreamableManager as then the loading doesn't work when the callback fires!
-	auto& StreamableManager = UAssetManager::Get().GetStreamableManager();
-
 	// Request to load the asset asynchronously
-	StreamableManager.RequestAsyncLoad(WidgetClass.ToSoftObjectPath(), [this, WeakThis = TWeakObjectPtr<APGHUD>(this), WidgetClass, OnWidgetReady]()
+	PG::ObjectUtils::LoadClassAsync<UUserWidget>(WidgetClass, [this, WeakThis = TWeakObjectPtr<APGHUD>(this), WidgetClass, OnWidgetReady](UClass* LoadedClass)
 	{
 		if (auto StrongThis = WeakThis.Get(); !StrongThis)
 		{
@@ -245,8 +238,6 @@ void APGHUD::LoadWidgetAsync(const TSoftClassPtr<UUserWidget>& WidgetClass, TFun
 		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: LoadWidgetAsync: WidgetClass=%s Loaded"), *GetName(),
 			*LoggingUtils::GetName(WidgetClass));
 
-		// This lambda is executed once the asset has been loaded
-		UClass* LoadedClass = WidgetClass.Get();
 		if (!LoadedClass)
 		{
 			UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Warning, TEXT("%s: LoadWidgetAsync: WidgetClass=%s could not be loaded"),
@@ -317,6 +308,93 @@ void APGHUD::DisplayTurnWidget(const TSoftClassPtr<UUserWidget>& WidgetClass, Wi
 	}
 }
 
+void APGHUD::PlaySound2D(const TSoftObjectPtr<USoundBase>& Sound)
+{
+	if (!ensure(!Sound.IsNull()))
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: PlaySound2D: Requesting Sound=%s"), *GetName(), *Sound.ToString());
+
+	PG::ObjectUtils::LoadObjectAsync<USoundBase>(Sound, [WeakSelf = TWeakObjectPtr<APGHUD>(this)](USoundBase* Sound)
+	{
+		if (auto Self = WeakSelf.Get(); Self)
+		{
+			UPGAudioUtilities::PlaySfx2D(Self, Sound);
+		}
+	});
+}
+
+void APGHUD::PlayWinSoundIfApplicable()
+{
+	const auto bShouldCheckPlaySound = bScoresSynced && bCourseComplete;
+
+	auto PC = GetOwningPlayerController();
+	if (!ensure(PC))
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(PC, LogPGUI, Log, TEXT("%s: PlayWinSoundIfApplicable - %s: bScoresSynced=%s; bCourseComplete=%s"),
+		*GetName(), LoggingUtils::GetBoolString(bShouldCheckPlaySound), LoggingUtils::GetBoolString(bScoresSynced), LoggingUtils::GetBoolString(bCourseComplete));
+
+	if (!bShouldCheckPlaySound)
+	{
+		return;
+	}
+
+	// See if we are the winner
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return;
+	}
+
+	auto GameState = World->GetGameState<APaperGolfGameStateBase>();
+	if (!ensure(GameState))
+	{
+		return;
+	}
+
+	const auto& Players = GameState->GetSortedPlayerStatesByScore();
+
+	// Skip win sound if playing single player
+	if(Players.Num() <= 1)
+	{
+		UE_VLOG_UELOG(PC, LogPGUI, Log, TEXT("%s - PlayerController=%s - Skipping win sound as there is only %d player%s : %s"),
+			*GetName(), *PC->GetName(), Players.Num(), LoggingUtils::Pluralize(Players.Num()), *PG::ToStringObjectElements(Players));
+		return;
+	}
+
+	const auto MyPlayerState = PC->GetPlayerState<AGolfPlayerState>();
+
+	if (!ensureMsgf(MyPlayerState, TEXT("%s - PlayerController=%s - Could not get AGolfPlayerState : %s"),
+		*GetName(), *PC->GetName(), *LoggingUtils::GetName(PC->GetPlayerState<APlayerState>())))
+	{
+		UE_VLOG_UELOG(PC, LogPGUI, Error, TEXT("%s - PlayerController=%s - Could not get AGolfPlayerState : %s"),
+			*GetName(), *PC->GetName(), *LoggingUtils::GetName(PC->GetPlayerState<APlayerState>()));
+		return;
+	}
+
+	const auto Index = Players.IndexOfByKey(MyPlayerState);
+	if(Index == INDEX_NONE)
+	{
+		UE_VLOG_UELOG(PC, LogPGUI, Warning, TEXT("%s - PlayerController=%s - Could not find player %s in sorted scores list : %s"),
+			*GetName(), *PC->GetName(), *LoggingUtils::GetName(MyPlayerState), *PG::ToStringObjectElements(Players));
+		return;
+	}
+
+	UE_VLOG_UELOG(PC, LogPGUI, Log, TEXT("%s - PlayerController=%s - Found player %s at index %d in sorted scores list : %s"),
+		*GetName(), *PC->GetName(), *LoggingUtils::GetName(MyPlayerState), Index, *PG::ToStringObjectElements(Players));
+
+	// Best score
+	if (Index == 0)
+	{
+		PlaySound2D(WinSfx);
+	}
+}
+
 void APGHUD::Init()
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: Init"), *GetName());
@@ -344,36 +422,42 @@ void APGHUD::OnScoresSynced(APaperGolfGameStateBase& GameState)
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnScoresSynced"), *GetName());
 
-	// TODO: Call function  to update the scores and show them for the first time if they weren't showing before
+	bScoresSynced = true;
+
 	// 
 	// TODO: OnStartHole for HoleNumber 1 doesn't get called because the event happens before we can subscribe
 	// We could just do what we normally would on BeginPlay to cover that case
 	// 
-	// we can listen for start hole, next hole, course complete from here to show the appropriate widgets
-	// For example, hole finishes - we show the score card for players and current rankings and then also update the HUD 
-	// - which is actually equivalent to what we are doing in this function
 	// We may just want to use the combo of scores synced and then course complete, next hole (previous hole finished) to determine how to display the results
 	// Start Hole could be used to trigger the hole flyby and maybe show the updated player rankings from last hole
 
 	const auto& GolfPlayerScores = GameState.GetSortedPlayerStatesByScore();
-
 	ShowScoresHUD(GolfPlayerScores);
+	PlayWinSoundIfApplicable();
 }
 
 void APGHUD::OnPlayerScored(APaperGolfPawn* PaperGolfPawn)
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnPaperGolfPawnScored: %s"),
 		*GetName(), *LoggingUtils::GetName(PaperGolfPawn));
+
+	PlaySound2D(ScoredSfx);
 }
 
 void APGHUD::OnStartHole(int32 HoleNumber)
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnStartHole: HoleNumber=%d"), *GetName(), HoleNumber);
+
+	bScoresSynced = bCourseComplete = false;
 }
 
 void APGHUD::OnCourseComplete()
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnCourseComplete"), *GetName());
+
+	bCourseComplete = true;
+
+	PlayWinSoundIfApplicable();
 }
 
 void APGHUD::OnHoleComplete()

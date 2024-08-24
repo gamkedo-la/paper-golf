@@ -91,4 +91,23 @@ UAudioComponent* UPGAudioUtilities::PlaySfxAttached(const AActor* Actor, USoundB
 	return SpawnedAudioComponent;
 }
 
+void UPGAudioUtilities::PlaySfx2D(const UObject* WorldContextObject, USoundBase* Sound)
+{
+	if (!ensure(WorldContextObject))
+	{
+		return;
+	}
+
+	if (!ensure(Sound))
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(WorldContextObject, LogPGCore, Log,
+		TEXT("%s-PGAudioUtilities: PlaySfx2D - Playing sfx=%s"),
+		*WorldContextObject->GetName(), *Sound->GetName());
+
+	UGameplayStatics::PlaySound2D(WorldContextObject, Sound);
+}
+
 #pragma endregion General Audio
