@@ -7,12 +7,16 @@
 
 #include "PaperGolfTypes.h"
 
+#include "Data/GolfAIConfigData.h"
+
 #include "Pawn/PaperGolfPawn.h"
 
 #include "GolfAIShotComponent.generated.h"
 
 class APaperGolfPawn;
 class AGolfPlayerState;
+
+class UCurveTable;
 
 USTRUCT()
 struct FAIShotContext
@@ -74,14 +78,17 @@ private:
 		float PowerMultiplier{ 1.0f };
 	};
 
-	FShotCalculationResult CalculateShotFactors(const FVector& FlickLocation, float FlickMaxSpeed, float PowerFraction) const;
+	FShotCalculationResult CalculateShotFactors(const FVector& FlickLocation, float PreferredShotAngle, float FlickMaxSpeed, float PowerFraction) const;
 
-	TTuple<bool, float> CalculateShotPitch(const FVector& FlickLocation, const FVector& FlickDirection, float FlickMaxSpeed, float PowerFraction) const;
+	TTuple<bool, float> CalculateShotPitch(const FVector& FlickLocation, const FVector& FlickDirection, float FlickSpeed) const;
 
 	float GetMaxProjectileHeight(float FlickPitchAngle, float FlickSpeed) const;
 	bool TraceShotAngle(const APaperGolfPawn& PlayerPawn, const FVector& TraceStart, const FVector& FlickDirection, float FlickSpeed, float FlickAngleDegrees) const;
 
 	FVector GetFocusActorLocation(const FVector& FlickLocation) const;
+
+	bool ValidateConfig();
+	bool ValidateCurveTable(UCurveTable* CurveTable) const;
 
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
@@ -114,6 +121,14 @@ private:
 
 	UPROPERTY(Category = "Shot Arc Prediction", EditDefaultsOnly)
 	float MinTraceDistance{ 1000.0f };
+
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	TObjectPtr<UCurveTable> AIConfigCurveTable{};
+
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	TObjectPtr<UDataTable> AIErrorsDataTable{};
+
+	TArray<FGolfAIConfigData> AIErrorsData{};
 
 	UPROPERTY(Transient)
 	FAIShotContext ShotContext{};

@@ -17,6 +17,10 @@
 
 #include "Kismet/GameplayStatics.h"
 
+#include "Engine/CurveTable.h"
+#include "Curves/RealCurve.h"
+#include "Data/GolfAIConfigData.h"
+
 #include <array>
 #include <iterator>
 
@@ -25,6 +29,14 @@
 namespace
 {
 	constexpr const std::array ShotPitchAngles = { 45.0f, 60.0f, 75.0f, 30.0f, 0.0f, -15.0f };
+
+	// Gets the power fraction for a given delta distance in meters from the hole
+	const FName DeltaDistanceMetersVsPowerFraction = TEXT("DeltaDistanceM_Power");
+
+	// Gets the pitch angle to hit the shot vs the power fraction
+	const FName PowerFractionVsPitchAngle = TEXT("Power_Angle");
+
+	FRealCurve* FindCurveTableForKey(UCurveTable* CurveTable, const FName& Key);
 }
 
 UGolfAIShotComponent::UGolfAIShotComponent()
@@ -57,6 +69,8 @@ void UGolfAIShotComponent::BeginPlay()
 	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: BeginPlay"), *LoggingUtils::GetName(GetOwner()), *GetName());
 
 	Super::BeginPlay();
+
+	ValidateConfig();
 }
 
 TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::CalculateShotParams() const
@@ -158,7 +172,7 @@ TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::Calcul
 	FlickParams.PowerFraction = GeneratePowerFraction(PowerFraction);
 	FlickParams.Accuracy = GenerateAccuracy();
 
-	const auto& ShotCalculationResult = CalculateShotFactors(FlickLocation, FlickMaxSpeed, FlickParams.PowerFraction);
+	const auto& ShotCalculationResult = CalculateShotFactors(FlickLocation, 45.0f, FlickMaxSpeed, FlickParams.PowerFraction);
 
 	FlickParams.PowerFraction *= FMath::Max(ShotCalculationResult.PowerMultiplier, MinRetryShotPowerReductionFactor);
 
@@ -206,6 +220,43 @@ FVector UGolfAIShotComponent::GetFocusActorLocation(const FVector& FlickLocation
 	return HoleLocation;
 }
 
+bool UGolfAIShotComponent::ValidateConfig()
+{
+	bool bValid = true;
+
+	AIErrorsData = GolfAIConfigDataParser::ReadAll(AIErrorsDataTable);
+	if (AIErrorsData.IsEmpty())
+	{
+		UE_VLOG_UELOG(this, LogPGAI, Error, TEXT("%s-%s: ValidateConfig - FALSE - AIErrorsData is empty"), *LoggingUtils::GetName(GetOwner()), *GetName());
+		bValid = false;
+	}
+
+	if (!ValidateCurveTable(AIConfigCurveTable))
+	{
+		UE_VLOG_UELOG(this, LogPGAI, Error, TEXT("%s-%s: ValidateConfig - FALSE - AIConfigCurveTable is invalid"), *LoggingUtils::GetName(GetOwner()), *GetName());
+		bValid = false;
+	}
+
+	if (bValid)
+	{
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: ValidateConfig - TRUE"), *LoggingUtils::GetName(GetOwner()), *GetName());
+	}
+
+	return bValid;
+}
+
+bool UGolfAIShotComponent::ValidateCurveTable(UCurveTable* CurveTable) const
+{
+	if (!ensure(CurveTable))
+	{
+		return false;
+	}
+
+	// Make sure can find the required curve tables
+	return FindCurveTableForKey(CurveTable, DeltaDistanceMetersVsPowerFraction)  &&
+		   FindCurveTableForKey(CurveTable, PowerFractionVsPitchAngle);
+}
+
 float UGolfAIShotComponent::GenerateAccuracy() const
 {
 	return FMath::FRandRange(-AccuracyDeviation, AccuracyDeviation);
@@ -228,7 +279,7 @@ float UGolfAIShotComponent::CalculateZOffset() const
 		return MaxZOffset;
 	}
 }
-UGolfAIShotComponent::FShotCalculationResult UGolfAIShotComponent::CalculateShotFactors(const FVector& FlickLocation, float FlickMaxSpeed, float PowerFraction) const
+UGolfAIShotComponent::FShotCalculationResult UGolfAIShotComponent::CalculateShotFactors(const FVector& FlickLocation, float PreferredPitchAngle, float FlickMaxSpeed, float PowerFraction) const
 {
 	const auto PlayerPawn = ShotContext.PlayerPawn;
 	check(PlayerPawn);
@@ -241,6 +292,16 @@ UGolfAIShotComponent::FShotCalculationResult UGolfAIShotComponent::CalculateShot
 	const auto& HoleDirection = (GolfHole->GetActorLocation() - FlickLocation).GetSafeNormal();
 
 	UE_VLOG_ARROW(GetOwner(), LogPGAI, Log, FlickLocation, FlickLocation + ActorUpVector * 100.0f, FColor::Blue, TEXT("Up"));
+
+	// Via the work energy principle, reducing the power by N will reduce the speed by factor of sqrt(N)
+	const auto FlickSpeed = FlickMaxSpeed * FMath::Sqrt(PowerFraction);
+
+	if (TraceShotAngle(*PlayerPawn, FlickLocation, DefaultFlickDirection, FlickSpeed, PreferredPitchAngle))
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotFactors - Solution Found with preferred pitch - PreferredPitch=%.1f"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), PreferredPitchAngle);
+		return { PreferredPitchAngle, 0.0f, 1.0f };
+	}
 
 	FShotCalculationResult LastResult{};
 
@@ -278,7 +339,7 @@ UGolfAIShotComponent::FShotCalculationResult UGolfAIShotComponent::CalculateShot
 
 		UE_VLOG_UELOG(this, LogPGAI, Verbose, TEXT("%s-%s: CalculateShotFactors - i=%d/%d; Yaw=%.1f; FlickDirectionRotated=%s"),
 			*LoggingUtils::GetName(GetOwner()), *GetName(), i, Increments - 1, Yaw, *FlickDirectionRotated.ToCompactString());
-		const auto [bPass, Pitch ] = CalculateShotPitch(FlickLocation, FlickDirectionRotated, FlickMaxSpeed, PowerFraction);
+		const auto [bPass, Pitch ] = CalculateShotPitch(FlickLocation, FlickDirectionRotated, FlickSpeed);
 		LastResult = { Pitch, Yaw, static_cast<float>(DefaultFlickDirection | FlickDirectionRotated)};
 
 		if (bPass)
@@ -295,7 +356,7 @@ UGolfAIShotComponent::FShotCalculationResult UGolfAIShotComponent::CalculateShot
 	return LastResult;
 }
 
-TTuple<bool, float> UGolfAIShotComponent::CalculateShotPitch(const FVector& FlickLocation, const FVector& FlickDirection, float FlickMaxSpeed, float PowerFraction) const
+TTuple<bool, float> UGolfAIShotComponent::CalculateShotPitch(const FVector& FlickLocation, const FVector& FlickDirection, float FlickSpeed) const
 {
 	static_assert(ShotPitchAngles.size() > 0, "ShotPitchAngles must have at least one element");
 
@@ -310,9 +371,6 @@ TTuple<bool, float> UGolfAIShotComponent::CalculateShotPitch(const FVector& Flic
 
 		auto World = GetWorld();
 		check(World);
-
-		// Via the work energy principle, reducing the power by N will reduce the speed by factor of sqrt(N)
-		const auto FlickSpeed = FlickMaxSpeed * FMath::Sqrt(PowerFraction);
 
 		for (auto It = ShotPitchAngles.begin(), End = std::next(ShotPitchAngles.begin(), ShotPitchAngles.size() - 1); It != End; ++It)
 		{
@@ -393,4 +451,19 @@ FString FAIShotContext::ToString() const
 {
 	return FString::Printf(TEXT("PlayerPawn=%s; PlayerState=%s; ShotType=%s"),
 		*LoggingUtils::GetName(PlayerPawn), *LoggingUtils::GetName(PlayerState), *LoggingUtils::GetName(ShotType));
+}
+
+namespace
+{
+	FRealCurve* FindCurveTableForKey(UCurveTable* CurveTable, const FName& Key)
+	{
+		check(CurveTable);
+
+#if WITH_EDITOR
+		FString Context = FString::Printf(TEXT("FindCurveForKey: %s -> %s"), *LoggingUtils::GetName(CurveTable), *Key.ToString());
+		return CurveTable->FindCurve(Key, Context, true);
+#else
+		return CurveTable->FindCurveUnchecked(Key);
+#endif
+	}
 }
