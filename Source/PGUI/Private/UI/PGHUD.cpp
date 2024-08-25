@@ -377,6 +377,14 @@ void APGHUD::PlayWinSoundIfApplicable()
 		return;
 	}
 
+	// Skip playing sound if spectator
+	if (MyPlayerState->IsSpectatorOnly())
+	{
+		UE_VLOG_UELOG(PC, LogPGUI, Log, TEXT("%s - PlayerController=%s - Skipping win sound as player is a spectator only : %s"),
+			*GetName(), *PC->GetName(), *LoggingUtils::GetName(MyPlayerState));
+		return;
+	}
+
 	const auto Index = Players.IndexOfByKey(MyPlayerState);
 	if(Index == INDEX_NONE)
 	{

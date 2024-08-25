@@ -81,7 +81,7 @@ TArray<AGolfPlayerState*> APaperGolfGameStateBase::GetSortedPlayerStatesByScore(
 
 	for (auto PlayerState : PlayerArray)
 	{
-		if (auto GolfPlayerState = Cast<AGolfPlayerState>(PlayerState); GolfPlayerState)
+		if (auto GolfPlayerState = Cast<AGolfPlayerState>(PlayerState); GolfPlayerState && !GolfPlayerState->IsSpectatorOnly())
 		{
 			GolfPlayerStates.Add(GolfPlayerState);
 		}
