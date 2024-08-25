@@ -36,7 +36,9 @@ namespace
 	// Gets the pitch angle to hit the shot vs the power fraction
 	const FName PowerFractionVsPitchAngle = TEXT("Power_Angle");
 
-	FRealCurve* FindCurveTableForKey(UCurveTable* CurveTable, const FName& Key);
+	FRealCurve* FindCurveForKey(UCurveTable* CurveTable, const FName& Key);
+	
+	constexpr float DefaultPitchAngle = 45.0f;
 }
 
 UGolfAIShotComponent::UGolfAIShotComponent()
@@ -70,10 +72,10 @@ void UGolfAIShotComponent::BeginPlay()
 
 	Super::BeginPlay();
 
-	ValidateConfig();
+	ValidateAndLoadConfig();
 }
 
-TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::CalculateShotParams() const
+TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::CalculateShotParams()
 {
 	if (!ensure(ShotContext.PlayerPawn))
 	{
@@ -168,11 +170,15 @@ TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::Calcul
 	const auto FlickDragForceMultiplier = PlayerPawn->GetFlickDragForceMultiplier(PowerFraction * FlickMaxForce);
 	PowerFraction = FMath::Clamp(PowerFraction / FlickDragForceMultiplier, 0.0f, 1.0f);
 
-	// Add error to power calculation and accuracy
-	FlickParams.PowerFraction = GeneratePowerFraction(PowerFraction);
-	FlickParams.Accuracy = GenerateAccuracy();
+	const auto ShotCalibrationResult = CalibrateShot(FlickLocation, PowerFraction);
+	PowerFraction = ShotCalibrationResult.PowerFraction;
 
-	const auto& ShotCalculationResult = CalculateShotFactors(FlickLocation, 45.0f, FlickMaxSpeed, FlickParams.PowerFraction);
+	// Add error to power calculation and accuracy
+	const auto FlickError = CalculateShotError(PowerFraction);
+	FlickParams.PowerFraction = FlickError.PowerFraction;
+	FlickParams.Accuracy = FlickError.Accuracy;
+
+	const auto& ShotCalculationResult = CalculateShotFactors(FlickLocation, ShotCalibrationResult.Pitch, FlickMaxSpeed, FlickParams.PowerFraction);
 
 	FlickParams.PowerFraction *= FMath::Max(ShotCalculationResult.PowerMultiplier, MinRetryShotPowerReductionFactor);
 
@@ -220,7 +226,7 @@ FVector UGolfAIShotComponent::GetFocusActorLocation(const FVector& FlickLocation
 	return HoleLocation;
 }
 
-bool UGolfAIShotComponent::ValidateConfig()
+bool UGolfAIShotComponent::ValidateAndLoadConfig()
 {
 	bool bValid = true;
 
@@ -253,18 +259,18 @@ bool UGolfAIShotComponent::ValidateCurveTable(UCurveTable* CurveTable) const
 	}
 
 	// Make sure can find the required curve tables
-	return FindCurveTableForKey(CurveTable, DeltaDistanceMetersVsPowerFraction)  &&
-		   FindCurveTableForKey(CurveTable, PowerFractionVsPitchAngle);
+	return FindCurveForKey(CurveTable, DeltaDistanceMetersVsPowerFraction)  &&
+		   FindCurveForKey(CurveTable, PowerFractionVsPitchAngle);
 }
 
-float UGolfAIShotComponent::GenerateAccuracy() const
+float UGolfAIShotComponent::GenerateAccuracy(float Deviation) const
 {
-	return FMath::FRandRange(-AccuracyDeviation, AccuracyDeviation);
+	return FMath::FRandRange(-Deviation, Deviation);
 }
 
-float UGolfAIShotComponent::GeneratePowerFraction(float InPowerFraction) const
+float UGolfAIShotComponent::GeneratePowerFraction(float InPowerFraction, float Deviation) const
 {
-	return FMath::Clamp(InPowerFraction * (1 + FMath::RandRange(-PowerDeviation, PowerDeviation)), MinShotPower, 1.0f);
+	return FMath::Clamp(InPowerFraction * (1 + FMath::RandRange(-Deviation, Deviation)), MinShotPower, 1.0f);
 }
 
 float UGolfAIShotComponent::CalculateZOffset() const
@@ -434,7 +440,7 @@ UGolfAIShotComponent::FAIShotSetupResult UGolfAIShotComponent::CalculateDefaultS
 		.ShotType = ShotContext.ShotType,
 		.LocalZOffset = 0,
 		.PowerFraction = 1.0f,
-		.Accuracy = GenerateAccuracy()
+		.Accuracy = GenerateAccuracy(DefaultAccuracyDeviation)
 	};
 
 	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateShotParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f"),
@@ -443,7 +449,156 @@ UGolfAIShotComponent::FAIShotSetupResult UGolfAIShotComponent::CalculateDefaultS
 	return FAIShotSetupResult
 	{
 		.FlickParams = FlickParams,
-		.ShotPitch = 45.0f
+		.ShotPitch = DefaultPitchAngle
+	};
+}
+
+UGolfAIShotComponent::FShotCalibrationResult UGolfAIShotComponent::CalibrateShot(const FVector& FlickLocation, float PowerFraction) const
+{
+	// TODO: Replace with curve table results
+	if (!AIConfigCurveTable)
+	{
+		return FShotCalibrationResult
+		{
+			.PowerFraction = PowerFraction,
+			.Pitch = DefaultPitchAngle
+		};
+	}
+
+	float PitchAngle = DefaultPitchAngle;
+
+	auto Curve = FindCurveForKey(AIConfigCurveTable, DeltaDistanceMetersVsPowerFraction);
+	if (Curve)
+	{
+		check(ShotContext.GolfHole);
+		const auto& HoleLocation = ShotContext.GolfHole->GetActorLocation();
+
+		const auto DistanceToHoleMeters = (HoleLocation - FlickLocation).Size2D() / 100;
+
+		const auto PowerReductionFactor = Curve->Eval(DistanceToHoleMeters);
+
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalibrateShot - DistanceToHole=%.1fm; PowerReductionFactor=%.2f; PowerFraction=%.2f -> %.2f"),
+			*GetName(), DistanceToHoleMeters, PowerReductionFactor, PowerFraction, PowerFraction * PowerReductionFactor);
+
+		PowerFraction *= PowerReductionFactor;
+	}
+
+	Curve = FindCurveForKey(AIConfigCurveTable, PowerFractionVsPitchAngle);
+	if (Curve)
+	{
+		PitchAngle = Curve->Eval(PowerFraction);
+
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalibrateShot - PowerFraction=%.2f -> PitchAngle=%.2f"),
+			*GetName(), PowerFraction, PitchAngle);
+	}
+
+	return FShotCalibrationResult
+	{
+		.PowerFraction = PowerFraction,
+		.Pitch = PitchAngle
+	};
+}
+
+const FGolfAIConfigData* UGolfAIShotComponent::SelectAIConfigEntry() const
+{
+	const FGolfAIConfigData* Selected{};
+
+	for (const auto& Entry : AIErrorsData)
+	{
+		if(ShotsSinceLastError <= Entry.ShotsSinceLastError)
+		{
+			Selected = &Entry;
+			break;
+		}
+	}
+
+	if (!Selected && !AIErrorsData.IsEmpty())
+	{
+		Selected = &AIErrorsData.Last();
+
+		UE_VLOG_UELOG(this, LogPGAI, Warning, TEXT("%s-%s: SelectAIConfigEntry - ShotsSinceLastError=%d; Defaulted to last entry with Shots=%d"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), ShotsSinceLastError, Selected->ShotsSinceLastError);
+	}
+
+	return Selected;
+}
+
+UGolfAIShotComponent::FShotErrorResult UGolfAIShotComponent::CalculateShotError(float PowerFraction)
+{
+	const auto AIConfigEntry = SelectAIConfigEntry();
+	if (!AIConfigEntry)
+	{
+		UE_VLOG_UELOG(this, LogPGAI, Warning, TEXT("%s-%s: CalculateShotError - AIConfigEntry is NULL - using defaults"), *LoggingUtils::GetName(GetOwner()), *GetName());
+
+		return FShotErrorResult
+		{
+			.PowerFraction = GeneratePowerFraction(PowerFraction, DefaultPowerDeviation),
+			.Accuracy = GenerateAccuracy(DefaultAccuracyDeviation),
+		};
+	}
+
+	const auto PerfectShotRoll = FMath::FRand();
+
+	if (PerfectShotRoll <= AIConfigEntry->PerfectShotProbability)
+	{
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: CalculateShotError - Perfect Shot - PerfectShotRoll=%.2f; PerfectShotProbability=%.2f"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), PerfectShotRoll, AIConfigEntry->PerfectShotProbability);
+
+		++ShotsSinceLastError;
+
+		return FShotErrorResult
+		{
+			.PowerFraction = PowerFraction,
+			.Accuracy = 0.0f
+		};
+	}
+
+	ShotsSinceLastError = 0;
+
+	// Check for a "shank shot"
+	const auto ShankShotRoll = FMath::FRand();
+
+	if (ShankShotRoll <= AIConfigEntry->ShankShotProbability)
+	{
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: CalculateShotError - Shank Shot - ShankShotRoll=%.2f; ShankShotProbability=%.2f"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), ShankShotRoll, AIConfigEntry->ShankShotProbability);
+
+		const auto ShankPowerFactor = AIConfigEntry->ShankPowerFactor;
+		if (ShankPowerFactor * PowerFraction <= 1.0f)
+		{
+			PowerFraction *= ShankPowerFactor;
+		}
+		else
+		{
+			PowerFraction = FMath::Max(MinShotPower, PowerFraction / ShankPowerFactor);
+		}
+
+		const auto Accuracy = (FMath::RandBool() ? 1 : -1) * AIConfigEntry->ShankAccuracy;
+
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: CalculateShotError - Shank Shot - PowerFraction=%.2f; ShankPowerFactor=%.2f; ShankAccuracy=%.2f"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), PowerFraction, ShankPowerFactor, Accuracy);
+
+		return FShotErrorResult
+		{
+			.PowerFraction = PowerFraction,
+			.Accuracy = Accuracy
+		};
+	}
+
+	const auto AccuracyDeviation = AIConfigEntry->DefaultAccuracyDelta;
+	const auto PowerDeviation = AIConfigEntry->DefaultPowerDelta;
+
+	const auto Accuracy = GenerateAccuracy(AccuracyDeviation);
+	PowerFraction = GeneratePowerFraction(PowerFraction, PowerDeviation);
+
+	// use default calculation
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: CalculateShotError - Default - PowerFraction=%.2f; Accuracy = %.2f; AccuracyDeviation=%.2f; PowerDeviation=%.2f"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), PowerFraction, Accuracy, AccuracyDeviation, PowerDeviation);
+
+	return FShotErrorResult
+	{
+		.PowerFraction = PowerFraction,
+		.Accuracy = Accuracy,
 	};
 }
 
@@ -455,7 +610,7 @@ FString FAIShotContext::ToString() const
 
 namespace
 {
-	FRealCurve* FindCurveTableForKey(UCurveTable* CurveTable, const FName& Key)
+	FRealCurve* FindCurveForKey(UCurveTable* CurveTable, const FName& Key)
 	{
 		check(CurveTable);
 

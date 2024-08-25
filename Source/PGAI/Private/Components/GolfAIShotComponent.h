@@ -63,20 +63,35 @@ protected:
 
 private:
 
-	TOptional<FAIShotSetupResult> CalculateShotParams() const;
-	FAIShotSetupResult CalculateDefaultShotParams() const;
-
-	float GenerateAccuracy() const;
-	float GeneratePowerFraction(float InPowerFraction) const;
-
-	float CalculateZOffset() const;
-
 	struct FShotCalculationResult
 	{
 		float Pitch{};
 		float Yaw{};
 		float PowerMultiplier{ 1.0f };
 	};
+
+	struct FShotErrorResult
+	{
+		float PowerFraction{};
+		float Accuracy{};
+	};
+
+	struct FShotCalibrationResult
+	{
+		float PowerFraction{};
+		float Pitch{};
+	};
+
+	TOptional<FAIShotSetupResult> CalculateShotParams();
+	FAIShotSetupResult CalculateDefaultShotParams() const;
+
+	FShotCalibrationResult CalibrateShot(const FVector& FlickLocation, float PowerFraction) const;
+	FShotErrorResult CalculateShotError(float PowerFraction);
+
+	float GenerateAccuracy(float Deviation) const;
+	float GeneratePowerFraction(float InPowerFraction, float Deviation) const;
+
+	float CalculateZOffset() const;
 
 	FShotCalculationResult CalculateShotFactors(const FVector& FlickLocation, float PreferredShotAngle, float FlickMaxSpeed, float PowerFraction) const;
 
@@ -87,19 +102,20 @@ private:
 
 	FVector GetFocusActorLocation(const FVector& FlickLocation) const;
 
-	bool ValidateConfig();
+	bool ValidateAndLoadConfig();
 	bool ValidateCurveTable(UCurveTable* CurveTable) const;
+
+	const FGolfAIConfigData* SelectAIConfigEntry() const;
 
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float BounceOverhitCorrectionFactor{ 0.1f };
 
-	// TODO: Use curve table
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
-	float AccuracyDeviation{ 0.3f };
+	float DefaultAccuracyDeviation{ 0.3f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
-	float PowerDeviation{ 0.1f };
+	float DefaultPowerDeviation{ 0.1f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float MinShotPower{ 0.1f };
@@ -132,4 +148,6 @@ private:
 
 	UPROPERTY(Transient)
 	FAIShotContext ShotContext{};
+
+	int32 ShotsSinceLastError{};
 };
