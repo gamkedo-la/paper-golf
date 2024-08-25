@@ -102,7 +102,7 @@ TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::Calcul
 	// Using wolfram alpha to solve the equation when theta is 45 for v, we get
 	// v = d * sqrt(g) / sqrt(d + y)
 	// where d is the horizontal distance XY and y is the vertical distance Z and v is vxy
-	const auto& FocusActorLocation = FocusActor->GetActorLocation();
+	const auto& FocusActorLocation = GetFocusActorLocation(FlickLocation);
 
 	const auto PositionDelta = FocusActorLocation - FlickLocation;
 	const auto HorizontalDistance = PositionDelta.Size2D();
@@ -158,16 +158,52 @@ TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::Calcul
 	FlickParams.PowerFraction = GeneratePowerFraction(PowerFraction);
 	FlickParams.Accuracy = GenerateAccuracy();
 
-	const auto ShotPitch = CalculateShotPitch(FlickLocation, FlickMaxSpeed, FlickParams.PowerFraction);
+	const auto& ShotCalculationResult = CalculateShotFactors(FlickLocation, FlickMaxSpeed, FlickParams.PowerFraction);
 
-	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateShotParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f; ShotPitch=%.1f; FlickDragForceMultiplier=%1.f"),
-		*GetName(), *LoggingUtils::GetName(FlickParams.ShotType), FlickParams.PowerFraction, FlickParams.Accuracy, FlickParams.LocalZOffset, ShotPitch, FlickDragForceMultiplier);
+	FlickParams.PowerFraction *= FMath::Max(ShotCalculationResult.PowerMultiplier, MinRetryShotPowerReductionFactor);
+
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateShotParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f; ShotPitch=%.1f; ShotYaw=%.1f; FlickDragForceMultiplier=%1.f"),
+		*GetName(), *LoggingUtils::GetName(FlickParams.ShotType),
+		FlickParams.PowerFraction, FlickParams.Accuracy, FlickParams.LocalZOffset, ShotCalculationResult.Pitch, ShotCalculationResult.Yaw, FlickDragForceMultiplier);
 
 	return FAIShotSetupResult
 	{
 		.FlickParams = FlickParams,
-		.ShotPitch = ShotPitch
+		.ShotPitch = ShotCalculationResult.Pitch,
+		.ShotYaw = ShotCalculationResult.Yaw
 	};
+}
+
+FVector UGolfAIShotComponent::GetFocusActorLocation(const FVector& FlickLocation) const
+{
+	auto PlayerPawn = ShotContext.PlayerPawn;
+	check(PlayerPawn);
+
+	// Predict flick to focus actor
+	auto FocusActor = PlayerPawn->GetFocusActor();
+	check(FocusActor);
+
+	// Prefer focus actor unless the hole is closer
+	const auto& DefaultLocation = FocusActor->GetActorLocation();
+	const auto FocusDistanceSq = (DefaultLocation - FlickLocation).SizeSquared2D();
+
+	auto GolfHole = ShotContext.GolfHole;
+	check(GolfHole);
+
+	const auto HoleLocation = GolfHole->GetActorLocation();
+	const auto HoleDistanceSq = (HoleLocation - FlickLocation).SizeSquared2D();
+
+	if(FocusDistanceSq <= HoleDistanceSq)
+	{
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: GetFocusActorLocation - Using focus actor as FocusActor=%s is closer than hole; FocusDistance=%.1fm; HoleDistance=%.1fm"),
+			*GetName(), *LoggingUtils::GetName(FocusActor), FMath::Sqrt(FocusDistanceSq) * 100, FMath::Sqrt(HoleDistanceSq) * 100);
+		return DefaultLocation;
+	}
+
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: GetFocusActorLocation - Using hole as it is closer than FocusActor=%s; FocusDistance=%.1fm; HoleDistance=%.1fm"),
+		*GetName(), *LoggingUtils::GetName(FocusActor), FMath::Sqrt(FocusDistanceSq) * 100, FMath::Sqrt(HoleDistanceSq) * 100);
+
+	return HoleLocation;
 }
 
 float UGolfAIShotComponent::GenerateAccuracy() const
@@ -192,14 +228,80 @@ float UGolfAIShotComponent::CalculateZOffset() const
 		return MaxZOffset;
 	}
 }
+UGolfAIShotComponent::FShotCalculationResult UGolfAIShotComponent::CalculateShotFactors(const FVector& FlickLocation, float FlickMaxSpeed, float PowerFraction) const
+{
+	const auto PlayerPawn = ShotContext.PlayerPawn;
+	check(PlayerPawn);
 
-float UGolfAIShotComponent::CalculateShotPitch(const FVector& FlickLocation, float FlickMaxSpeed, float PowerFraction) const
+	const auto GolfHole = ShotContext.GolfHole;
+	check(GolfHole);
+
+	const auto& DefaultFlickDirection = PlayerPawn->GetFlickDirection();
+	const auto& ActorUpVector = PlayerPawn->GetActorUpVector();
+	const auto& HoleDirection = (GolfHole->GetActorLocation() - FlickLocation).GetSafeNormal();
+
+	UE_VLOG_ARROW(GetOwner(), LogPGAI, Log, FlickLocation, FlickLocation + ActorUpVector * 100.0f, FColor::Blue, TEXT("Up"));
+
+	FShotCalculationResult LastResult{};
+
+	for (int32 i = 0, PreferredDirection = 1, Increments = 2 * FMath::FloorToInt32(180.0f / YawRetryDelta); i < Increments; ++i)
+	{
+		if (i == 1)
+		{
+			// skip retrying yaw 0
+			continue;
+		}
+
+		// calculate preferred direction for the first time
+		TArray<FVector, TInlineAllocator<2>> CalculatedDirections;
+		if (i == 2)
+		{
+			// Pick direction that most aligns with hole
+			const auto PositiveRotation = DefaultFlickDirection.RotateAngleAxis(YawRetryDelta, ActorUpVector);
+			CalculatedDirections.Add(PositiveRotation);
+
+			const auto NegativeRotation = DefaultFlickDirection.RotateAngleAxis(-YawRetryDelta, ActorUpVector);
+			CalculatedDirections.Add(NegativeRotation);
+
+			const auto PositiveDot = PositiveRotation | HoleDirection;
+			const auto NegativeDot = NegativeRotation | HoleDirection;
+
+			PreferredDirection = PositiveDot >= NegativeDot ? 1 : -1;
+
+			UE_VLOG_UELOG(GetOwner(), LogPGAI, Verbose, TEXT("%s-%s: CalculateShotFactors - PreferredDirection=%d; PositiveDot=%.2f; NegativeDot=%.2f; PositionRotation=%s; NegativeRotation=%s"),
+				*LoggingUtils::GetName(GetOwner()), *GetName(), PreferredDirection, PositiveDot, NegativeDot, *PositiveRotation.ToCompactString(), *NegativeRotation.ToCompactString());
+		}
+
+		// Try positive and then negative version of angle
+		const auto Yaw = YawRetryDelta * (i / 2) * (i % 2 == 0 ? PreferredDirection : -PreferredDirection);
+		const FVector FlickDirectionRotated = CalculatedDirections.IsEmpty() ? DefaultFlickDirection.RotateAngleAxis(Yaw, ActorUpVector) : CalculatedDirections[PreferredDirection > 0 ? 0 : 1];
+
+		UE_VLOG_UELOG(this, LogPGAI, Verbose, TEXT("%s-%s: CalculateShotFactors - i=%d/%d; Yaw=%.1f; FlickDirectionRotated=%s"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), i, Increments - 1, Yaw, *FlickDirectionRotated.ToCompactString());
+		const auto [bPass, Pitch ] = CalculateShotPitch(FlickLocation, FlickDirectionRotated, FlickMaxSpeed, PowerFraction);
+		LastResult = { Pitch, Yaw, static_cast<float>(DefaultFlickDirection | FlickDirectionRotated)};
+
+		if (bPass)
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotFactors - Solution Found - Yaw=%.1f; Pitch=%.1f; PowerReduction=%1.f"),
+				*LoggingUtils::GetName(GetOwner()), *GetName(), Yaw, Pitch, LastResult.PowerMultiplier);
+			return LastResult;
+		}
+	}
+
+	UE_VLOG_UELOG(GetOwner(), LogPGAI, Display, TEXT("%s-%s: CalculateShotFactors - NO SOLUTION - Default to Yaw=%.1f; Pitch=%.1f; PowerReduction=%.1f"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), LastResult.Yaw, LastResult.Pitch, LastResult.PowerMultiplier);
+
+	return LastResult;
+}
+
+TTuple<bool, float> UGolfAIShotComponent::CalculateShotPitch(const FVector& FlickLocation, const FVector& FlickDirection, float FlickMaxSpeed, float PowerFraction) const
 {
 	static_assert(ShotPitchAngles.size() > 0, "ShotPitchAngles must have at least one element");
 
 	if constexpr(ShotPitchAngles.size() == 1)
 	{
-		return ShotPitchAngles.front();
+		return { true, ShotPitchAngles.front() };
 	}
 	else
 	{
@@ -211,7 +313,6 @@ float UGolfAIShotComponent::CalculateShotPitch(const FVector& FlickLocation, flo
 
 		// Via the work energy principle, reducing the power by N will reduce the speed by factor of sqrt(N)
 		const auto FlickSpeed = FlickMaxSpeed * FMath::Sqrt(PowerFraction);
-		const auto FlickDirection = PlayerPawn->GetFlickDirection();
 
 		for (auto It = ShotPitchAngles.begin(), End = std::next(ShotPitchAngles.begin(), ShotPitchAngles.size() - 1); It != End; ++It)
 		{
@@ -220,12 +321,12 @@ float UGolfAIShotComponent::CalculateShotPitch(const FVector& FlickLocation, flo
 			bool bPass = TraceShotAngle(*PlayerPawn, FlickLocation, FlickDirection, FlickSpeed, PitchAngle);
 			if (bPass)
 			{
-				return PitchAngle;
+				return { true, PitchAngle };
 			}
 		}
 
 		// return default angle, which is last element
-		return ShotPitchAngles.back();
+		return { false, ShotPitchAngles.back() };
 	}
 }
 

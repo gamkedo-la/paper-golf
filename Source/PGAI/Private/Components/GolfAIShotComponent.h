@@ -25,6 +25,11 @@ struct FAIShotContext
 	UPROPERTY(Transient)
 	TObjectPtr<AGolfPlayerState> PlayerState{};
 
+	UPROPERTY(Transient)
+	AActor* GolfHole{};
+
+	// TODO: May want to pass in the full array of focus actors to select another target
+
 	EShotType ShotType{ EShotType::Default };
 
 	FString ToString() const;
@@ -61,10 +66,22 @@ private:
 	float GeneratePowerFraction(float InPowerFraction) const;
 
 	float CalculateZOffset() const;
-	float CalculateShotPitch(const FVector& FlickLocation, float FlickMaxSpeed, float PowerFraction) const;
+
+	struct FShotCalculationResult
+	{
+		float Pitch{};
+		float Yaw{};
+		float PowerMultiplier{ 1.0f };
+	};
+
+	FShotCalculationResult CalculateShotFactors(const FVector& FlickLocation, float FlickMaxSpeed, float PowerFraction) const;
+
+	TTuple<bool, float> CalculateShotPitch(const FVector& FlickLocation, const FVector& FlickDirection, float FlickMaxSpeed, float PowerFraction) const;
 
 	float GetMaxProjectileHeight(float FlickPitchAngle, float FlickSpeed) const;
 	bool TraceShotAngle(const APaperGolfPawn& PlayerPawn, const FVector& TraceStart, const FVector& FlickDirection, float FlickSpeed, float FlickAngleDegrees) const;
+
+	FVector GetFocusActorLocation(const FVector& FlickLocation) const;
 
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
@@ -85,6 +102,15 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float MaxZOffset{ 50.f };
+
+	/*
+	* Delta to focus actor orientation to offset the shot yaw.  Try the hole direction first.
+	*/
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	float YawRetryDelta{ 45.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	float MinRetryShotPowerReductionFactor { 0.5f };
 
 	UPROPERTY(Category = "Shot Arc Prediction", EditDefaultsOnly)
 	float MinTraceDistance{ 1000.0f };

@@ -303,6 +303,7 @@ void AGolfAIController::ExecuteTurn()
 		{
 			.PlayerPawn = PaperGolfPawn,
 			.PlayerState = GetGolfPlayerState(),
+			.GolfHole = GolfControllerCommonComponent->GetCurrentGolfHole(),
 			.ShotType = ShotType
 		}
 	);

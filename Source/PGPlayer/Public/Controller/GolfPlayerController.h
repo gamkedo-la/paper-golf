@@ -187,8 +187,6 @@ private:
 	UFUNCTION(BlueprintPure)
 	bool CanFlick() const;
 
-	AGolfHole* GetGolfHole() const;
-
 	bool ShouldEnableInputForActivateTurn() const;
 	
 	UFUNCTION(BlueprintPure)
@@ -291,11 +289,6 @@ FORCEINLINE bool AGolfPlayerController::HasScored() const
 FORCEINLINE bool AGolfPlayerController::CanFlick() const
 {
 	return bCanFlick;
-}
-
-FORCEINLINE AGolfHole* AGolfPlayerController::GetGolfHole() const
-{
-	return nullptr;
 }
 
 FORCEINLINE bool AGolfPlayerController::IsActivePlayer() const

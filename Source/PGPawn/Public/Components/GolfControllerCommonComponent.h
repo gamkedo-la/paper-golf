@@ -65,6 +65,9 @@ public:
 
 	// TODO: Visual Logger grab debug snapshot function to be called from controllers
 
+	AActor* GetCurrentGolfHole() const;
+	const TArray<AActor*>& GetFocusableActors() const;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -133,6 +136,16 @@ FORCEINLINE bool operator== (const FShotHistory& First, const FShotHistory& Seco
 FORCEINLINE TOptional<FShotHistory> UGolfControllerCommonComponent::GetLastShot() const
 {
 	return !ShotHistory.IsEmpty() ? ShotHistory.Last() : TOptional<FShotHistory>{};
+}
+
+FORCEINLINE AActor* UGolfControllerCommonComponent::GetCurrentGolfHole() const
+{
+	return GolfHole;
+}
+
+FORCEINLINE const TArray<AActor*>& UGolfControllerCommonComponent::GetFocusableActors() const
+{
+	return FocusableActors;
 }
 
 #pragma endregion Inline Definitions
