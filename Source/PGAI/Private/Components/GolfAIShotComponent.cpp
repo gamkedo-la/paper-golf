@@ -13,6 +13,8 @@
 #include "PGAILogging.h"
 #include "Utils/CollisionUtils.h"
 
+#include "Utils/RandUtils.h"
+
 #include "Subsystems/GolfEventsSubsystem.h"
 
 #include "Kismet/GameplayStatics.h"
@@ -295,14 +297,15 @@ bool UGolfAIShotComponent::ValidateCurveTable(UCurveTable* CurveTable) const
 		   FindCurveForKey(CurveTable, DeltaDistanceMetersVsZOffset);
 }
 
-float UGolfAIShotComponent::GenerateAccuracy(float Deviation) const
+float UGolfAIShotComponent::GenerateAccuracy(float MinDeviation, float MaxDeviation) const
 {
-	return FMath::FRandRange(-Deviation, Deviation);
+	return RandUtils::RandSign() * FMath::FRandRange(MinDeviation, MaxDeviation);
 }
 
-float UGolfAIShotComponent::GeneratePowerFraction(float InPowerFraction, float Deviation) const
+float UGolfAIShotComponent::GeneratePowerFraction(float InPowerFraction, float MinDeviation, float MaxDeviation) const
 {
-	return FMath::Clamp(InPowerFraction * (1 + FMath::RandRange(-Deviation, Deviation)), MinShotPower, 1.0f);
+	const auto Deviation = RandUtils::RandSign() * FMath::FRandRange(MinDeviation, MaxDeviation);
+	return FMath::Clamp(InPowerFraction * (1 + Deviation), MinShotPower, 1.0f);
 }
 
 float UGolfAIShotComponent::CalculateDefaultZOffset() const
@@ -472,7 +475,7 @@ UGolfAIShotComponent::FAIShotSetupResult UGolfAIShotComponent::CalculateDefaultS
 		.ShotType = ShotContext.ShotType,
 		.LocalZOffset = 0,
 		.PowerFraction = 1.0f,
-		.Accuracy = GenerateAccuracy(DefaultAccuracyDeviation)
+		.Accuracy = GenerateAccuracy(-DefaultAccuracyDeviation, DefaultAccuracyDeviation)
 	};
 
 	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: CalculateShotParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f"),
@@ -582,8 +585,8 @@ UGolfAIShotComponent::FShotErrorResult UGolfAIShotComponent::CalculateShotError(
 
 		return FShotErrorResult
 		{
-			.PowerFraction = GeneratePowerFraction(PowerFraction, DefaultPowerDeviation),
-			.Accuracy = GenerateAccuracy(DefaultAccuracyDeviation),
+			.PowerFraction = GeneratePowerFraction(PowerFraction, -DefaultPowerDeviation, DefaultPowerDeviation),
+			.Accuracy = GenerateAccuracy(-DefaultAccuracyDeviation, DefaultAccuracyDeviation),
 		};
 	}
 
@@ -623,7 +626,7 @@ UGolfAIShotComponent::FShotErrorResult UGolfAIShotComponent::CalculateShotError(
 			PowerFraction = FMath::Max(MinShotPower, PowerFraction / ShankPowerFactor);
 		}
 
-		const auto Accuracy = (FMath::RandBool() ? 1 : -1) * AIConfigEntry->ShankAccuracy;
+		const auto Accuracy = RandUtils::RandSign() * AIConfigEntry->ShankAccuracy;
 
 		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: CalculateShotError - Shank Shot - PowerFraction=%.2f; ShankPowerFactor=%.2f; ShankAccuracy=%.2f"),
 			*LoggingUtils::GetName(GetOwner()), *GetName(), PowerFraction, ShankPowerFactor, Accuracy);
@@ -635,15 +638,13 @@ UGolfAIShotComponent::FShotErrorResult UGolfAIShotComponent::CalculateShotError(
 		};
 	}
 
-	const auto AccuracyDeviation = AIConfigEntry->DefaultAccuracyDelta;
-	const auto PowerDeviation = AIConfigEntry->DefaultPowerDelta;
-
-	const auto Accuracy = GenerateAccuracy(AccuracyDeviation);
-	PowerFraction = GeneratePowerFraction(PowerFraction, PowerDeviation);
+	const auto Accuracy = GenerateAccuracy(AIConfigEntry->DefaultAccuracyDeltaMin, AIConfigEntry->DefaultAccuracyDeltaMax);
+	PowerFraction = GeneratePowerFraction(PowerFraction, AIConfigEntry->DefaultPowerDeltaMin, AIConfigEntry->DefaultPowerDeltaMax);
 
 	// use default calculation
-	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: CalculateShotError - Default - PowerFraction=%.2f; Accuracy = %.2f; AccuracyDeviation=%.2f; PowerDeviation=%.2f"),
-		*LoggingUtils::GetName(GetOwner()), *GetName(), PowerFraction, Accuracy, AccuracyDeviation, PowerDeviation);
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: CalculateShotError - Default - PowerFraction=%.2f; Accuracy = %.2f; AccuracyDeviation=[%.2f,%.2f]; PowerDeviation=[%.2f,%.2f]"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(),
+		PowerFraction, Accuracy, AIConfigEntry->DefaultAccuracyDeltaMin, AIConfigEntry->DefaultAccuracyDeltaMax, AIConfigEntry->DefaultPowerDeltaMin, AIConfigEntry->DefaultPowerDeltaMax);
 
 	return FShotErrorResult
 	{

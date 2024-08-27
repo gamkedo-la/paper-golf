@@ -100,8 +100,8 @@ private:
 	FShotCalibrationResult CalibrateShot(const FVector& FlickLocation, float PowerFraction) const;
 	FShotErrorResult CalculateShotError(float PowerFraction);
 
-	float GenerateAccuracy(float Deviation) const;
-	float GeneratePowerFraction(float InPowerFraction, float Deviation) const;
+	float GenerateAccuracy(float MinDeviation, float MaxDeviation) const;
+	float GeneratePowerFraction(float InPowerFraction, float MinDeviation, float MaxDeviation) const;
 
 	float CalculateDefaultZOffset() const;
 

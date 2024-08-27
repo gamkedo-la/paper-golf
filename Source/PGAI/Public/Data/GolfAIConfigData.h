@@ -27,11 +27,17 @@ struct FGolfAIConfigData : public FTableRowBase
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, DisplayName = "Shank Power Factor")
 	float ShankPowerFactor{};
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, DisplayName = "Default Accuracy Delta")
-	float DefaultAccuracyDelta{};
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, DisplayName = "Default Accuracy Delta Min")
+	float DefaultAccuracyDeltaMin{};
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, DisplayName = "Default Power Delta")
-	float DefaultPowerDelta{};
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, DisplayName = "Default Accuracy Delta Max")
+	float DefaultAccuracyDeltaMax{};
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, DisplayName = "Default Power Delta Min")
+	float DefaultPowerDeltaMin{};
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, DisplayName = "Default Power Delta Max")
+	float DefaultPowerDeltaMax{};
 };
 
 namespace GolfAIConfigDataParser
