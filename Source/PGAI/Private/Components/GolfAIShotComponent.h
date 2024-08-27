@@ -63,6 +63,16 @@ protected:
 
 private:
 
+	struct FShotPowerCalculationResult
+	{
+		FVector FlickLocation{};
+		float FlickMaxSpeed{};
+		float PowerFraction{};
+		EShotType ShotType{};
+
+		FFlickParams ToFlickParams() const;
+	};
+
 	struct FShotCalculationResult
 	{
 		float Pitch{};
@@ -80,20 +90,22 @@ private:
 	{
 		float PowerFraction{};
 		float Pitch{};
+		float LocalZOffset{};
 	};
 
 	TOptional<FAIShotSetupResult> CalculateShotParams();
 	FAIShotSetupResult CalculateDefaultShotParams() const;
 
+	TOptional<FShotPowerCalculationResult> CalculateInitialShotParams() const;
 	FShotCalibrationResult CalibrateShot(const FVector& FlickLocation, float PowerFraction) const;
 	FShotErrorResult CalculateShotError(float PowerFraction);
 
 	float GenerateAccuracy(float Deviation) const;
 	float GeneratePowerFraction(float InPowerFraction, float Deviation) const;
 
-	float CalculateZOffset() const;
+	float CalculateDefaultZOffset() const;
 
-	FShotCalculationResult CalculateShotFactors(const FVector& FlickLocation, float PreferredShotAngle, float FlickMaxSpeed, float PowerFraction) const;
+	FShotCalculationResult CalculateAvoidanceShotFactors(const FVector& FlickLocation, float PreferredShotAngle, float FlickMaxSpeed, float PowerFraction) const;
 
 	TTuple<bool, float> CalculateShotPitch(const FVector& FlickLocation, const FVector& FlickDirection, float FlickSpeed) const;
 
@@ -151,3 +163,16 @@ private:
 
 	int32 ShotsSinceLastError{};
 };
+
+#pragma region Inline Definitions
+
+FORCEINLINE FFlickParams UGolfAIShotComponent::FShotPowerCalculationResult::ToFlickParams() const
+{
+	return FFlickParams
+	{
+		.ShotType = ShotType,
+		.PowerFraction = PowerFraction
+	};
+}
+
+#pragma endregion Inline Definitions

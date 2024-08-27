@@ -36,6 +36,9 @@ namespace
 	// Gets the pitch angle to hit the shot vs the power fraction
 	const FName PowerFractionVsPitchAngle = TEXT("Power_Angle");
 
+	// Get the Z Offset to use for a given delta distnace in meters from the hole
+	const FName DeltaDistanceMetersVsZOffset = TEXT("DeltaDistanceM_ZOffset");
+
 	FRealCurve* FindCurveForKey(UCurveTable* CurveTable, const FName& Key);
 	
 	constexpr float DefaultPitchAngle = 45.0f;
@@ -77,6 +80,47 @@ void UGolfAIShotComponent::BeginPlay()
 
 TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::CalculateShotParams()
 {
+	const auto InitialShotParamsOptional = CalculateInitialShotParams();
+	if (!InitialShotParamsOptional)
+	{
+		return {};
+	}
+
+	const auto& InitialShotParams = *InitialShotParamsOptional;
+
+	auto FlickParams = InitialShotParams.ToFlickParams();
+
+	// Calibrate the power fraction and ideal pitch based on the current distance to hole (ignoring obstacles)
+	const auto ShotCalibrationResult = CalibrateShot(InitialShotParams.FlickLocation, InitialShotParams.PowerFraction);
+	FlickParams.PowerFraction = ShotCalibrationResult.PowerFraction;
+	FlickParams.LocalZOffset = ShotCalibrationResult.LocalZOffset;
+
+	// calculate the pitch and yaw based on obstacles obstructing the shot
+	const auto& ShotCalculationResult = CalculateAvoidanceShotFactors(
+		InitialShotParams.FlickLocation, ShotCalibrationResult.Pitch, InitialShotParams.FlickMaxSpeed, FlickParams.PowerFraction);
+
+	// Increase the power fraction based on avoidance results but make sure it doesn't go below the minimum power reduction factor
+	FlickParams.PowerFraction *= FMath::Max(ShotCalculationResult.PowerMultiplier, MinRetryShotPowerReductionFactor);
+
+	// Add error to power calculation and accuracy
+	const auto FlickError = CalculateShotError(FlickParams.PowerFraction);
+	FlickParams.PowerFraction = FlickError.PowerFraction;
+	FlickParams.Accuracy = FlickError.Accuracy;
+
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: CalculateShotParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f; ShotPitch=%.1f; ShotYaw=%.1f"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(FlickParams.ShotType),
+		FlickParams.PowerFraction, FlickParams.Accuracy, FlickParams.LocalZOffset, ShotCalculationResult.Pitch, ShotCalculationResult.Yaw);
+
+	return FAIShotSetupResult
+	{
+		.FlickParams = FlickParams,
+		.ShotPitch = ShotCalculationResult.Pitch,
+		.ShotYaw = ShotCalculationResult.Yaw
+	};
+}
+
+TOptional<UGolfAIShotComponent::FShotPowerCalculationResult> UGolfAIShotComponent::CalculateInitialShotParams() const
+{
 	if (!ensure(ShotContext.PlayerPawn))
 	{
 		return {};
@@ -88,7 +132,7 @@ TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::Calcul
 	auto FocusActor = PlayerPawn->GetFocusActor();
 	if (!ensure(FocusActor))
 	{
-		UE_VLOG_UELOG(this, LogPGAI, Error, TEXT("%s: CalculateShotParams - FocusActor is NULL"), *GetName());
+		UE_VLOG_UELOG(this, LogPGAI, Error, TEXT("%s-%s: CalculateInitialShotParams - FocusActor is NULL"), *LoggingUtils::GetName(GetOwner()), *GetName());
 		return {};
 	}
 
@@ -103,12 +147,10 @@ TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::Calcul
 	// Hitting at 45 degrees so can simplify the projectile calculation
 	// https://en.wikipedia.org/wiki/Projectile_motion
 
-	FFlickParams FlickParams;
-	FlickParams.ShotType = ShotContext.ShotType;
-	FlickParams.LocalZOffset = CalculateZOffset();
+	const auto ShotType = ShotContext.ShotType;
 
-	const auto FlickLocation = PlayerPawn->GetFlickLocation(FlickParams.LocalZOffset);
-	const auto RawFlickMaxForce = PlayerPawn->GetFlickMaxForce(FlickParams.ShotType);
+	const auto FlickLocation = PlayerPawn->GetFlickLocation(0.0f);
+	const auto RawFlickMaxForce = PlayerPawn->GetFlickMaxForce(ShotType);
 	// Account for drag
 	//const auto FlickMaxForce = PlayerPawn->GetFlickDragForceMultiplier(RawFlickMaxForce) * RawFlickMaxForce;
 	const auto FlickMaxForce = RawFlickMaxForce;
@@ -130,8 +172,8 @@ TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::Calcul
 	// if TotalHorizontalDistance + VerticalDistance <= 0 then we use minimum power as so far above the target
 	if (DistanceSum <= 0)
 	{
-		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateShotParams - Way above target, using min force. HorizontalDistance=%.1fm; VerticalDistance=%.1fm"),
-			*GetName(), HorizontalDistance / 100, VerticalDistance / 100);
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: CalculateInitialShotParams - Way above target, using min force. HorizontalDistance=%.1fm; VerticalDistance=%.1fm"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), HorizontalDistance / 100, VerticalDistance / 100);
 
 		PowerFraction = MinShotPower;
 	}
@@ -146,8 +188,8 @@ TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::Calcul
 		if (Speed >= FlickMaxSpeed)
 		{
 			UE_VLOG_UELOG(this, LogPGAI, Log,
-				TEXT("%s: CalculateShotParams - Coming up short hit full power - Speed=%.1f; FlickMaxSpeed=%.1f, HorizontalDistance=%.1fm; VerticalDistance=%.1fm"),
-				*GetName(), Speed, FlickMaxSpeed, HorizontalDistance / 100, VerticalDistance / 100);
+				TEXT("%s-%s: CalculateInitialShotParams - Coming up short hit full power - Speed=%.1f; FlickMaxSpeed=%.1f, HorizontalDistance=%.1fm; VerticalDistance=%.1fm"),
+				*LoggingUtils::GetName(GetOwner()), *GetName(), Speed, FlickMaxSpeed, HorizontalDistance / 100, VerticalDistance / 100);
 
 			PowerFraction = 1.0f;
 		}
@@ -161,8 +203,8 @@ TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::Calcul
 			PowerFraction = FMath::Max(MinShotPower, RawPowerFraction);
 
 			UE_VLOG_UELOG(this, LogPGAI, Log,
-				TEXT("%s: CalculateShotParams - Overhit - Speed=%.1f; FlickMaxSpeed=%.1f, HorizontalDistance=%.1fm; VerticalDistance=%.1fm; RawPowerFraction=%.2f; PowerFraction=%.2f"),
-				*GetName(), Speed, FlickMaxSpeed, HorizontalDistance / 100, VerticalDistance / 100, RawPowerFraction, PowerFraction);
+				TEXT("%s-%s: CalculateInitialShotParams - Overhit - Speed=%.1f; FlickMaxSpeed=%.1f, HorizontalDistance=%.1fm; VerticalDistance=%.1fm; RawPowerFraction=%.2f; PowerFraction=%.2f"),
+				*LoggingUtils::GetName(GetOwner()), *GetName(), Speed, FlickMaxSpeed, HorizontalDistance / 100, VerticalDistance / 100, RawPowerFraction, PowerFraction);
 		}
 	}
 
@@ -170,27 +212,16 @@ TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::Calcul
 	const auto FlickDragForceMultiplier = PlayerPawn->GetFlickDragForceMultiplier(PowerFraction * FlickMaxForce);
 	PowerFraction = FMath::Clamp(PowerFraction / FlickDragForceMultiplier, 0.0f, 1.0f);
 
-	const auto ShotCalibrationResult = CalibrateShot(FlickLocation, PowerFraction);
-	PowerFraction = ShotCalibrationResult.PowerFraction;
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: CalculateInitialShotParams - ShotType=%s; Power=%.2f; FlickDragForceMultiplier=%1.f"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(ShotType),
+		PowerFraction, FlickDragForceMultiplier);
 
-	// Add error to power calculation and accuracy
-	const auto FlickError = CalculateShotError(PowerFraction);
-	FlickParams.PowerFraction = FlickError.PowerFraction;
-	FlickParams.Accuracy = FlickError.Accuracy;
-
-	const auto& ShotCalculationResult = CalculateShotFactors(FlickLocation, ShotCalibrationResult.Pitch, FlickMaxSpeed, FlickParams.PowerFraction);
-
-	FlickParams.PowerFraction *= FMath::Max(ShotCalculationResult.PowerMultiplier, MinRetryShotPowerReductionFactor);
-
-	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateShotParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f; ShotPitch=%.1f; ShotYaw=%.1f; FlickDragForceMultiplier=%1.f"),
-		*GetName(), *LoggingUtils::GetName(FlickParams.ShotType),
-		FlickParams.PowerFraction, FlickParams.Accuracy, FlickParams.LocalZOffset, ShotCalculationResult.Pitch, ShotCalculationResult.Yaw, FlickDragForceMultiplier);
-
-	return FAIShotSetupResult
+	return FShotPowerCalculationResult
 	{
-		.FlickParams = FlickParams,
-		.ShotPitch = ShotCalculationResult.Pitch,
-		.ShotYaw = ShotCalculationResult.Yaw
+		.FlickLocation = FlickLocation,
+		.FlickMaxSpeed = FlickMaxSpeed,
+		.PowerFraction = PowerFraction,
+		.ShotType = ShotType
 	};
 }
 
@@ -215,13 +246,13 @@ FVector UGolfAIShotComponent::GetFocusActorLocation(const FVector& FlickLocation
 
 	if(FocusDistanceSq <= HoleDistanceSq)
 	{
-		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: GetFocusActorLocation - Using focus actor as FocusActor=%s is closer than hole; FocusDistance=%.1fm; HoleDistance=%.1fm"),
-			*GetName(), *LoggingUtils::GetName(FocusActor), FMath::Sqrt(FocusDistanceSq) * 100, FMath::Sqrt(HoleDistanceSq) * 100);
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: GetFocusActorLocation - Using focus actor as FocusActor=%s is closer than hole; FocusDistance=%.1fm; HoleDistance=%.1fm"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(FocusActor), FMath::Sqrt(FocusDistanceSq) * 100, FMath::Sqrt(HoleDistanceSq) * 100);
 		return DefaultLocation;
 	}
 
-	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: GetFocusActorLocation - Using hole as it is closer than FocusActor=%s; FocusDistance=%.1fm; HoleDistance=%.1fm"),
-		*GetName(), *LoggingUtils::GetName(FocusActor), FMath::Sqrt(FocusDistanceSq) * 100, FMath::Sqrt(HoleDistanceSq) * 100);
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: GetFocusActorLocation - Using hole as it is closer than FocusActor=%s; FocusDistance=%.1fm; HoleDistance=%.1fm"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(FocusActor), FMath::Sqrt(FocusDistanceSq) * 100, FMath::Sqrt(HoleDistanceSq) * 100);
 
 	return HoleLocation;
 }
@@ -260,7 +291,8 @@ bool UGolfAIShotComponent::ValidateCurveTable(UCurveTable* CurveTable) const
 
 	// Make sure can find the required curve tables
 	return FindCurveForKey(CurveTable, DeltaDistanceMetersVsPowerFraction)  &&
-		   FindCurveForKey(CurveTable, PowerFractionVsPitchAngle);
+		   FindCurveForKey(CurveTable, PowerFractionVsPitchAngle) &&
+		   FindCurveForKey(CurveTable, DeltaDistanceMetersVsZOffset);
 }
 
 float UGolfAIShotComponent::GenerateAccuracy(float Deviation) const
@@ -273,7 +305,7 @@ float UGolfAIShotComponent::GeneratePowerFraction(float InPowerFraction, float D
 	return FMath::Clamp(InPowerFraction * (1 + FMath::RandRange(-Deviation, Deviation)), MinShotPower, 1.0f);
 }
 
-float UGolfAIShotComponent::CalculateZOffset() const
+float UGolfAIShotComponent::CalculateDefaultZOffset() const
 {
 	switch (ShotContext.ShotType)
 	{
@@ -285,7 +317,7 @@ float UGolfAIShotComponent::CalculateZOffset() const
 		return MaxZOffset;
 	}
 }
-UGolfAIShotComponent::FShotCalculationResult UGolfAIShotComponent::CalculateShotFactors(const FVector& FlickLocation, float PreferredPitchAngle, float FlickMaxSpeed, float PowerFraction) const
+UGolfAIShotComponent::FShotCalculationResult UGolfAIShotComponent::CalculateAvoidanceShotFactors(const FVector& FlickLocation, float PreferredPitchAngle, float FlickMaxSpeed, float PowerFraction) const
 {
 	const auto PlayerPawn = ShotContext.PlayerPawn;
 	check(PlayerPawn);
@@ -443,8 +475,8 @@ UGolfAIShotComponent::FAIShotSetupResult UGolfAIShotComponent::CalculateDefaultS
 		.Accuracy = GenerateAccuracy(DefaultAccuracyDeviation)
 	};
 
-	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalculateShotParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f"),
-		*GetName(), *LoggingUtils::GetName(FlickParams.ShotType), FlickParams.PowerFraction, FlickParams.Accuracy, FlickParams.LocalZOffset);
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: CalculateShotParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(FlickParams.ShotType), FlickParams.PowerFraction, FlickParams.Accuracy, FlickParams.LocalZOffset);
 
 	return FAIShotSetupResult
 	{
@@ -455,7 +487,6 @@ UGolfAIShotComponent::FAIShotSetupResult UGolfAIShotComponent::CalculateDefaultS
 
 UGolfAIShotComponent::FShotCalibrationResult UGolfAIShotComponent::CalibrateShot(const FVector& FlickLocation, float PowerFraction) const
 {
-	// TODO: Replace with curve table results
 	if (!AIConfigCurveTable)
 	{
 		return FShotCalibrationResult
@@ -468,17 +499,27 @@ UGolfAIShotComponent::FShotCalibrationResult UGolfAIShotComponent::CalibrateShot
 	float PitchAngle = DefaultPitchAngle;
 
 	auto Curve = FindCurveForKey(AIConfigCurveTable, DeltaDistanceMetersVsPowerFraction);
+
+	auto DistanceToHoleCalculator = [this, &FlickLocation, Distance = -1.0f]() mutable
+	{
+		// memoize result
+		if (Distance < 0.0f)
+		{
+			check(ShotContext.GolfHole);
+			const auto& HoleLocation = ShotContext.GolfHole->GetActorLocation();
+
+			Distance = (HoleLocation - FlickLocation).Size2D() / 100;
+		}
+		return Distance;
+	};
+
 	if (Curve)
 	{
-		check(ShotContext.GolfHole);
-		const auto& HoleLocation = ShotContext.GolfHole->GetActorLocation();
-
-		const auto DistanceToHoleMeters = (HoleLocation - FlickLocation).Size2D() / 100;
-
+		const auto DistanceToHoleMeters = DistanceToHoleCalculator();
 		const auto PowerReductionFactor = Curve->Eval(DistanceToHoleMeters);
 
-		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalibrateShot - DistanceToHole=%.1fm; PowerReductionFactor=%.2f; PowerFraction=%.2f -> %.2f"),
-			*GetName(), DistanceToHoleMeters, PowerReductionFactor, PowerFraction, PowerFraction * PowerReductionFactor);
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: CalibrateShot - DistanceToHole=%.1fm; PowerReductionFactor=%.2f; PowerFraction=%.2f -> %.2f"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), DistanceToHoleMeters, PowerReductionFactor, PowerFraction, PowerFraction * PowerReductionFactor);
 
 		PowerFraction *= PowerReductionFactor;
 	}
@@ -488,29 +529,37 @@ UGolfAIShotComponent::FShotCalibrationResult UGolfAIShotComponent::CalibrateShot
 	{
 		PitchAngle = Curve->Eval(PowerFraction);
 
-		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: CalibrateShot - PowerFraction=%.2f -> PitchAngle=%.2f"),
-			*GetName(), PowerFraction, PitchAngle);
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: CalibrateShot - PowerFraction=%.2f -> PitchAngle=%.2f"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), PowerFraction, PitchAngle);
+	}
+
+	Curve = FindCurveForKey(AIConfigCurveTable, DeltaDistanceMetersVsZOffset);
+
+	float LocalZOffset;
+	if (Curve)
+	{
+		const auto DistanceToHoleMeters = DistanceToHoleCalculator();
+		LocalZOffset = Curve->Eval(DistanceToHoleMeters);
+	}
+	else
+	{
+		LocalZOffset = CalculateDefaultZOffset();
 	}
 
 	return FShotCalibrationResult
 	{
 		.PowerFraction = PowerFraction,
-		.Pitch = PitchAngle
+		.Pitch = PitchAngle,
+		.LocalZOffset = LocalZOffset
 	};
 }
 
 const FGolfAIConfigData* UGolfAIShotComponent::SelectAIConfigEntry() const
 {
-	const FGolfAIConfigData* Selected{};
-
-	for (const auto& Entry : AIErrorsData)
+	const FGolfAIConfigData* Selected = AIErrorsData.FindByPredicate([this](const FGolfAIConfigData& Entry)
 	{
-		if(ShotsSinceLastError <= Entry.ShotsSinceLastError)
-		{
-			Selected = &Entry;
-			break;
-		}
-	}
+		return ShotsSinceLastError <= Entry.ShotsSinceLastError;
+	});
 
 	if (!Selected && !AIErrorsData.IsEmpty())
 	{
@@ -528,7 +577,8 @@ UGolfAIShotComponent::FShotErrorResult UGolfAIShotComponent::CalculateShotError(
 	const auto AIConfigEntry = SelectAIConfigEntry();
 	if (!AIConfigEntry)
 	{
-		UE_VLOG_UELOG(this, LogPGAI, Warning, TEXT("%s-%s: CalculateShotError - AIConfigEntry is NULL - using defaults"), *LoggingUtils::GetName(GetOwner()), *GetName());
+		UE_VLOG_UELOG(this, LogPGAI, Warning, TEXT("%s-%s: CalculateShotError - AIConfigEntry is NULL - using defaults"),
+			*LoggingUtils::GetName(GetOwner()), *GetName());
 
 		return FShotErrorResult
 		{
@@ -541,8 +591,8 @@ UGolfAIShotComponent::FShotErrorResult UGolfAIShotComponent::CalculateShotError(
 
 	if (PerfectShotRoll <= AIConfigEntry->PerfectShotProbability)
 	{
-		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: CalculateShotError - Perfect Shot - PerfectShotRoll=%.2f; PerfectShotProbability=%.2f"),
-			*LoggingUtils::GetName(GetOwner()), *GetName(), PerfectShotRoll, AIConfigEntry->PerfectShotProbability);
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: CalculateShotError - Perfect Shot - PerfectShotRoll=%.2f; PerfectShotProbability=%.2f; ShotsSinceLastError=%d"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), PerfectShotRoll, AIConfigEntry->PerfectShotProbability, ShotsSinceLastError);
 
 		++ShotsSinceLastError;
 
