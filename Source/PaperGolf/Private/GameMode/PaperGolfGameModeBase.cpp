@@ -78,6 +78,19 @@ void APaperGolfGameModeBase::InitNumberOfPlayers(const FString& Options)
 	{
 		SetNumberOfPlayersFromOptions(Options);
 	}
+	// This will be optimized out in non-editor builds
+	else
+	{
+		// If playing in the editor, consider both the number of human players from editor windows and the options passed into the game mode
+		const auto EditorHumanPlayers = DesiredNumberOfPlayers;
+
+		// reset number of players and attempt to read from options
+		DesiredNumberOfPlayers = 0;
+		SetNumberOfPlayersFromOptions(Options);
+
+		// Use the editor values for number of human players if none passed from options
+		DesiredNumberOfPlayers = FMath::Max(DesiredNumberOfPlayers, EditorHumanPlayers);
+	}
 
 	// fallback to defaults
 	if (DesiredNumberOfPlayers <= 0)
