@@ -26,6 +26,14 @@ UAudioComponent* UPGAudioUtilities::PlaySfxAtActorLocation(const AActor* Actor, 
 		return nullptr;
 	}
 
+	if (Actor->GetNetMode() == NM_DedicatedServer)
+	{
+		UE_VLOG_UELOG(Actor, LogPGCore, Log,
+			TEXT("%s-PGAudioUtilities: PlaySfxAttached - Not playing sfx=%s on dedicated server"),
+			*Actor->GetName(), *Sound->GetName());
+		return nullptr;
+	}
+
 	// The owner of the audio component is derived from the world context object and this will control the sound concurrency
 	auto SpawnedAudioComponent = UGameplayStatics::SpawnSoundAtLocation(
 		Actor,
@@ -63,6 +71,14 @@ UAudioComponent* UPGAudioUtilities::PlaySfxAttached(const AActor* Actor, USoundB
 		return nullptr;
 	}
 
+	if (Actor->GetNetMode() == NM_DedicatedServer)
+	{
+		UE_VLOG_UELOG(Actor, LogPGCore, Log,
+			TEXT("%s-PGAudioUtilities: PlaySfxAttached - Not playing sfx=%s on dedicated server"),
+			*Actor->GetName(), *Sound->GetName());
+		return nullptr;
+	}
+
 	// The owner of the audio component is derived from the world context object and this will control the sound concurrency
 	auto SpawnedAudioComponent = UGameplayStatics::SpawnSoundAttached(
 		Sound,
@@ -91,9 +107,9 @@ UAudioComponent* UPGAudioUtilities::PlaySfxAttached(const AActor* Actor, USoundB
 	return SpawnedAudioComponent;
 }
 
-void UPGAudioUtilities::PlaySfx2D(const UObject* WorldContextObject, USoundBase* Sound)
+void UPGAudioUtilities::PlaySfx2D(const AActor* Owner, USoundBase* Sound)
 {
-	if (!ensure(WorldContextObject))
+	if (!ensure(Owner))
 	{
 		return;
 	}
@@ -103,11 +119,20 @@ void UPGAudioUtilities::PlaySfx2D(const UObject* WorldContextObject, USoundBase*
 		return;
 	}
 
-	UE_VLOG_UELOG(WorldContextObject, LogPGCore, Log,
+	UE_VLOG_UELOG(Owner, LogPGCore, Log,
 		TEXT("%s-PGAudioUtilities: PlaySfx2D - Playing sfx=%s"),
-		*WorldContextObject->GetName(), *Sound->GetName());
+		*Owner->GetName(), *Sound->GetName());
 
-	UGameplayStatics::PlaySound2D(WorldContextObject, Sound);
+	if (Owner->GetNetMode() != NM_DedicatedServer)
+	{
+		UGameplayStatics::PlaySound2D(Owner, Sound);
+	}
+	else
+	{
+		UE_VLOG_UELOG(Owner, LogPGCore, Log,
+			TEXT("%s-PGAudioUtilities: PlaySfx2D - Not playing sfx=%s on dedicated server"),
+			*Owner->GetName(), *Sound->GetName());
+	}
 }
 
 #pragma endregion General Audio

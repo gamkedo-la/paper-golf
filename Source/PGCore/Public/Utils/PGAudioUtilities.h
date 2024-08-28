@@ -26,5 +26,5 @@ public:
 	static UAudioComponent* PlaySfxAttached(const AActor* Actor, USoundBase* Sound);
 
 	UFUNCTION(BlueprintCallable, Category = "Audio", meta = (DefaultToSelf = "WorldContextObject"))
-	static void PlaySfx2D(const UObject* WorldContextObject, USoundBase* Sound);
+	static void PlaySfx2D(const AActor* Owner, USoundBase* Sound);
 };

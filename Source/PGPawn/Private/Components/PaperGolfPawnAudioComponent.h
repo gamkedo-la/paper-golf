@@ -26,8 +26,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void PlayTurnStart();
 
-	// Ensure replication always disabled
-	virtual ELifetimeCondition GetReplicationCondition() const override { return ELifetimeCondition::COND_Never; }
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
 
 protected:
 	virtual void BeginPlay() override;
@@ -38,11 +37,12 @@ protected:
 	virtual void OnNotifyRelevantCollision(UPrimitiveComponent* HitComponent, const FHitResult& Hit, const FVector& NormalImpulse) override;
 
 private:
-	bool ShouldPlayAudio() const;
-
 	void PlayFlight();
 	void StopFlight();
 	void CancelFlightAudioTimer();
+
+	UFUNCTION()
+	void OnRep_PlayFlightRequested();
 
 private:
 	UPROPERTY(Transient)
@@ -52,14 +52,8 @@ private:
 	TObjectPtr<UAudioComponent> FlightAudioComponent{};
 
 	FTimerHandle FlightAudioTimerHandle{};
+
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_PlayFlightRequested)
 	bool bPlayFlightRequested{};
 };
 
-#pragma region Inline Definitions
-
-FORCEINLINE bool UPaperGolfPawnAudioComponent::ShouldPlayAudio() const
-{
-	return GetNetMode() != NM_DedicatedServer;
-}
-
-#pragma endregion Inline Definitions

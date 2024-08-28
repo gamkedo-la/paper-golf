@@ -155,38 +155,12 @@ void UPGHitSfxComponent::OnNotifyRelevantCollision(UPrimitiveComponent* HitCompo
 	if (!HitSfx)
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPGCore, Warning,
-			TEXT("%s-%s: OnNotifyRelevantCollision - No HitSfx found for PhysMaterial=%s and no DefaultHitSfx"),
+			TEXT("%s-%s: DoPlayHitSfx - No HitSfx found for PhysMaterial=%s and no DefaultHitSfx"),
 			*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(Hit.PhysMaterial));
 		return;
 	}
 
-	auto SpawnedAudioComponent = UGameplayStatics::SpawnSoundAtLocation(
-		GetOwner(),
-		HitSfx,
-		Hit.Location, NormalImpulse.Rotation(),
-		Volume
-	);
-
-	if (!SpawnedAudioComponent)
-	{
-		// This is not an error condition as the component may not spawn if the sound is not audible,
-		// for example it attenuates below a threshold based on distance or is filtered by sound concurrency
-		UE_VLOG_UELOG(GetOwner(), LogPGCore, Log,
-			TEXT("%s-%s: OnNotifyRelevantCollision - Unable to spawn audio component for sfx=%s; volume=%.3f"),
-			*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(HitSfx), Volume);
-		return;
-	}
-
-	UE_VLOG_UELOG(GetOwner(), LogPGCore, Log,
-		TEXT("%s-%s: OnNotifyRelevantCollision -  Playing sfx=%s at volume=%.3f"),
-		*LoggingUtils::GetName(GetOwner()), *GetName(), *HitSfx->GetName(), Volume);
-
-	SpawnedAudioComponent->bAutoDestroy = true;
-	SpawnedAudioComponent->bReverb = true;
-
-	LastHitPlayTimeSeconds = TimeSeconds;
-
-	OnPlayHitSfx(HitComponent, Hit, HitSfx);
+	PlayHitSfx({ HitSfx, HitComponent, Hit, NormalImpulse, Volume }, TimeSeconds);
 }
 
 void UPGHitSfxComponent::OnPlayHitSfx_Implementation(UPrimitiveComponent* HitComponent, const FHitResult& Hit, USoundBase* HitSfx)
@@ -226,4 +200,79 @@ float UPGHitSfxComponent::GetAudioVolume(const FVector& NormalImpulse) const
 
 	return FMath::InterpEaseInOut(AudioConfigAsset->MinAudioVolume, AudioConfigAsset->MaxAudioVolume, Alpha, AudioConfigAsset->VolumeEaseFactor);
 }
-#pragma endregion Collisionsq
+
+void UPGHitSfxComponent::PlayHitSfx(const FHitSfxContext& HitSfxContext, float TimeSeconds)
+{
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		DoPlayHitSfx(HitSfxContext, TimeSeconds);
+	}
+
+	if (GetOwnerRole() == ROLE_Authority && bMulticastHitSfx)
+	{
+		MulticastPlayHitSfx(HitSfxContext);
+	}
+}
+
+void UPGHitSfxComponent::DoPlayHitSfx(const FHitSfxContext& HitSfxContext, float TimeSeconds)
+{
+	if (!ensure(HitSfxContext.HitSfx))
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGCore, Error,
+			TEXT("%s-%s: DoPlayHitSfx - HitSfx was NULL"),
+			*LoggingUtils::GetName(GetOwner()), *GetName());
+		return;
+	}
+
+	auto SpawnedAudioComponent = UGameplayStatics::SpawnSoundAtLocation(
+		GetOwner(),
+		HitSfxContext.HitSfx,
+		HitSfxContext.Hit.Location, HitSfxContext.NormalImpulse.Rotation(),
+		HitSfxContext.Volume
+	);
+
+	if (!SpawnedAudioComponent)
+	{
+		// This is not an error condition as the component may not spawn if the sound is not audible,
+		// for example it attenuates below a threshold based on distance or is filtered by sound concurrency
+		UE_VLOG_UELOG(GetOwner(), LogPGCore, Log,
+			TEXT("%s-%s: DoPlayHitSfx - Unable to spawn audio component for sfx=%s; volume=%.3f"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(HitSfxContext.HitSfx), HitSfxContext.Volume);
+		return;
+	}
+
+	UE_VLOG_UELOG(GetOwner(), LogPGCore, Log,
+		TEXT("%s-%s: DoPlayHitSfx -  Playing sfx=%s at volume=%.3f"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), *HitSfxContext.HitSfx->GetName(), HitSfxContext.Volume);
+
+	SpawnedAudioComponent->bAutoDestroy = true;
+	SpawnedAudioComponent->bReverb = true;
+
+	LastHitPlayTimeSeconds = TimeSeconds;
+
+	OnPlayHitSfx(HitSfxContext.HitComponent, HitSfxContext.Hit, HitSfxContext.HitSfx);
+}
+
+void UPGHitSfxComponent::MulticastPlayHitSfx_Implementation(const FHitSfxContext& HitSfxContext)
+{
+	if (GetOwnerRole() != ROLE_SimulatedProxy)
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGCore, Log,
+			TEXT("%s-%s: MulticastPlayHitSfx - Skipping role=%s"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(GetOwnerRole()));
+
+		return;
+	}
+
+	UE_VLOG_UELOG(GetOwner(), LogPGCore, Log,
+		TEXT("%s-%s: MulticastPlayHitSfx"),
+		*LoggingUtils::GetName(GetOwner()), *GetName());
+
+	if (auto World = GetWorld(); ensure(World))
+	{
+		DoPlayHitSfx(HitSfxContext, World->GetTimeSeconds());
+
+	}
+}
+
+#pragma endregion Collisions

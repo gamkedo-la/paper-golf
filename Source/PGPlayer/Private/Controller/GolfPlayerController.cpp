@@ -634,7 +634,6 @@ void AGolfPlayerController::ResetShotAfterOutOfBounds()
 		}
 
 		ClientResetShotAfterOutOfBounds(ResetPosition);
-		//PaperGolfPawn->MulticastReliableSetTransform(ResetPosition, true, true, PaperGolfPawn->GetActorRotation());
 	}
 	// TODO: What to do if we bail out early as user will still have the HUD message for out of bounds displaying
 }

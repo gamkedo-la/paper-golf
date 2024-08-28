@@ -14,21 +14,19 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/AudioComponent.h"
 
+#include "Net/UnrealNetwork.h"
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PaperGolfPawnAudioComponent)
 
 UPaperGolfPawnAudioComponent::UPaperGolfPawnAudioComponent()
 {
 	bEnableCollisionSounds = true;
-	SetIsReplicated(false);
+
+	SetIsReplicatedByDefault(true);
 }
 
 void UPaperGolfPawnAudioComponent::PlayFlick()
 {
-	if (!ShouldPlayAudio())
-	{
-		return;
-	}
-
 	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: PlayFlick"), *LoggingUtils::GetName(GetOwner()), *GetName());
 
 	if (!PawnAudioConfig)
@@ -36,18 +34,21 @@ void UPaperGolfPawnAudioComponent::PlayFlick()
 		return;
 	}
 
-	UPGAudioUtilities::PlaySfx2D(GetOwner(), PawnAudioConfig->FlickSfx);
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		UPGAudioUtilities::PlaySfx2D(GetOwner(), PawnAudioConfig->FlickSfx);
+	}
 
-	PlayFlight();
+	// Flight sound is handled via replication in order to make sure that it is started and stopped reliably
+	// It's a looping sound so better handled with replication than a reliable event for players that might join a game in progress
+	if (GetOwnerRole() != ROLE_SimulatedProxy)
+	{
+		PlayFlight();
+	}
 }
 
 void UPaperGolfPawnAudioComponent::PlayTurnStart()
 {
-	if (!ShouldPlayAudio())
-	{
-		return;
-	}
-
 	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: PlayTurnStart"), *LoggingUtils::GetName(GetOwner()), *GetName());
 
 	if (!PawnAudioConfig)
@@ -57,7 +58,17 @@ void UPaperGolfPawnAudioComponent::PlayTurnStart()
 
 	StopFlight();
 
-	UPGAudioUtilities::PlaySfxAtActorLocation(GetOwner(), PawnAudioConfig->TurnStartSfx);
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		UPGAudioUtilities::PlaySfxAtActorLocation(GetOwner(), PawnAudioConfig->TurnStartSfx);
+	}
+}
+
+void UPaperGolfPawnAudioComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ThisClass, bPlayFlightRequested);
 }
 
 void UPaperGolfPawnAudioComponent::BeginPlay()
@@ -65,11 +76,6 @@ void UPaperGolfPawnAudioComponent::BeginPlay()
 	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: BeginPlay"), *LoggingUtils::GetName(GetOwner()), *GetName());
 
 	Super::BeginPlay();
-
-	if (!ShouldPlayAudio())
-	{
-		return;
-	}
 
 	PawnAudioConfig = Cast<UPGPawnAudioConfigAsset>(AudioConfigAsset);
 
@@ -92,11 +98,6 @@ void UPaperGolfPawnAudioComponent::EndPlay(const EEndPlayReason::Type EndPlayRea
 
 void UPaperGolfPawnAudioComponent::RegisterCollisions()
 {
-	if (!ShouldPlayAudio())
-	{
-		return;
-	}
-
 	if (!bEnableCollisionSounds)
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Display,
@@ -119,19 +120,13 @@ void UPaperGolfPawnAudioComponent::RegisterCollisions()
 
 void UPaperGolfPawnAudioComponent::OnNotifyRelevantCollision(UPrimitiveComponent* HitComponent, const FHitResult& Hit, const FVector& NormalImpulse)
 {
-	// FIXME: Collision notifications not happening on simulated proxies which causes spectated sound effects to not play
 	Super::OnNotifyRelevantCollision(HitComponent, Hit, NormalImpulse);
+
 	StopFlight();
 }
 
 void UPaperGolfPawnAudioComponent::PlayFlight()
 {
-	// TODO: See above comment about collision notifications, so if we play the sound on simulated proxies, it won't stop playing
-	if (GetOwnerRole() == ROLE_SimulatedProxy)
-	{
-		return;
-	}
-
 	if (IsValid(FlightAudioComponent))
 	{
 		return;
@@ -152,6 +147,11 @@ void UPaperGolfPawnAudioComponent::PlayFlight()
 
 	bPlayFlightRequested = true;
 
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+
 	const auto TimerDelegate = FTimerDelegate::CreateWeakLambda(this, [this]()
 	{
 		// Check that stop hasn't been requested in the time it took for the timer to fire
@@ -161,7 +161,8 @@ void UPaperGolfPawnAudioComponent::PlayFlight()
 		}
 	});
 
-	if(PawnAudioConfig->FlightSfxDelayAfterFlick > 0)
+	// Only delay if we're on server or autonous proxy as simulated proxy only plays from network replication event
+	if(GetOwnerRole() != ROLE_SimulatedProxy && PawnAudioConfig->FlightSfxDelayAfterFlick > 0)
 	{
 		World->GetTimerManager().SetTimer(FlightAudioTimerHandle, TimerDelegate, PawnAudioConfig->FlightSfxDelayAfterFlick, false);
 	}
@@ -175,6 +176,11 @@ void UPaperGolfPawnAudioComponent::StopFlight()
 {
 	bPlayFlightRequested = false;
 	CancelFlightAudioTimer();
+
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: StopFlight"), *LoggingUtils::GetName(GetOwner()), *GetName());
+	}
 
 	if (!IsValid(FlightAudioComponent))
 	{
@@ -208,4 +214,19 @@ void UPaperGolfPawnAudioComponent::CancelFlightAudioTimer()
 	}
 
 	World->GetTimerManager().ClearTimer(FlightAudioTimerHandle);
+}
+
+void UPaperGolfPawnAudioComponent::OnRep_PlayFlightRequested()
+{
+	UE_VLOG_UELOG(GetOwner(),
+		LogPGPawn, Log, TEXT("%s-%s: OnRep_PlayFlightRequested - bPlayFlightRequested=%d"), *LoggingUtils::GetName(GetOwner()), *GetName(), bPlayFlightRequested);
+	
+	if (bPlayFlightRequested)
+	{
+		PlayFlight();
+	}
+	else
+	{
+		StopFlight();
+	}
 }
