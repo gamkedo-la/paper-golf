@@ -62,11 +62,20 @@ Plugins/*/Binaries/*/*
 # use a regex to avoid matching the Debug builds
 # git actually using linux fnmatch: https://www.man7.org/linux/man-pages/man3/fnmatch.3.html which does not support the full regex character set
 # See also https://git-scm.com/docs/gitignore#_pattern_format
-!Binaries/*/UnrealEditor-PaperGolf.dll
+
+# Note this regex fails spuriously so listing out files explicitly to avoid issues
 !Binaries/*/UnrealEditor-PG[a-zA-Z]*[^Debug].dll
+!Binaries/*/UnrealEditor-PaperGolf.dll
+!Binaries/*/UnrealEditor-PGCore.dll
+!Binaries/*/UnrealEditor-PGGameplay.dll
+!Binaries/*/UnrealEditor-PGPawn.dll
+!Binaries/*/UnrealEditor-PGPlayer.dll
+!Binaries/*/UnrealEditor-PGUI.dll
+
 !Binaries/*/PaperGolfEditor.target
 !Binaries/*/UnrealEditor.modules
 
+# Plugins
 !Plugins/*/Binaries/*/UnrealEditor.modules
 !Plugins/*/Binaries/*/UnrealEditor-MultiplayerSessions.dll
 
