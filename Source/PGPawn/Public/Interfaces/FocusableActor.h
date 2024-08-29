@@ -25,4 +25,13 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Focus")
 	bool IsHole() const;
+	
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Focus")
+	bool IsPreferredFocus() const;
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Focus")
+	float GetMinDistance2D() const;
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Focus")
+	float GetMinCosAngle() const;
 };

@@ -241,15 +241,13 @@ void UGolfControllerCommonComponent::SetPaperGolfPawnAimFocus()
 
 	AActor* BestFocus{ GolfHole };
 
-	if (HasLOSToFocus(Position, GolfHole))
+	if (IFocusableActor::Execute_IsPreferredFocus(GolfHole) && HasLOSToFocus(Position, GolfHole))
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: SetPaperGolfPawnAimFocus: LOS to DefaultFocus; Setting to %s"),
 			*GetName(), *PaperGolfPawn->GetName(), *LoggingUtils::GetName(GolfHole));
 	}
 	else
 	{
-		const auto ToHole = GolfHole->GetActorLocation() - Position;
-
 		// Find closest
 		float MinDist{ std::numeric_limits<float>::max() };
 
@@ -260,22 +258,40 @@ void UGolfControllerCommonComponent::SetPaperGolfPawnAimFocus()
 				continue;
 			}
 			const auto ToFocusTarget = FocusTarget->GetActorLocation() - Position;
+			const auto ToFocusTargetDist = FMath::Max(ToFocusTarget.Size(), 0.01f);
+			const auto ToFocusTargetDir = ToFocusTarget / ToFocusTargetDist;
+			const auto& FocusForwardDirection = FocusTarget->GetActorForwardVector();
+
+			const auto FocusAlignment = FocusForwardDirection | ToFocusTargetDir;
+			const auto FocusMinAlignment = IFocusableActor::Execute_GetMinCosAngle(FocusTarget);
 
 			// Make sure we are facing the focus target
-			if ((ToFocusTarget | ToHole) <= 0)
+			if (FocusAlignment < FocusMinAlignment)
 			{
-				UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s: SetPaperGolfPawnAimFocus - Skipping target=%s as it is behind"),
-					*GetName(), *FocusTarget->GetName());
-				UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position, FocusTarget->GetActorLocation(), FColor::Orange, TEXT("Target: %s"), *FocusTarget->GetName());
+				UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s: SetPaperGolfPawnAimFocus - Skipping target=%s as DotProduct=%f < FocusMinAlignment=%f"),
+					*GetName(), *FocusTarget->GetName(), FocusAlignment, FocusMinAlignment);
+				UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position, FocusTarget->GetActorLocation(), FColor::Orange, TEXT("Target (ALIGNMENT): %s"), *FocusTarget->GetName());
+
+				continue;
+			}
+
+			// Don't consider Z when checking for min distance
+			const auto DistSq2D = ToFocusTarget.SizeSquared2D();
+			const auto MinDistSq2D = FMath::Square(IFocusableActor::Execute_GetMinDistance2D(FocusTarget));
+
+			if (DistSq2D < MinDistSq2D)
+			{
+				UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s: SetPaperGolfPawnAimFocus - Skipping target=%s as too close to it - Dist2D=%fm < MinDist=%fm"),
+					*GetName(), *FocusTarget->GetName(), FMath::Sqrt(DistSq2D) / 100, FMath::Sqrt(MinDistSq2D) / 100);
+				UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position, FocusTarget->GetActorLocation(), FColor::Yellow, TEXT("Target (TOO CLOSE): %s"), *FocusTarget->GetName());
 
 				continue;
 			}
 
 			// Consider Z as don't want to aim at targets way above or below us
-			const auto DistSq = ToFocusTarget.SizeSquared();
-			if (DistSq < MinDist && HasLOSToFocus(Position, FocusTarget))
+			if (ToFocusTargetDist < MinDist && HasLOSToFocus(Position, FocusTarget))
 			{
-				MinDist = DistSq;
+				MinDist = ToFocusTargetDist;
 				BestFocus = FocusTarget;
 			}
 		} // for
@@ -585,6 +601,12 @@ void UGolfControllerCommonComponent::InitFocusableActors()
 				UE_VLOG_UELOG(GetOwner(), LogPGPawn, Error, TEXT("%s-%s: InitFocusableActors - Found multiple golf holes for hole number %d: %s and %s"),
 					*GetName(), *LoggingUtils::GetName(GetOwner()), HoleNumber, *GolfHole->GetName(), *Actor->GetName());
 			}
+
+			// Add the hole as a regular focusable actor
+			if (!IFocusableActor::Execute_IsPreferredFocus(Actor))
+			{
+				FocusableActors.Add(Actor);
+			}
 		}
 		else
 		{
@@ -634,16 +656,28 @@ bool UGolfControllerCommonComponent::HasLOSToFocus(const FVector& Position, cons
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(FocusActor);
 
-	// prefer the hole if have LOS
-	const auto TraceStartLocation = Position + FVector::ZAxisVector * 300.f;
-	const auto TraceEndLocation = FocusActor->GetActorLocation() + FVector::ZAxisVector * 200.f;
+	const auto& FocusActorLocation = FocusActor->GetActorLocation();
 
-	const bool bLOS = !World->LineTraceTestByChannel(
-		TraceStartLocation,
-		TraceEndLocation,
-		PG::CollisionChannel::FlickTraceType,
-		QueryParams
-	);
+	// Try direct LOS first before doing offsets
+	const auto LOSTest = [&](const auto& Start, const auto& End)
+	{
+		return !World->LineTraceTestByChannel(
+			Start,
+			End,
+			PG::CollisionChannel::FlickTraceType,
+			QueryParams
+		);
+	};
+
+	bool bLOS = LOSTest(Position, FocusActorLocation);
+
+	if (!bLOS)
+	{
+		const auto TraceStartLocation = Position + FVector::ZAxisVector * FocusTraceStartOffset;
+		const auto TraceEndLocation = FocusActor->GetActorLocation() + FVector::ZAxisVector * FocusTraceEndOffset;
+
+		bLOS = LOSTest(TraceStartLocation, TraceEndLocation);
+	}
 
 	UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position + 200.f, FocusActor->GetActorLocation() + 200.f,
 		bLOS ? FColor::Green : FColor::Red, TEXT("LOS: %s"), *FocusActor->GetName());
@@ -667,8 +701,8 @@ bool UGolfControllerCommonComponent::HasLOSToFocus(const FVector& Position, cons
 			FHitResult HitResult;
 			World->LineTraceSingleByChannel(
 				HitResult,
-				TraceStartLocation,
-				TraceEndLocation,
+				Position + FVector::ZAxisVector * FocusTraceStartOffset,
+				FocusActor->GetActorLocation() + FVector::ZAxisVector * FocusTraceEndOffset,
 				PG::CollisionChannel::FlickTraceType,
 				QueryParams
 			);

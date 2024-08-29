@@ -113,6 +113,13 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Correction")
 	float FallThroughFloorCorrectionTestZ{ 1000.0f };
 
+	UPROPERTY(EditDefaultsOnly, Category = "Shot | Focus")
+	float FocusTraceStartOffset{ 100.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot | Focus")
+	float FocusTraceEndOffset{ 2000.0f };
+
+
 	int32 LastHoleNumber{};
 	float LastFlickTime{};
 	TWeakObjectPtr<APaperGolfPawn> WeakPaperGolfPawn{};
