@@ -167,6 +167,8 @@ void UGolfTurnBasedDirectorComponent::BeginPlay()
 
 	check(GetOwner()->HasAuthority());
 
+	bPlayersNeedInitialSort = true;
+
 	RegisterEventHandlers();
 }
 
@@ -495,6 +497,29 @@ void UGolfTurnBasedDirectorComponent::InitializePlayersForHole()
 void UGolfTurnBasedDirectorComponent::SortPlayersForNextHole()
 {
 	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: SortPlayersForNextHole"), *GetName());
+
+	if (bPlayersNeedInitialSort)
+	{
+		Players.Sort([](const TScriptInterface<IGolfController>& First, const TScriptInterface<IGolfController>& Second)
+		{
+			const auto FirstPlayerState = First->GetGolfPlayerState();
+			const auto SecondPlayerState = Second->GetGolfPlayerState();
+
+			if (!FirstPlayerState)
+			{
+				return false;
+			}
+			if (!SecondPlayerState)
+			{
+				return true;
+			}
+
+			// Do an initial score comparison so that secondary criteria are used to match the HUD
+			return FirstPlayerState->CompareByScore(*SecondPlayerState);
+		});
+
+		bPlayersNeedInitialSort = false;
+	}
 
 	// Players ordered based on lowest score from previous hole, maintaining previous order if there was a tie
 	Players.StableSort([this, CompletedHoles = this->HolesCompleted](const TScriptInterface<IGolfController>& First, const TScriptInterface<IGolfController>& Second)

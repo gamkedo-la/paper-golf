@@ -94,6 +94,7 @@ private:
 	bool bSkipHumanPlayers{};
 
 	int32 HolesCompleted{};
+	bool bPlayersNeedInitialSort{};
 };
 
 #pragma region Inline Definitions

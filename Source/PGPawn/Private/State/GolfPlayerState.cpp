@@ -76,8 +76,9 @@ void AGolfPlayerState::CopyProperties(APlayerState* PlayerState)
 
 bool AGolfPlayerState::CompareByScore(const AGolfPlayerState& Other) const
 {
-	return std::make_tuple(GetTotalShots(), GetPlayerName()) < 
-		   std::make_tuple(Other.GetTotalShots(), Other.GetPlayerName());
+	// Sort bots last
+	return std::make_tuple(GetTotalShots(), IsABot(), GetPlayerName()) < 
+		   std::make_tuple(Other.GetTotalShots(), Other.IsABot(), Other.GetPlayerName());
 }
 
 void AGolfPlayerState::OnRep_ScoreByHole()
