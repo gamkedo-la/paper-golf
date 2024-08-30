@@ -40,7 +40,6 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 private:
 	void CheckOverlapCondition();
@@ -52,4 +51,8 @@ private:
 	FOverlapConditionDelegate OverlapConditionDelegate{};
 	FOverlapTriggerDelegate OverlapTriggerDelegate{};
 	TWeakObjectPtr<APaperGolfPawn> OverlappingPaperGolfPawn{};
+	FTimerHandle OverlapTimerHandle{};
+
+	UPROPERTY(EditAnywhere, Category = "Timer")
+	float TimerInterval{ 0.1f };
 };

@@ -14,9 +14,7 @@
 
 UOverlapConditionComponent::UOverlapConditionComponent()
 {
-	PrimaryComponentTick.bCanEverTick = true;
-	PrimaryComponentTick.bStartWithTickEnabled = false;
-	PrimaryComponentTick.TickInterval = 0.1f;
+	PrimaryComponentTick.bCanEverTick = false;
 }
 
 void UOverlapConditionComponent::Initialize(const FOverlapConditionDelegate& InOverlapConditionDelegate,
@@ -89,13 +87,6 @@ void UOverlapConditionComponent::EndPlay(const EEndPlayReason::Type EndPlayReaso
 	ClearTimer();
 }
 
-void UOverlapConditionComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
-{
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	CheckOverlapCondition();
-}
-
 void UOverlapConditionComponent::CheckOverlapCondition()
 {
 	UE_VLOG_UELOG(GetOwner(), LogPGGameplay, VeryVerbose, TEXT("%s-%s: CheckOverlapCondition - OverlappingPaperGolfPawn=%s"),
@@ -128,7 +119,11 @@ void UOverlapConditionComponent::ClearTimer()
 		*GetName(), LoggingUtils::GetBoolString(IsComponentTickEnabled()), *LoggingUtils::GetName(OverlappingPaperGolfPawn));
 
 	OverlappingPaperGolfPawn.Reset();
-	SetComponentTickEnabled(false);
+
+	if (auto World = GetWorld(); OverlapTimerHandle.IsValid() && World)
+	{
+		World->GetTimerManager().ClearTimer(OverlapTimerHandle);
+	}
 }
 
 void UOverlapConditionComponent::StartTimer()
@@ -138,7 +133,10 @@ void UOverlapConditionComponent::StartTimer()
 		*GetName(), LoggingUtils::GetBoolString(IsComponentTickEnabled()), *LoggingUtils::GetName(OverlappingPaperGolfPawn));
 
 	// start timer to listen for end condition
-	SetComponentTickEnabled(true);
+	if (auto World = GetWorld(); !OverlapTimerHandle.IsValid() && ensure(World))
+	{
+		World->GetTimerManager().SetTimer(OverlapTimerHandle, this, &ThisClass::CheckOverlapCondition, TimerInterval, true);
+	}
 }
 
 #pragma region Visual Logger
