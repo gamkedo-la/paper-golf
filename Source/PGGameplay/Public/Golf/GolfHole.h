@@ -12,6 +12,7 @@
 
 class APaperGolfPawn;
 class APaperGolfGameStateBase;
+class UOverlapConditionComponent;
 
 UENUM(BlueprintType)
 enum class EGolfHoleState : uint8
@@ -42,6 +43,8 @@ public:
 
 	virtual void Reset() override;
 
+	virtual void PostInitializeComponents() override;
+
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
 
 protected:
@@ -62,11 +65,9 @@ private:
 	UFUNCTION()
 	void OnComponentEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
-	void OnCheckScored();
+	void OnScored(APaperGolfPawn& Pawn);
 
-	bool CheckedScored() const;
-
-	void ClearTimer();
+	bool CheckedScored(const APaperGolfPawn& PaperGolfPawn) const;
 
 	void UpdateColliderRegistration();
 
@@ -79,9 +80,9 @@ private:
 	void OnActiveHoleChanged();
 
 private:
-	FTimerHandle CheckScoredTimerHandle{};
 
-	TWeakObjectPtr<APaperGolfPawn> OverlappingPaperGolfPawn{};
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UOverlapConditionComponent> OverlapConditionComponent{};
 
 	UPROPERTY(Transient)
 	TObjectPtr<UPrimitiveComponent> Collider{};

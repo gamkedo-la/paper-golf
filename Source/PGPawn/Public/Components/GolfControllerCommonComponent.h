@@ -102,6 +102,9 @@ private:
 	float RestCheckTickRate{ 0.5f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Timer")
+	float RestCheckTriggerDelay{ 0.2f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Timer")
 	float MinFlickElapsedTimeForShotFinished{ 1.0f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Type")
@@ -119,9 +122,10 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Focus")
 	float FocusTraceEndOffset{ 2000.0f };
 
-
 	int32 LastHoleNumber{};
 	float LastFlickTime{};
+	float FirstRestCheckPassTime{ -1.0f };
+
 	TWeakObjectPtr<APaperGolfPawn> WeakPaperGolfPawn{};
 	FTimerHandle NextShotTimerHandle{};
 	FDelegateHandle OnFlickHandle{};

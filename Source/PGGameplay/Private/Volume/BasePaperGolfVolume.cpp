@@ -3,7 +3,10 @@
 
 #include "Volume/BasePaperGolfVolume.h"
 
+#include "Components/OverlapConditionComponent.h"
 #include "PGGameplayLogging.h"
+#include "Logging/LoggingUtils.h"
+#include "VisualLogger/VisualLogger.h"
 #include "Pawn/PaperGolfPawn.h"
 
 #include "Subsystems/GolfEventsSubsystem.h"
@@ -17,11 +20,30 @@
 ABasePaperGolfVolume::ABasePaperGolfVolume()
 {
 	GetBrushComponent()->SetCollisionProfileName(PG::CollisionProfile::OverlapOnlyPawn);
+
+	OverlapConditionComponent = CreateDefaultSubobject<UOverlapConditionComponent>(TEXT("Overlap Condition"));
+}
+
+void ABasePaperGolfVolume::PostInitializeComponents()
+{
+	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: PostInitializeComponents"), *GetName());
+
+	Super::PostInitializeComponents();
+
+	if (Type == EPaperGolfVolumeOverlapType::End)
+	{
+		UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: PostInitializeComponents - Initializing OverlapConditionComponent"), *GetName());
+
+		OverlapConditionComponent->Initialize(
+			UOverlapConditionComponent::FOverlapConditionDelegate::CreateUObject(this, &ABasePaperGolfVolume::IsConditionTriggered),
+			UOverlapConditionComponent::FOverlapTriggerDelegate::CreateUObject(this, &ABasePaperGolfVolume::NotifyConditionTriggered)
+		);
+	}
 }
 
 void ABasePaperGolfVolume::NotifyActorBeginOverlap(AActor* OtherActor)
 {
-	UE_LOG(LogPGGameplay, Log, TEXT("%s: NotifyActorBeginOverlap: %s"), *GetName(), OtherActor ? *OtherActor->GetName() : TEXT("NULL"));
+	UE_VLOG_UELOG(this, LogPGGameplay, Verbose, TEXT("%s: NotifyActorBeginOverlap: %s"), *GetName(), *LoggingUtils::GetName(OtherActor));
 
 	Super::NotifyActorBeginOverlap(OtherActor);
 
@@ -30,6 +52,43 @@ void ABasePaperGolfVolume::NotifyActorBeginOverlap(AActor* OtherActor)
 	{
 		return;
 	}
+
+	if (Type == EPaperGolfVolumeOverlapType::Any)
+	{
+		NotifyConditionTriggered(*PaperGolfPawn);
+	}
+	else
+	{
+		OverlapConditionComponent->BeginOverlap(*PaperGolfPawn);
+	}
+}
+
+void ABasePaperGolfVolume::NotifyActorEndOverlap(AActor* OtherActor)
+{
+	UE_VLOG_UELOG(this, LogPGGameplay, Verbose, TEXT("%s: NotifyActorEndOverlap: %s"), *GetName(), *LoggingUtils::GetName(OtherActor));
+
+	Super::NotifyActorEndOverlap(OtherActor);
+
+	if (Type == EPaperGolfVolumeOverlapType::Any)
+	{
+		UE_VLOG_UELOG(this, LogPGGameplay, Verbose, TEXT("%s: NotifyActorEndOverlap: %s - Skipping for Type=Any"),
+			*GetName(), *LoggingUtils::GetName(OtherActor));
+
+		return;
+	}
+
+	auto PaperGolfPawn = Cast<APaperGolfPawn>(OtherActor);
+	if (!PaperGolfPawn)
+	{
+		return;
+	}
+
+	OverlapConditionComponent->EndOverlap(*PaperGolfPawn);
+}
+
+void ABasePaperGolfVolume::NotifyConditionTriggered(APaperGolfPawn& PaperGolfPawn)
+{
+	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: NotifyConditionTriggered: %s"), *GetName(), *PaperGolfPawn.GetName());
 
 	auto World = GetWorld();
 	if (!World)
@@ -41,6 +100,6 @@ void ABasePaperGolfVolume::NotifyActorBeginOverlap(AActor* OtherActor)
 	auto GolfEvents = World->GetSubsystem<UGolfEventsSubsystem>();
 	check(GolfEvents);
 
-	OnPaperGolfPawnOverlap(*PaperGolfPawn, *GolfEvents);
-	ReceiveOnPaperGolfPawnOverlap(PaperGolfPawn, GolfEvents);
+	OnConditionTriggered(PaperGolfPawn, *GolfEvents);
+	ReceiveConditionTriggered(&PaperGolfPawn, GolfEvents);
 }

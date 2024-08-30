@@ -8,7 +8,18 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(OutOfBoundsVolume)
 
-void AOutOfBoundsVolume::OnPaperGolfPawnOverlap(APaperGolfPawn& PaperGolfPawn, UGolfEventsSubsystem& GolfEvents)
+AOutOfBoundsVolume::AOutOfBoundsVolume()
+{
+	Type = EPaperGolfVolumeOverlapType::End;
+}
+
+void AOutOfBoundsVolume::OnConditionTriggered(APaperGolfPawn& PaperGolfPawn, UGolfEventsSubsystem& GolfEvents)
 {
 	GolfEvents.OnPaperGolfPawnEnteredHazard.Broadcast(&PaperGolfPawn, EHazardType::OutOfBounds);
+}
+
+bool AOutOfBoundsVolume::CheckEndCondition_Implementation(const APaperGolfPawn* PaperGolfPawn) const
+{
+	check(PaperGolfPawn);
+	return PaperGolfPawn->IsAtRest();
 }

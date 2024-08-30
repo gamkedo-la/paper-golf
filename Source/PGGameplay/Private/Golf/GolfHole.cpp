@@ -9,6 +9,8 @@
 
 #include "Subsystems/GolfEventsSubsystem.h"
 
+#include "Components/OverlapConditionComponent.h"
+
 #include "Kismet/GameplayStatics.h"
 
 #include "VisualLogger/VisualLogger.h"
@@ -31,6 +33,8 @@ AGolfHole::AGolfHole()
 	// We make the actor dormant and only trigger the explicit changes
 	bAlwaysRelevant = true;
 	NetDormancy = ENetDormancy::DORM_DormantAll;
+
+	OverlapConditionComponent = CreateDefaultSubobject<UOverlapConditionComponent>(TEXT("Overlap Condition"));
 }
 
 AGolfHole* AGolfHole::GetCurrentHole(const UObject* WorldContextObject)
@@ -130,7 +134,20 @@ void AGolfHole::Reset()
 
 	Super::Reset();
 
+	OverlapConditionComponent->Reset();
+
 	UpdateColliderRegistration();
+}
+
+void AGolfHole::PostInitializeComponents()
+{
+	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: PostInitializeComponents"), *GetName());
+
+	Super::PostInitializeComponents();
+
+	OverlapConditionComponent->Initialize(
+		UOverlapConditionComponent::FOverlapConditionDelegate::CreateUObject(this, &AGolfHole::CheckedScored),
+		UOverlapConditionComponent::FOverlapTriggerDelegate::CreateUObject(this, &AGolfHole::OnScored));
 }
 
 void AGolfHole::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -165,78 +182,38 @@ void AGolfHole::OnComponentBeginOverlap(UPrimitiveComponent* OverlappedComponent
 		return;
 	}
 
-	// Players take turns so there can only be one concurrent overlapping pawn
-
-	OverlappingPaperGolfPawn = PaperGolfPawn;
-
-	auto World = GetWorld();
-	if (!ensure(World))
-	{
-		return;
-	}
-
-	World->GetTimerManager().SetTimer(CheckScoredTimerHandle, this, &AGolfHole::OnCheckScored, 0.1f, true);
+	OverlapConditionComponent->BeginOverlap(*PaperGolfPawn);
 }
 
 void AGolfHole::OnComponentEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
 	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: OnComponentEndOverlap - %s"), *GetName(), *LoggingUtils::GetName(OtherActor));
 
-	if (OtherActor == OverlappingPaperGolfPawn)
-	{
-		UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: OnComponentEndOverlap - %s - Player has left hole."), *GetName(), *LoggingUtils::GetName(OtherActor));
-		
-		// Be sure to cancel the timer if the overlapping pawn leaves the hole
-		ClearTimer();
-	}
-}
+	auto PaperGolfPawn = Cast<APaperGolfPawn>(OtherActor);
 
-void AGolfHole::OnCheckScored()
-{
-	if (CheckedScored())
-	{
-		const auto PaperGolfPawn = OverlappingPaperGolfPawn.Get();
-		ClearTimer();
-
-		// Fire scored event
-		// PaperGolfPawn should be defined here as the scored check validates that
-		if (auto GolfEventsSubsystem = GetWorld()->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventsSubsystem) && ensure(PaperGolfPawn))
-		{
-			GolfEventsSubsystem->OnPaperGolfPawnScored.Broadcast(PaperGolfPawn);
-		}
-	}
-}
-
-bool AGolfHole::CheckedScored() const
-{
-	auto PaperGolfPawn = OverlappingPaperGolfPawn.Get();
 	if (!PaperGolfPawn)
 	{
-		return false;
+		return;
 	}
 
-	// If we come to rest inside the hole, then we have scored
-	if (!PaperGolfPawn->IsAtRest())
-	{
-		return false;
-	}
-
-	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: CheckedScored - Player %s has scored"), *GetName(), *PaperGolfPawn->GetName());
-
-	return true;
+	OverlapConditionComponent->EndOverlap(*PaperGolfPawn);
 }
 
-void AGolfHole::ClearTimer()
+void AGolfHole::OnScored(APaperGolfPawn& PaperGolfPawn)
 {
-	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: ClearTimer: CheckScoredTimerHandle=%s; OverlappingPaperGolfPawn=%s"),
-		*GetName(), LoggingUtils::GetBoolString(CheckScoredTimerHandle.IsValid()), *LoggingUtils::GetName(OverlappingPaperGolfPawn));
+	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: OnScored - Player %s has scored"), 
+		*GetName(), *PaperGolfPawn.GetName());
 
-	OverlappingPaperGolfPawn.Reset();
-
-	if (auto World = GetWorld(); World)
+	// Fire scored event
+	if (auto GolfEventsSubsystem = GetWorld()->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventsSubsystem))
 	{
-		World->GetTimerManager().ClearTimer(CheckScoredTimerHandle);
+		GolfEventsSubsystem->OnPaperGolfPawnScored.Broadcast(&PaperGolfPawn);
 	}
+}
+
+bool AGolfHole::CheckedScored(const APaperGolfPawn& Pawn) const
+{
+	return Pawn.IsAtRest();
 }
 
 void AGolfHole::UpdateColliderRegistration()
@@ -309,7 +286,7 @@ void AGolfHole::UnregisterCollider()
 {
 	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: UnregisterCollider: %s"), *GetName(), *LoggingUtils::GetName(Collider));
 
-	ClearTimer();
+	OverlapConditionComponent->Reset();
 
 	if (!IsValid(Collider))
 	{
@@ -349,13 +326,12 @@ void AGolfHole::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 	Category.Add(TEXT("Hole Number"), FString::Printf(TEXT("%d"), HoleNumber));
 	Category.Add(TEXT("State"), LoggingUtils::GetName(GolfHoleState));
 
+	Snapshot->Status.Add(Category);
+
 	if (HasAuthority())
 	{
-		Category.Add(TEXT("OverlappingPaperGolfPawn"), LoggingUtils::GetName(OverlappingPaperGolfPawn));
-		Category.Add(TEXT("Score timer Active"), LoggingUtils::GetBoolString(CheckScoredTimerHandle.IsValid()));
+		OverlapConditionComponent->DescribeSelfToVisLog(Snapshot);
 	}
-
-	Snapshot->Status.Add(Category);
 }
 
 #endif

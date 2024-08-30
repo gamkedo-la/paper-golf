@@ -333,6 +333,8 @@ void UGolfControllerCommonComponent::RegisterShotFinishedTimer()
 	});
 	WeakPaperGolfPawn = PaperGolfPawn;
 
+	FirstRestCheckPassTime = -1.0f;
+
 	World->GetTimerManager().SetTimer(NextShotTimerHandle, this, &ThisClass::CheckForNextShot, RestCheckTickRate, true);
 }
 
@@ -348,6 +350,7 @@ void UGolfControllerCommonComponent::UnregisterShotFinishedTimer()
 		PaperGolfPawn->OnFlick.Remove(OnFlickHandle);
 	}
 
+	FirstRestCheckPassTime = -1.0f;
 	OnFlickHandle.Reset();
 	WeakPaperGolfPawn.Reset();
 
@@ -518,6 +521,22 @@ void UGolfControllerCommonComponent::CheckForNextShot()
 	auto PaperGolfPawn = GolfController->GetPaperGolfPawn();
 	if (!PaperGolfPawn)
 	{
+		return;
+	}
+
+	const auto CurrentTimeSeconds = World->GetTimeSeconds();
+
+	if (FirstRestCheckPassTime < 0)
+	{
+		FirstRestCheckPassTime = CurrentTimeSeconds;
+	}
+
+	if (const auto DeltaTime = CurrentTimeSeconds - FirstRestCheckPassTime; DeltaTime < RestCheckTriggerDelay)
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGPawn, VeryVerbose,
+			TEXT("%s-%s: CheckForNextShot - Skip - Waiting for rest check delay: time remaining=%fs"),
+			*GetName(), *LoggingUtils::GetName(GetOwner()), RestCheckTriggerDelay - DeltaTime);
+
 		return;
 	}
 

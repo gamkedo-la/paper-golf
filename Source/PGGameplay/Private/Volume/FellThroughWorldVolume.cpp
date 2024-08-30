@@ -8,7 +8,7 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(FellThroughWorldVolume)
 
-void AFellThroughWorldVolume::OnPaperGolfPawnOverlap(APaperGolfPawn& PaperGolfPawn, UGolfEventsSubsystem& GolfEvents)
+void AFellThroughWorldVolume::OnConditionTriggered(APaperGolfPawn& PaperGolfPawn, UGolfEventsSubsystem& GolfEvents)
 {
 	GolfEvents.OnPaperGolfPawnClippedThroughWorld.Broadcast(&PaperGolfPawn);
 }

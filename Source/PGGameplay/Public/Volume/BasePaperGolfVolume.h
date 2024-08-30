@@ -8,6 +8,22 @@
 
 class UGolfEventsSubsystem;
 class APaperGolfPawn;
+class UOverlapConditionComponent;
+
+
+UENUM(BlueprintType)
+enum class EPaperGolfVolumeOverlapType : uint8
+{
+	/*
+	* Condition triggers on any overlap with the volume.
+	*/
+	Any,
+
+	/*
+	* Condition only triggers when the player ends their turn still in the volume.
+	*/
+	End
+};
 
 /**
  * 
@@ -22,11 +38,40 @@ public:
 
 protected:
 
-	virtual void OnPaperGolfPawnOverlap(APaperGolfPawn& PaperGolfPawn, UGolfEventsSubsystem& GolfEvents) {}
+	virtual void OnConditionTriggered(APaperGolfPawn& PaperGolfPawn, UGolfEventsSubsystem& GolfEvents) {}
 
-	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Paper Golf Pawn Overlap"))
-	void ReceiveOnPaperGolfPawnOverlap(APaperGolfPawn* PaperGolfPawn, UGolfEventsSubsystem* GolfEvents);
+	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Condition Triggered"))
+	void ReceiveConditionTriggered(APaperGolfPawn* PaperGolfPawn, UGolfEventsSubsystem* GolfEvents);
+
+	virtual void PostInitializeComponents() override;
+
+	UFUNCTION(BlueprintNativeEvent, Category = "Condition")
+	bool CheckEndCondition(const APaperGolfPawn* PaperGolfPawn) const;
+
+	virtual bool CheckEndCondition_Implementation(const APaperGolfPawn* PaperGolfPawn) const { return true;  }
 
 private:
 	virtual void NotifyActorBeginOverlap(AActor* OtherActor) override final;
+	virtual void NotifyActorEndOverlap(AActor* OtherActor) override final;
+
+	void NotifyConditionTriggered(APaperGolfPawn& PaperGolfPawn);
+	bool IsConditionTriggered(const APaperGolfPawn& PaperGolfPawn) const;
+
+protected:
+	UPROPERTY(EditDefaultsOnly, Category = "Overlap Type")
+	EPaperGolfVolumeOverlapType Type{ EPaperGolfVolumeOverlapType::Any };
+
+private:
+
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UOverlapConditionComponent> OverlapConditionComponent{};
 };
+
+#pragma region Inline Definitions
+
+FORCEINLINE bool ABasePaperGolfVolume::IsConditionTriggered(const APaperGolfPawn& PaperGolfPawn) const
+{
+	return CheckEndCondition(&PaperGolfPawn);
+}
+
+#pragma endregion Inline Definitions
