@@ -397,7 +397,7 @@ int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 		}
 
 		const auto PlayerState = Player->GetGolfPlayerState();
-		if (!ensureMsgf(PlayerState, TEXT("%s: DetermineClosestPlayerToHole - Player=%s; PlayerState=%s is not AGolfPlayerState"),
+		if (!ensureMsgf(PlayerState, TEXT("%s: DetermineNextPlayer - Player=%s; PlayerState=%s is not AGolfPlayerState"),
 			*GetName(), *PG::StringUtils::ToString(Player),
 			*LoggingUtils::GetName(Cast<AController>(Player.GetObject()) ? Cast<AController>(Player.GetObject())->GetPlayerState<APlayerState>() : nullptr)))
 		{
@@ -435,9 +435,9 @@ int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 
 		if(!NextPlayer || CurrentPlayerState < *NextPlayer)
 		{
-			UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Verbose, TEXT("%s: DetermineNextPlayer - Found closer player=(%d)%s - NewDist=%.1fm; PrevDist=%s; PrevPlayer=%s"),
-				*GetName(), i, *PG::StringUtils::ToString(Player), DistanceToHole / 100,
-				NextPlayer ? *FString::Printf(TEXT("%.1fm"), NextPlayer->DistanceToHole / 100) : TEXT("N/A"),
+			UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Verbose, TEXT("%s: DetermineNextPlayer - Found better match player=(%d)%s - NewDist=%.1fm; PrevDist=%s; PrevPlayer=%s"),
+				*GetName(), i, *PG::StringUtils::ToString(Player), FMath::Sqrt(DistanceToHole) / 100,
+				NextPlayer ? *FString::Printf(TEXT("%.1fm"), FMath::Sqrt(NextPlayer->DistanceToHole) / 100) : TEXT("N/A"),
 				NextPlayer ? *FString::Printf(TEXT("(%d)%s"), NextPlayer->Index, *PG::StringUtils::ToString(Players[NextPlayer->Index])) : TEXT("N/A")
 			);
 
@@ -566,11 +566,12 @@ namespace
 {
 	bool FGolfPlayerOrderState::operator<(const FGolfPlayerOrderState& Other) const
 	{
-		if (DistanceToHole > Other.DistanceToHole)
+		// Make error tolerance 1m so that paper footballs close together will prioritize those with fewer shots
+		if (FMath::IsNearlyEqual(DistanceToHole, Other.DistanceToHole, 100.0f))
 		{
-			return true;
+			return std::tie(Shots, Index) < std::tie(Other.Shots, Other.Index);
 		}
 
-		return std::tie(Shots, Index) < std::tie(Other.Shots, Other.Index);
+		return DistanceToHole > Other.DistanceToHole;
 	}
 }
