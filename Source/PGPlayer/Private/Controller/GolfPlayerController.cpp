@@ -827,6 +827,11 @@ void AGolfPlayerController::ActivateTurn()
 
 	if (GetPawn() != PlayerPawn)
 	{
+		if (PlayerState)
+		{
+			PlayerState->SetIsSpectator(false);
+		}
+
 		Possess(PlayerPawn);
 		// Turn activation will happen on SetPawn after possession has replicated
 	}
@@ -945,9 +950,14 @@ void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* I
 	// Should track the possessed paper golf pawn as need to switch back to it when activating the turn
 
 	// Allow the spectator pawn to take over the controls; otherwise, some of the bindings will be disabled
+	if (PlayerState)
+	{
+		PlayerState->SetIsSpectator(true);
+	}
+
 	ClientSpectate(InPawn, InPlayerState);
 
-	AddSpectatorPawn(InPawn);
+	SpectatePawn(InPawn, InPlayerState);
 }
 
 void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState)
@@ -1006,7 +1016,7 @@ void AGolfPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 	DOREPLIFETIME(AGolfPlayerController, bScored);
 }
 
-void AGolfPlayerController::AddSpectatorPawn(APawn* PawnToSpectate)
+void AGolfPlayerController::SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState* InPlayerState)
 {
 	if (!HasAuthority())
 	{
@@ -1018,28 +1028,33 @@ void AGolfPlayerController::AddSpectatorPawn(APawn* PawnToSpectate)
 
 	ChangeState(NAME_Spectating);
 	ClientGotoState(NAME_Spectating);
-	SetCameraToViewPawn(PawnToSpectate);
+
+	SetCameraToViewPawn(PawnToSpectate, InPlayerState);
 }
 
-void AGolfPlayerController::SetCameraToViewPawn(APawn* InPawn)
+void AGolfPlayerController::SetCameraToViewPawn(APawn* InPawn, AGolfPlayerState* InPlayerState)
 {
-	if (!IsValid(InPawn))
+	AActor* ActorToSpectate = InPlayerState;
+
+	if (!IsValid(ActorToSpectate))
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: SetCameraToViewPawn: NULL - using default player controller view target"),
-			*GetName()
+		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: SetCameraToViewPawn: InPlayerState=NULL; InPawn=%s"),
+			*GetName(), *LoggingUtils::GetName(InPawn)
 		);
+
+		ActorToSpectate = InPawn;
 	}
 	else
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: SetCameraToViewPawn: Tracking player pawn %s"),
+		UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: SetCameraToViewPawn: Tracking player state %s with pawn %s"),
 			*GetName(),
-			*InPawn->GetName()
+			*InPlayerState->GetPlayerName(),
+			*LoggingUtils::GetName(InPawn)
 		);
 	}
 
-	// TODO: Consider using SetViewTargetWithBlend
-	// Whatever the InPawn player is seeing, we will also see
-	SetViewTarget(InPawn);
+	EnableInput(this);
+	SetViewTarget(ActorToSpectate);
 }
 
 

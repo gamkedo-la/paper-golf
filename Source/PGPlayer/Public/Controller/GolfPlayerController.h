@@ -152,8 +152,8 @@ private:
 
 	void SetupNextShot(bool bSetCanFlick);
 
-	void AddSpectatorPawn(APawn* PawnToSpectate);
-	void SetCameraToViewPawn(APawn* InPawn);
+	void SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState* InPlayerState);
+	void SetCameraToViewPawn(APawn* InPawn, AGolfPlayerState* InPlayerState);
 
 	void SetPositionTo(const FVector& Position, const TOptional<FRotator>& OptionalRotation = {});
 
