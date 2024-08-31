@@ -64,6 +64,14 @@ void UHoleTransitionComponent::InitializeComponent()
 
 void UHoleTransitionComponent::Init()
 {
+#if WITH_EDITOR
+	if (auto World = GetWorld(); World && !World->IsGameWorld())
+	{
+		// Skip initialization in editor world as its not needed and sometimes the assertion for the world subsystem fails
+		return;
+	}
+#endif 
+
 	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: Init"), *GetName());
 
 	GameMode = Cast<AGameModeBase>(GetOwner());
