@@ -31,13 +31,7 @@ class PGPAWN_API UGolfControllerCommonComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
-public:	
-
-	struct FFocusScores
-	{
-		AActor* FocusActor{};
-		float Score{};
-	};
+public:
 
 	UGolfControllerCommonComponent();
 

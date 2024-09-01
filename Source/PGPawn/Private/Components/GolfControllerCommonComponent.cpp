@@ -275,7 +275,6 @@ AActor* UGolfControllerCommonComponent::GetBestFocusActor(TArray<FShotFocusScore
 		}
 	}
 
-	// Find closest
 	float MinDist{ std::numeric_limits<float>::max() };
 
 	for (auto FocusTarget : FocusableActors)
@@ -337,7 +336,7 @@ AActor* UGolfControllerCommonComponent::GetBestFocusActor(TArray<FShotFocusScore
 		*GetName(), *PaperGolfPawn->GetName(), *LoggingUtils::GetName(BestFocus));
 	if (BestFocus)
 	{
-		UE_VLOG_ARROW(GetOwner(), LogPGPawn, Log, Position, BestFocus->GetActorLocation(), FColor::Blue, TEXT("Target: %s"), *BestFocus->GetName());
+		UE_VLOG_ARROW(GetOwner(), LogPGPawn, Log, Position, BestFocus->GetActorLocation(), FColor::Blue, TEXT("Best Focus: %s"), *BestFocus->GetName());
 	}
 
 	if (OutFocusScores)

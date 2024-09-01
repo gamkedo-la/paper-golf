@@ -56,6 +56,8 @@ public:
 		AActor* FocusActor{};
 		float ShotPitch{};
 		float ShotYaw{};
+
+		FString ToString() const;
 	};
 
 	UGolfAIShotComponent();
@@ -127,7 +129,7 @@ private:
 
 	void LoadWorldData();
 
-	bool CurrentFocusActorShotWillEndUpInHazard(const FAIShotSetupResult& ShotSetupResult) const;
+	bool ShotWillEndUpInHazard(const FAIShotSetupResult& ShotSetupResult) const;
 
 	float GetHitRestitution(const FHitResult& HitResult) const;
 

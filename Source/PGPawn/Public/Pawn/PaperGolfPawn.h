@@ -36,6 +36,8 @@ struct PGPAWN_API FFlickParams
 	float Accuracy{ 0.0f };
 
 	void Clamp();
+
+	FString ToString() const;
 };
 
 USTRUCT(BlueprintType)
