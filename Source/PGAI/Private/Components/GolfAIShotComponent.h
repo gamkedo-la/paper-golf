@@ -32,6 +32,9 @@ struct FAIShotContext
 	UPROPERTY(Transient)
 	AActor* GolfHole{};
 
+	UPROPERTY(Transient)
+	TArray<FShotFocusScores> FocusActorScores{};
+
 	// TODO: May want to pass in the full array of focus actors to select another target
 
 	EShotType ShotType{ EShotType::Default };
@@ -50,13 +53,14 @@ public:
 	struct FAIShotSetupResult
 	{
 		FFlickParams FlickParams{};
+		AActor* FocusActor{};
 		float ShotPitch{};
 		float ShotYaw{};
 	};
 
 	UGolfAIShotComponent();
 
-	FAIShotSetupResult SetupShot(const FAIShotContext& ShotContext);
+	FAIShotSetupResult SetupShot(FAIShotContext&& ShotContext);
 
 protected:
 	virtual void BeginPlay() override;
@@ -94,6 +98,8 @@ private:
 	};
 
 	TOptional<FAIShotSetupResult> CalculateShotParams();
+	TOptional<FAIShotSetupResult> CalculateShotParamsForCurrentFocusActor();
+
 	FAIShotSetupResult CalculateDefaultShotParams() const;
 
 	TOptional<FShotPowerCalculationResult> CalculateInitialShotParams() const;
@@ -119,6 +125,12 @@ private:
 
 	const FGolfAIConfigData* SelectAIConfigEntry() const;
 
+	void LoadWorldData();
+
+	bool CurrentFocusActorShotWillEndUpInHazard(const FAIShotSetupResult& ShotSetupResult) const;
+
+	float GetHitRestitution(const FHitResult& HitResult) const;
+
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float BounceOverhitCorrectionFactor{ 0.1f };
@@ -137,6 +149,9 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float MaxZOffset{ 50.f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	float HazardPredictBounceTime{ 3.0f };
 
 	/*
 	* Delta to focus actor orientation to offset the shot yaw.  Try the hole direction first.
@@ -159,7 +174,15 @@ private:
 	TArray<FGolfAIConfigData> AIErrorsData{};
 
 	UPROPERTY(Transient)
+	TArray<AActor*> HazardActors{};
+
+	UPROPERTY(Transient)
 	FAIShotContext ShotContext{};
+
+	float InitialFocusYaw{};
+
+	UPROPERTY(Transient)
+	AActor* FocusActor{};
 
 	int32 ShotsSinceLastError{};
 };

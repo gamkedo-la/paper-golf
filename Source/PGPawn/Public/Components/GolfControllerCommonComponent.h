@@ -33,6 +33,12 @@ class PGPAWN_API UGolfControllerCommonComponent : public UActorComponent
 
 public:	
 
+	struct FFocusScores
+	{
+		AActor* FocusActor{};
+		float Score{};
+	};
+
 	UGolfControllerCommonComponent();
 
 	void Initialize(const FSimpleDelegate& InOnControllerShotFinished);
@@ -44,6 +50,15 @@ public:
 	void AddToShotHistory(APaperGolfPawn* PaperGolfPawn);
 
 	void SetPaperGolfPawnAimFocus();
+
+	/*
+	* Gets the best focus actor based on the current pawn position. Optionally, returns all the scorings for the focus actors
+	* ordered by best score (lowest value) to worst if OutFocusScores is non-null.
+	* 
+	* @param OutFocusScores Optional output parameter to return the focus actors and their scores.
+	* @return The best focus actor based on the current pawn position.
+	*/
+	AActor* GetBestFocusActor(TArray<FShotFocusScores>* OutFocusScores = nullptr) const;
 
 	TOptional<FShotHistory> GetLastShot() const;
 

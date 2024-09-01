@@ -6,4 +6,5 @@
 
 namespace PG::Tags
 {
+	inline const FName Hazard(TEXT("Hazard"));
 }

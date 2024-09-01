@@ -226,15 +226,34 @@ void UGolfControllerCommonComponent::SetPaperGolfPawnAimFocus()
 		return;
 	}
 
+	if (auto BestFocus = GetBestFocusActor(); BestFocus)
+	{
+		PaperGolfPawn->SetFocusActor(BestFocus);
+	}
+}
+
+AActor* UGolfControllerCommonComponent::GetBestFocusActor(TArray<FShotFocusScores>* OutFocusScores) const
+{
+	if (!ensure(GolfController))
+	{
+		return nullptr;
+	}
+
+	auto PaperGolfPawn = GolfController->GetPaperGolfPawn();
+	if (!PaperGolfPawn)
+	{
+		return nullptr;
+	}
+
 	auto World = GetWorld();
 	if (!World)
 	{
-		return;
+		return nullptr;
 	}
 
 	if (!GolfHole)
 	{
-		return;
+		return nullptr;
 	}
 
 	const auto& Position = PaperGolfPawn->GetActorLocation();
@@ -245,66 +264,91 @@ void UGolfControllerCommonComponent::SetPaperGolfPawnAimFocus()
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: SetPaperGolfPawnAimFocus: LOS to DefaultFocus; Setting to %s"),
 			*GetName(), *PaperGolfPawn->GetName(), *LoggingUtils::GetName(GolfHole));
-	}
-	else
-	{
-		// Find closest
-		float MinDist{ std::numeric_limits<float>::max() };
 
-		for (auto FocusTarget : FocusableActors)
+		if (OutFocusScores)
 		{
-			if (!FocusTarget)
-			{
-				continue;
-			}
-			const auto ToFocusTarget = FocusTarget->GetActorLocation() - Position;
-			const auto ToFocusTargetDist = FMath::Max(ToFocusTarget.Size(), 0.01f);
-			const auto ToFocusTargetDir = ToFocusTarget / ToFocusTargetDist;
-			const auto& FocusForwardDirection = FocusTarget->GetActorForwardVector();
+			OutFocusScores->Add({ GolfHole, 0.0f });
+		}
+		else
+		{
+			return GolfHole;
+		}
+	}
 
-			const auto FocusAlignment = FocusForwardDirection | ToFocusTargetDir;
-			const auto FocusMinAlignment = IFocusableActor::Execute_GetMinCosAngle(FocusTarget);
+	// Find closest
+	float MinDist{ std::numeric_limits<float>::max() };
 
-			// Make sure we are facing the focus target
-			if (FocusAlignment < FocusMinAlignment)
-			{
-				UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s: SetPaperGolfPawnAimFocus - Skipping target=%s as DotProduct=%f < FocusMinAlignment=%f"),
-					*GetName(), *FocusTarget->GetName(), FocusAlignment, FocusMinAlignment);
-				UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position, FocusTarget->GetActorLocation(), FColor::Orange, TEXT("Target (ALIGNMENT): %s"), *FocusTarget->GetName());
+	for (auto FocusTarget : FocusableActors)
+	{
+		if (!FocusTarget)
+		{
+			continue;
+		}
 
-				continue;
-			}
+		const auto ToFocusTarget = FocusTarget->GetActorLocation() - Position;
+		const auto ToFocusTargetDist = FMath::Max(ToFocusTarget.Size(), 0.01f);
+		const auto ToFocusTargetDir = ToFocusTarget / ToFocusTargetDist;
+		const auto& FocusForwardDirection = FocusTarget->GetActorForwardVector();
 
-			// Don't consider Z when checking for min distance
-			const auto DistSq2D = ToFocusTarget.SizeSquared2D();
-			const auto MinDistSq2D = FMath::Square(IFocusableActor::Execute_GetMinDistance2D(FocusTarget));
+		const auto FocusAlignment = FocusForwardDirection | ToFocusTargetDir;
+		const auto FocusMinAlignment = IFocusableActor::Execute_GetMinCosAngle(FocusTarget);
 
-			if (DistSq2D < MinDistSq2D)
-			{
-				UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s: SetPaperGolfPawnAimFocus - Skipping target=%s as too close to it - Dist2D=%fm < MinDist=%fm"),
-					*GetName(), *FocusTarget->GetName(), FMath::Sqrt(DistSq2D) / 100, FMath::Sqrt(MinDistSq2D) / 100);
-				UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position, FocusTarget->GetActorLocation(), FColor::Yellow, TEXT("Target (TOO CLOSE): %s"), *FocusTarget->GetName());
+		// Make sure we are facing the focus target
+		if (FocusAlignment < FocusMinAlignment)
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s: SetPaperGolfPawnAimFocus - Skipping target=%s as DotProduct=%f < FocusMinAlignment=%f"),
+				*GetName(), *FocusTarget->GetName(), FocusAlignment, FocusMinAlignment);
+			UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position, FocusTarget->GetActorLocation(), FColor::Orange, TEXT("Target (ALIGNMENT): %s"), *FocusTarget->GetName());
 
-				continue;
-			}
+			continue;
+		}
 
-			// Consider Z as don't want to aim at targets way above or below us
-			if (ToFocusTargetDist < MinDist && HasLOSToFocus(Position, FocusTarget))
+		// Don't consider Z when checking for min distance
+		const auto DistSq2D = ToFocusTarget.SizeSquared2D();
+		const auto MinDistSq2D = FMath::Square(IFocusableActor::Execute_GetMinDistance2D(FocusTarget));
+
+		if (DistSq2D < MinDistSq2D)
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s: SetPaperGolfPawnAimFocus - Skipping target=%s as too close to it - Dist2D=%fm < MinDist=%fm"),
+				*GetName(), *FocusTarget->GetName(), FMath::Sqrt(DistSq2D) / 100, FMath::Sqrt(MinDistSq2D) / 100);
+			UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position, FocusTarget->GetActorLocation(), FColor::Yellow, TEXT("Target (TOO CLOSE): %s"), *FocusTarget->GetName());
+
+			continue;
+		}
+
+		// Consider Z as don't want to aim at targets way above or below us
+		if (OutFocusScores && HasLOSToFocus(Position, FocusTarget))
+		{
+			OutFocusScores->Add({ FocusTarget, static_cast<float>(ToFocusTargetDist) });
+			if (ToFocusTargetDist < MinDist)
 			{
 				MinDist = ToFocusTargetDist;
 				BestFocus = FocusTarget;
 			}
-		} // for
-
-		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: SetPaperGolfPawnAimFocus: BestFocus=%s"),
-			*GetName(), *PaperGolfPawn->GetName(), *LoggingUtils::GetName(BestFocus));
-		if (BestFocus)
-		{
-			UE_VLOG_ARROW(GetOwner(), LogPGPawn, Log, Position, BestFocus->GetActorLocation(), FColor::Blue, TEXT("Target: %s"), *BestFocus->GetName());
 		}
+		else if (!OutFocusScores && ToFocusTargetDist < MinDist && HasLOSToFocus(Position, FocusTarget))
+		{
+			MinDist = ToFocusTargetDist;
+			BestFocus = FocusTarget;
+		}
+	} // for
+
+	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: SetPaperGolfPawnAimFocus: BestFocus=%s"),
+		*GetName(), *PaperGolfPawn->GetName(), *LoggingUtils::GetName(BestFocus));
+	if (BestFocus)
+	{
+		UE_VLOG_ARROW(GetOwner(), LogPGPawn, Log, Position, BestFocus->GetActorLocation(), FColor::Blue, TEXT("Target: %s"), *BestFocus->GetName());
 	}
 
-	PaperGolfPawn->SetFocusActor(BestFocus);
+	if (OutFocusScores)
+	{
+		OutFocusScores->Sort([](const auto& First, const auto& Second)
+		{
+			return First.Score < Second.Score;
+		});
+	}
+
+	return BestFocus;
 }
 
 void UGolfControllerCommonComponent::RegisterShotFinishedTimer()
@@ -698,7 +742,7 @@ bool UGolfControllerCommonComponent::HasLOSToFocus(const FVector& Position, cons
 		bLOS = LOSTest(TraceStartLocation, TraceEndLocation);
 	}
 
-	UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position + 200.f, FocusActor->GetActorLocation() + 200.f,
+	UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position + 200.f * FVector::ZAxisVector, FocusActor->GetActorLocation() + 200.f * FVector::ZAxisVector,
 		bLOS ? FColor::Green : FColor::Red, TEXT("LOS: %s"), *FocusActor->GetName());
 
 #if !NO_LOGGING

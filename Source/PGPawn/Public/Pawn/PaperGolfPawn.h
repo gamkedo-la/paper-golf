@@ -51,6 +51,9 @@ struct PGPAWN_API FFlickPredictParams
 
 	UPROPERTY(Transient, BlueprintReadWrite)
 	float CollisionRadius{ 3.0f };
+
+	UPROPERTY(TRansient, BlueprintReadWrite)
+	FRotator AdditionalWorldRotation{ EForceInit::ForceInitToZero };
 };
 
 bool operator ==(const FFlickParams& First, const FFlickParams& Second);
@@ -97,6 +100,8 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void SetFocusActor(AActor* Focus);
+
+	float GetRotationYawToFocusActor(AActor* InFocusActor) const;
 
 	UFUNCTION(BlueprintCallable)
 	void SnapToGround();

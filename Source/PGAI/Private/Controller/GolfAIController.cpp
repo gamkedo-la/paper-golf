@@ -299,14 +299,20 @@ void AGolfAIController::ExecuteTurn()
 
 	AddStroke();
 
+	TArray<FShotFocusScores> FocusActorScores;
+	GolfControllerCommonComponent->GetBestFocusActor(&FocusActorScores);
+
 	const auto ShotSetupResult = GolfAIShotComponent->SetupShot(
 		{
 			.PlayerPawn = PaperGolfPawn,
 			.PlayerState = GetGolfPlayerState(),
 			.GolfHole = GolfControllerCommonComponent->GetCurrentGolfHole(),
+			.FocusActorScores = std::move(FocusActorScores),
 			.ShotType = ShotType
 		}
 	);
+
+	PaperGolfPawn->SetFocusActor(ShotSetupResult.FocusActor);
 
 	this->ShotType = ShotSetupResult.FlickParams.ShotType;
 

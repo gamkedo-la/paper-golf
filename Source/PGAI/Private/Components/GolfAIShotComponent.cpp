@@ -15,6 +15,8 @@
 
 #include "Utils/RandUtils.h"
 
+#include "Utils/ArrayUtils.h"
+
 #include "Subsystems/GolfEventsSubsystem.h"
 
 #include "Kismet/GameplayStatics.h"
@@ -23,8 +25,14 @@
 #include "Curves/RealCurve.h"
 #include "Data/GolfAIConfigData.h"
 
+#include "PhysicalMaterials/PhysicalMaterial.h"
+
+#include "PGTags.h"
+
 #include <array>
 #include <iterator>
+
+#include <limits>
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GolfAIShotComponent)
 
@@ -44,6 +52,10 @@ namespace
 	FRealCurve* FindCurveForKey(UCurveTable* CurveTable, const FName& Key);
 	
 	constexpr float DefaultPitchAngle = 45.0f;
+
+	constexpr double DistSqHitThreshold = FMath::Square(10);
+
+	FVector GetVelocityAtHitPoint(const FPredictProjectilePathResult& PathResult);
 }
 
 UGolfAIShotComponent::UGolfAIShotComponent()
@@ -51,12 +63,16 @@ UGolfAIShotComponent::UGolfAIShotComponent()
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
-UGolfAIShotComponent::FAIShotSetupResult UGolfAIShotComponent::SetupShot(const FAIShotContext& InShotContext)
+UGolfAIShotComponent::FAIShotSetupResult UGolfAIShotComponent::SetupShot(FAIShotContext&& InShotContext)
 {
 	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: SetupShot - ShotContext=%s"),
 		*LoggingUtils::GetName(GetOwner()), *GetName(), *InShotContext.ToString());
 
-	ShotContext = InShotContext;
+	ShotContext = std::move(InShotContext);
+
+	check(ShotContext.PlayerPawn);
+	FocusActor = ShotContext.PlayerPawn->GetFocusActor();
+	InitialFocusYaw = ShotContext.PlayerPawn->GetRotationYawToFocusActor(FocusActor);
 
 	auto ShotParams = CalculateShotParams();
 	if (!ShotParams)
@@ -78,9 +94,187 @@ void UGolfAIShotComponent::BeginPlay()
 	Super::BeginPlay();
 
 	ValidateAndLoadConfig();
+	LoadWorldData();
+}
+
+void UGolfAIShotComponent::LoadWorldData()
+{
+	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: LoadWorldData"), *LoggingUtils::GetName(GetOwner()), *GetName());
+
+	HazardActors.Reset();
+
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return;
+	}
+
+	// Get all actors with tag in world
+	UGameplayStatics::GetAllActorsWithTag(World, PG::Tags::Hazard, HazardActors);
+
+	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: LoadWorldData - HazardActors=%d -> %s"), 
+		*LoggingUtils::GetName(GetOwner()), *GetName(), HazardActors.Num(), *PG::ToStringObjectElements(HazardActors));
 }
 
 TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::CalculateShotParams()
+{
+	const auto FirstResult = CalculateShotParamsForCurrentFocusActor();
+
+	const auto& FocusActorScores = ShotContext.FocusActorScores;
+
+	if (HazardActors.IsEmpty() || FocusActorScores.Num() <= 1)
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotParams - No hazards found or insufficient alternative focii - Count=%d, using first result"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), FocusActorScores.Num());
+		return FirstResult;
+	}
+
+	const auto FirstFocusActor = FocusActor;
+
+	if (FirstResult && !CurrentFocusActorShotWillEndUpInHazard(*FirstResult))
+	{
+		return FirstResult;
+	}
+
+	for (const auto& FocusActorScore : FocusActorScores)
+	{
+		if (FocusActorScore.FocusActor == FirstFocusActor)
+		{
+			continue;
+		}
+
+		FocusActor = FocusActorScore.FocusActor;
+		const auto Result = CalculateShotParamsForCurrentFocusActor();
+
+		if (Result && !CurrentFocusActorShotWillEndUpInHazard(*Result))
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotParams - Using FocusActor=%s"),
+				*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(FocusActor));
+
+			return Result;
+		}
+	}
+
+	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotParams - No alternative focus actor found, using first result - %s"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(FirstFocusActor));
+
+	FocusActor = FirstFocusActor;
+
+	return FirstResult;
+}
+
+bool UGolfAIShotComponent::CurrentFocusActorShotWillEndUpInHazard(const FAIShotSetupResult& ShotSetupResult) const
+{
+	const auto PlayerPawn = ShotContext.PlayerPawn;
+	check(PlayerPawn);
+
+	const FRotator AdditionalRotation = { ShotSetupResult.ShotPitch, PlayerPawn->GetRotationYawToFocusActor(FocusActor) + ShotSetupResult.ShotYaw - InitialFocusYaw, 0 };
+
+	FFlickPredictParams FlickPredictParams
+	{
+		.AdditionalWorldRotation = AdditionalRotation,
+	};
+
+	FPredictProjectilePathResult PathResult;
+
+	if (!PlayerPawn->PredictFlick(ShotSetupResult.FlickParams, FlickPredictParams, PathResult))
+	{
+		return false;
+	}
+
+	const FVector& HitLocation = PathResult.HitResult.ImpactPoint;
+
+	// TODO: Replace with trace or EQS
+	for (auto HazardActor : HazardActors)
+	{
+		if (!HazardActor)
+		{
+			continue;
+		}
+
+		const auto& Box = PG::CollisionUtils::GetAABB(*HazardActor);
+
+		if (Box.IsInsideOrOn(HitLocation))
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CurrentFocusActorShotWillEndUpInHazard - Detected impact hit - HazardActor=%s; FocusActor=%s; HitLocation=%s"),
+				*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(HazardActor), *LoggingUtils::GetName(FocusActor), *HitLocation.ToCompactString());
+
+			UE_VLOG_BOX(GetOwner(), LogPGAI, Log, Box, FColor::Orange, TEXT("Hazard - %s"), *LoggingUtils::GetName(HazardActor));
+			UE_VLOG_LOCATION(GetOwner(), LogPGAI, Log, HitLocation, 10.0f, FColor::Yellow, TEXT("Hazard Hit"));
+
+			// extend the hit location to account for bounce
+			const FVector VelocityAtHitPoint = GetVelocityAtHitPoint(PathResult);
+			const FVector VelocityDirection = VelocityAtHitPoint.GetSafeNormal();
+			const auto Speed = VelocityAtHitPoint.Size();
+			// reduce speed by elasticity -> KE = 1/2mv^2 -> v reduced by factor of sqrt(elasticity)
+			const auto Restitution = GetHitRestitution(PathResult.HitResult);
+			const auto BounceSpeed = Speed * FMath::Sqrt(Restitution);
+
+			const FVector BounceDirection = FMath::GetReflectionVector(VelocityDirection, PathResult.HitResult.ImpactNormal);
+			const FVector FinalLocation = HitLocation + BounceDirection * BounceSpeed * HazardPredictBounceTime;
+
+			if (Box.IsInsideOrOnXY(FinalLocation))
+			{
+				UE_VLOG_LOCATION(GetOwner(), LogPGAI, Log, FinalLocation, 10.0f, FColor::Red, TEXT("Hazard Bounce"));
+
+				UE_VLOG_UELOG(GetOwner(), LogPGAI, Log,
+					TEXT("%s-%s: CurrentFocusActorShotWillEndUpInHazard - TRUE - HazardActor=%s; FocusActor=%s; Restitution=%f; VelocityAtHitPoint=%s; Speed=%f; BounceDirection=%s; HitLocation=%s; FinalLocation=%s"),
+					*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(HazardActor), *LoggingUtils::GetName(FocusActor),
+					Restitution, *VelocityAtHitPoint.ToCompactString(), Speed, *BounceDirection.ToCompactString(), *HitLocation.ToCompactString(),
+					*FinalLocation.ToCompactString());
+
+				return true;
+			}
+			else
+			{
+				UE_VLOG_LOCATION(GetOwner(), LogPGAI, Log, FinalLocation, 10.0f, FColor::Orange, TEXT("Hazard Bounce"));
+			}
+		}
+	}
+
+	return false;
+}
+
+float UGolfAIShotComponent::GetHitRestitution(const FHitResult& HitResult) const
+{
+	// Ideally we would use PathResult.HitResult.PhysMaterial->Restitution; however, the path prediction hit result is not returned with physical material but we can do a quick trace to get it
+	if (auto PhysicalMaterial = HitResult.PhysMaterial.Get(); PhysicalMaterial)
+	{
+		return PhysicalMaterial->Restitution;
+	}
+
+	// do a trace to get it
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return 0.0f;
+	}
+
+	FHitResult TraceHitResult;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(ShotContext.PlayerPawn);
+	Params.bReturnPhysicalMaterial = true;
+
+	if (!World->LineTraceSingleByChannel(TraceHitResult, HitResult.ImpactPoint + HitResult.ImpactNormal * 100, HitResult.ImpactPoint - HitResult.ImpactNormal * 100, PG::CollisionChannel::FlickTraceType))
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: GetHitRestitution - Unable to determine physical material from re-trace; ImpactPoint=%s; ImpactNormal=%s"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), *HitResult.ImpactPoint.ToCompactString(), *HitResult.ImpactNormal.ToCompactString());
+		return 0.0f;
+	}
+
+	if (auto PhysicalMaterial = TraceHitResult.PhysMaterial.Get(); PhysicalMaterial)
+	{
+		return PhysicalMaterial->Restitution;
+	}
+
+	UE_VLOG_UELOG(GetOwner(), LogPGAI, Warning, TEXT("%s-%s: GetHitRestitution - Re-trace hit result did not return physical material! OriginalImpactPoint=%s; OriginalImpactNormal=%s; TraceImpactPoint=%s; TraceImpactNormal=%s"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), *HitResult.ImpactPoint.ToCompactString(), *HitResult.ImpactNormal.ToCompactString(),
+		*TraceHitResult.ImpactPoint.ToCompactString(), *TraceHitResult.ImpactNormal.ToCompactString());
+
+	return 0.0f;
+}
+
+TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::CalculateShotParamsForCurrentFocusActor()
 {
 	const auto InitialShotParamsOptional = CalculateInitialShotParams();
 	if (!InitialShotParamsOptional)
@@ -109,13 +303,14 @@ TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::Calcul
 	FlickParams.PowerFraction = FlickError.PowerFraction;
 	FlickParams.Accuracy = FlickError.Accuracy;
 
-	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: CalculateShotParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f; ShotPitch=%.1f; ShotYaw=%.1f"),
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: CalculateShotParamsForCurrentFocusActor - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f; ShotPitch=%.1f; ShotYaw=%.1f"),
 		*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(FlickParams.ShotType),
 		FlickParams.PowerFraction, FlickParams.Accuracy, FlickParams.LocalZOffset, ShotCalculationResult.Pitch, ShotCalculationResult.Yaw);
 
 	return FAIShotSetupResult
 	{
 		.FlickParams = FlickParams,
+		.FocusActor = FocusActor,
 		.ShotPitch = ShotCalculationResult.Pitch,
 		.ShotYaw = ShotCalculationResult.Yaw
 	};
@@ -131,7 +326,6 @@ TOptional<UGolfAIShotComponent::FShotPowerCalculationResult> UGolfAIShotComponen
 	auto PlayerPawn = ShotContext.PlayerPawn;
 
 	// Predict flick to focus actor
-	auto FocusActor = PlayerPawn->GetFocusActor();
 	if (!ensure(FocusActor))
 	{
 		UE_VLOG_UELOG(this, LogPGAI, Error, TEXT("%s-%s: CalculateInitialShotParams - FocusActor is NULL"), *LoggingUtils::GetName(GetOwner()), *GetName());
@@ -233,7 +427,6 @@ FVector UGolfAIShotComponent::GetFocusActorLocation(const FVector& FlickLocation
 	check(PlayerPawn);
 
 	// Predict flick to focus actor
-	auto FocusActor = PlayerPawn->GetFocusActor();
 	check(FocusActor);
 
 	// Prefer focus actor unless the hole is closer
@@ -328,7 +521,11 @@ UGolfAIShotComponent::FShotCalculationResult UGolfAIShotComponent::CalculateAvoi
 	const auto GolfHole = ShotContext.GolfHole;
 	check(GolfHole);
 
-	const auto& DefaultFlickDirection = PlayerPawn->GetFlickDirection();
+	// TODO: This may not account for being on a slant, should be a local rotation
+	const FRotator AdditionalActorRotation = { 0, PlayerPawn->GetRotationYawToFocusActor(FocusActor) - InitialFocusYaw, 0 };
+
+	const auto& DefaultFlickDirection = AdditionalActorRotation.RotateVector(PlayerPawn->GetFlickDirection());
+
 	const auto& ActorUpVector = PlayerPawn->GetActorUpVector();
 	const auto& HoleDirection = (GolfHole->GetActorLocation() - FlickLocation).GetSafeNormal();
 
@@ -339,8 +536,8 @@ UGolfAIShotComponent::FShotCalculationResult UGolfAIShotComponent::CalculateAvoi
 
 	if (TraceShotAngle(*PlayerPawn, FlickLocation, DefaultFlickDirection, FlickSpeed, PreferredPitchAngle))
 	{
-		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotFactors - Solution Found with preferred pitch - PreferredPitch=%.1f"),
-			*LoggingUtils::GetName(GetOwner()), *GetName(), PreferredPitchAngle);
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotFactors - Solution Found with preferred pitch - PreferredPitch=%.1f; AdditionalActorRotation=%s"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), PreferredPitchAngle, *AdditionalActorRotation.ToCompactString());
 		return { PreferredPitchAngle, 0.0f, 1.0f };
 	}
 
@@ -484,6 +681,7 @@ UGolfAIShotComponent::FAIShotSetupResult UGolfAIShotComponent::CalculateDefaultS
 	return FAIShotSetupResult
 	{
 		.FlickParams = FlickParams,
+		.FocusActor = FocusActor,
 		.ShotPitch = DefaultPitchAngle
 	};
 }
@@ -671,5 +869,35 @@ namespace
 #else
 		return CurveTable->FindCurveUnchecked(Key);
 #endif
+	}
+
+	FVector GetVelocityAtHitPoint(const FPredictProjectilePathResult& PathResult)
+	{
+		const auto& HitLocation = PathResult.HitResult.ImpactPoint;
+
+		FVector Velocity{ EForceInit::ForceInitToZero };
+		double MinDist{ std::numeric_limits<double>::max() };
+
+		const auto& PathData = PathResult.PathData;
+
+		for (int i = PathData.Num() - 1; i >= 0; --i)
+		{
+			const auto& Point = PathData[i];
+
+			const auto Dist = FVector::DistSquared(HitLocation, Point.Location);
+			if (Dist < MinDist)
+			{
+				MinDist = Dist;
+				Velocity = Point.Velocity;
+
+				// Close enough - break at this point
+				if (Dist <= DistSqHitThreshold)
+				{
+					break;
+				}
+			}
+		}
+
+		return Velocity;
 	}
 }

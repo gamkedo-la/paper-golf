@@ -767,7 +767,9 @@ float APaperGolfPawn::ClampFlickZ(float OriginalZOffset, float DeltaZ) const
 
 bool APaperGolfPawn::PredictFlick(const FFlickParams& FlickParams, const FFlickPredictParams& FlickPredictParams, FPredictProjectilePathResult& Result) const
 {
-	const auto FlickImpulse = GetFlickForce(FlickParams.ShotType, FlickParams.Accuracy, FlickParams.PowerFraction);
+	// Rotate flick impulse by AdditionalWorldRotation
+	const auto FlickImpulse = FlickPredictParams.AdditionalWorldRotation.RotateVector(GetFlickForce(FlickParams.ShotType, FlickParams.Accuracy, FlickParams.PowerFraction));
+
 	const auto DragForceMultiplier = GetFlickDragForceMultiplier(FlickImpulse.Size());
 	const auto DragAdjustedFlickImpulse = FlickImpulse * DragForceMultiplier;
 
@@ -1079,13 +1081,19 @@ void APaperGolfPawn::ResetCameraForShotSetup()
 		return;
 	}
 
-	const auto LookAtRotation = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), FocusActor->GetActorLocation());
+	const auto LookAtRotationYaw = GetRotationYawToFocusActor(FocusActor);
 
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: ResetCameraForShotSetup - FocusActor=%s; LookAtRotationYaw=%f; bEnableCameraRotationLag=%s; CameraRotationLagSpeed=%f"),
-		*GetName(), *LoggingUtils::GetName(FocusActor), LookAtRotation.Yaw, LoggingUtils::GetBoolString(bEnableCameraRotationLag), _CameraSpringArm->CameraRotationLagSpeed);
+		*GetName(), *LoggingUtils::GetName(FocusActor), LookAtRotationYaw, LoggingUtils::GetBoolString(bEnableCameraRotationLag), _CameraSpringArm->CameraRotationLagSpeed);
 	UE_VLOG_LOCATION(this, LogPGPawn, Log, FocusActor->GetActorLocation(), 20.0, FColor::Turquoise, TEXT("Focus"));
 
-	SetActorRotation(FRotator{ 0, LookAtRotation.Yaw, 0 });
+	SetActorRotation(FRotator{ 0, LookAtRotationYaw, 0 });
+}
+
+float APaperGolfPawn::GetRotationYawToFocusActor(AActor* InFocusActor) const
+{
+	check(InFocusActor);
+	return UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), InFocusActor->GetActorLocation()).Yaw;
 }
 
 void APaperGolfPawn::SampleState()

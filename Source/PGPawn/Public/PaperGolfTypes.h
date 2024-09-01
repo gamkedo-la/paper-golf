@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 
+#include "PaperGolfTypes.generated.h"
+
 UENUM(BlueprintType)
 enum class EShotType : uint8
 {
@@ -19,4 +21,15 @@ enum class EShotFocusType : uint8
 {
 	Hole,
 	Focus
+};
+
+USTRUCT()
+struct FShotFocusScores
+{
+	GENERATED_BODY()
+
+	UPROPERTY(Transient)
+	TObjectPtr<AActor> FocusActor{};
+
+	float Score{};
 };

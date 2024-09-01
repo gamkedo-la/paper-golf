@@ -4,6 +4,7 @@
 #include "Volume/OutOfBoundsVolume.h"
 
 #include "Pawn/PaperGolfPawn.h"
+#include "PGTags.h"
 #include "Subsystems/GolfEventsSubsystem.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(OutOfBoundsVolume)
@@ -11,6 +12,7 @@
 AOutOfBoundsVolume::AOutOfBoundsVolume()
 {
 	Type = EPaperGolfVolumeOverlapType::End;
+	Tags.Add(PG::Tags::Hazard);
 }
 
 void AOutOfBoundsVolume::OnConditionTriggered(APaperGolfPawn& PaperGolfPawn, UGolfEventsSubsystem& GolfEvents)

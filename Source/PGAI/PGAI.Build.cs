@@ -33,12 +33,13 @@ public class PGAI : ModuleRules
 		// Private dependencies do not create transitive header dependencies.
 		var modulePrivateDependencyModuleNames = new string[]
 		{
-		};
+            "PGCore",
+            "PGGameplay",
+        };
 
 		var enginePrivateDependencyModuleNames = new string[] 
 		{
-			"PGCore",
-			"PGGameplay",
+			"PhysicsCore",
 		};
 
 		PrivateDependencyModuleNames.AddRange(enginePrivateDependencyModuleNames);
