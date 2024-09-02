@@ -8,6 +8,7 @@
 #include "Interfaces/GolfController.h"
 
 #include "PaperGolfTypes.h"
+#include "PGAITypes.h"
 
 #include "Pawn/PaperGolfPawn.h"
 
@@ -70,7 +71,11 @@ protected:
 private:
 
 	void OnScored();
+
+	bool SetupShot();
+
 	void ExecuteTurn();
+
 	void DestroyPawn();
 	void SetupNextShot(bool bSetCanFlick);
 	void DetermineShotType();
@@ -84,7 +89,6 @@ private:
 	virtual UGolfControllerCommonComponent* GetGolfControllerCommonComponent() override;
 	virtual void DoAdditionalOnShotFinished() override;
 	virtual void DoAdditionalFallThroughFloor() override;
-
 
 	void InitDebugDraw();
 	void CleanupDebugDraw();
@@ -107,6 +111,11 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<APaperGolfPawn> PlayerPawn{};
+
+	UPROPERTY(Transient)
+	TOptional<FFlickParams> ShotFlickParams{};
+
+	UPROPERTY(Transient)
 
 	FTimerHandle TurnTimerHandle{};
 

@@ -291,6 +291,12 @@ void AGolfAIController::ExecuteTurn()
 		return;
 	}
 
+	if (!ShotFlickParams)
+	{
+		UE_VLOG_UELOG(this, LogPGAI, Warning, TEXT("%s: ExecuteTurn - ShotFlickParams is not defined"), *GetName());
+		return;
+	}
+
 	auto PaperGolfPawn = GetPaperGolfPawn();
 	if (!PaperGolfPawn)
 	{
@@ -298,6 +304,26 @@ void AGolfAIController::ExecuteTurn()
 	}
 
 	AddStroke();
+
+	PaperGolfPawn->Flick(*ShotFlickParams);
+
+	if (auto GolfPlayerState = GetGolfPlayerState(); ensure(GolfPlayerState))
+	{
+		GolfPlayerState->SetReadyForShot(false);
+	}
+
+	bCanFlick = false;
+}
+
+bool AGolfAIController::SetupShot()
+{
+	ShotFlickParams.Reset();
+
+	auto PaperGolfPawn = GetPaperGolfPawn();
+	if (!PaperGolfPawn)
+	{
+		return false;
+	}
 
 	TArray<FShotFocusScores> FocusActorScores;
 	GolfControllerCommonComponent->GetBestFocusActor(&FocusActorScores);
@@ -319,14 +345,9 @@ void AGolfAIController::ExecuteTurn()
 	PaperGolfPawn->AddActorLocalRotation(
 		FRotator(ShotSetupResult.ShotPitch, ShotSetupResult.ShotYaw, 0.0f));
 
-	PaperGolfPawn->Flick(ShotSetupResult.FlickParams);
+	ShotFlickParams = ShotSetupResult.FlickParams;
 
-	if (auto GolfPlayerState = GetGolfPlayerState(); ensure(GolfPlayerState))
-	{
-		GolfPlayerState->SetReadyForShot(false);
-	}
-
-	bCanFlick = false;
+	return true;
 }
 
 void AGolfAIController::DoAdditionalOnShotFinished()
@@ -376,9 +397,15 @@ void AGolfAIController::SetupNextShot(bool bSetCanFlick)
 		bCanFlick = true;
 		const auto ShotDelayTime = FMath::FRandRange(MinFlickReactionTime, MaxFlickReactionTime);
 
-		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: SetupNextShot - Shooting after %.1fs"), *GetName(), ShotDelayTime);
-
-		GetWorldTimerManager().SetTimer(TurnTimerHandle, this, &AGolfAIController::ExecuteTurn, ShotDelayTime, false);
+		if (SetupShot())
+		{
+			UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: SetupNextShot - Shooting after %.1fs"), *GetName(), ShotDelayTime);
+			GetWorldTimerManager().SetTimer(TurnTimerHandle, this, &AGolfAIController::ExecuteTurn, ShotDelayTime, false);
+		}
+		else
+		{
+			UE_VLOG_UELOG(this, LogPGAI, Error, TEXT("%s: SetupNextShot - Shot set up failed - no shot will occur"), *GetName());
+		}
 	}
 }
 

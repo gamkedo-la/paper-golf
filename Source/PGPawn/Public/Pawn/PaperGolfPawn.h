@@ -4,6 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
+
+#include "PaperGolfTypes.h"
+
 #include "VisualLogger/VisualLoggerDebugSnapshotInterface.h"
 
 #include "PaperGolfPawn.generated.h"
@@ -12,53 +15,9 @@ class USpringArmComponent;
 class UCameraComponent;
 class UPaperGolfPawnAudioComponent;
 
-enum class EShotType : uint8;
 struct FPredictProjectilePathResult;
 class UCurveFloat;
 
-USTRUCT(BlueprintType)
-struct PGPAWN_API FFlickParams
-{
-	GENERATED_BODY()
-
-	// Must be marked uproperty in order to replicate in an RPC call
-
-	UPROPERTY(Transient, BlueprintReadWrite)
-	EShotType ShotType{};
-
-	UPROPERTY(Transient, BlueprintReadWrite)
-	float LocalZOffset{};
-
-	UPROPERTY(Transient, BlueprintReadWrite)
-	float PowerFraction{ 1.0f };
-
-	UPROPERTY(Transient, BlueprintReadWrite)
-	float Accuracy{ 0.0f };
-
-	void Clamp();
-
-	FString ToString() const;
-};
-
-USTRUCT(BlueprintType)
-struct PGPAWN_API FFlickPredictParams
-{
-	GENERATED_BODY()
-
-	UPROPERTY(Transient, BlueprintReadWrite)
-	float MaxSimTime{ 30.0f };
-
-	UPROPERTY(Transient, BlueprintReadWrite)
-	float SimFrequency{ 30.0f };
-
-	UPROPERTY(Transient, BlueprintReadWrite)
-	float CollisionRadius{ 3.0f };
-
-	UPROPERTY(TRansient, BlueprintReadWrite)
-	FRotator AdditionalWorldRotation{ EForceInit::ForceInitToZero };
-};
-
-bool operator ==(const FFlickParams& First, const FFlickParams& Second);
 
 USTRUCT()
 struct PGPAWN_API FNetworkFlickParams
@@ -381,14 +340,6 @@ FORCEINLINE float APaperGolfPawn::GetFlickOffsetZTraceSize() const
 FORCEINLINE AActor* APaperGolfPawn::GetFocusActor() const
 {
 	return FocusActor;
-}
-
-FORCEINLINE bool operator ==(const FFlickParams& First, const FFlickParams& Second)
-{
-	return First.ShotType == Second.ShotType &&
-		FMath::IsNearlyEqual(First.LocalZOffset, Second.LocalZOffset) &&
-		FMath::IsNearlyEqual(First.PowerFraction, Second.PowerFraction) &&
-		FMath::IsNearlyEqual(First.Accuracy, Second.Accuracy);
 }
 
 #pragma endregion Inline Definitions

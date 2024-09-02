@@ -5,42 +5,13 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 
-#include "PaperGolfTypes.h"
+#include "PGAITypes.h"
 
 #include "Data/GolfAIConfigData.h"
-
-#include "Pawn/PaperGolfPawn.h"
-
 #include "GolfAIShotComponent.generated.h"
 
 class APaperGolfPawn;
-class AGolfPlayerState;
-
 class UCurveTable;
-
-USTRUCT()
-struct FAIShotContext
-{
-	GENERATED_BODY()
-
-	UPROPERTY(Transient)
-	TObjectPtr<APaperGolfPawn> PlayerPawn{};
-
-	UPROPERTY(Transient)
-	TObjectPtr<AGolfPlayerState> PlayerState{};
-
-	UPROPERTY(Transient)
-	AActor* GolfHole{};
-
-	UPROPERTY(Transient)
-	TArray<FShotFocusScores> FocusActorScores{};
-
-	// TODO: May want to pass in the full array of focus actors to select another target
-
-	EShotType ShotType{ EShotType::Default };
-
-	FString ToString() const;
-};
 
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -50,18 +21,12 @@ class UGolfAIShotComponent : public UActorComponent
 
 public:
 
-	struct FAIShotSetupResult
-	{
-		FFlickParams FlickParams{};
-		AActor* FocusActor{};
-		float ShotPitch{};
-		float ShotYaw{};
-
-		FString ToString() const;
-	};
-
 	UGolfAIShotComponent();
 
+	/**
+	* Calculate the shot set up for AI opponents given the input context and return the parameters
+	  needed to set the AI heading and flick parameters to hit the shot. 
+	*/
 	FAIShotSetupResult SetupShot(FAIShotContext&& ShotContext);
 
 protected:

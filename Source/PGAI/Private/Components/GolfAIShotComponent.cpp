@@ -64,7 +64,7 @@ UGolfAIShotComponent::UGolfAIShotComponent()
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
-UGolfAIShotComponent::FAIShotSetupResult UGolfAIShotComponent::SetupShot(FAIShotContext&& InShotContext)
+FAIShotSetupResult UGolfAIShotComponent::SetupShot(FAIShotContext&& InShotContext)
 {
 	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: SetupShot - ShotContext=%s"),
 		*LoggingUtils::GetName(GetOwner()), *GetName(), *InShotContext.ToString());
@@ -117,7 +117,7 @@ void UGolfAIShotComponent::LoadWorldData()
 		*LoggingUtils::GetName(GetOwner()), *GetName(), HazardActors.Num(), *PG::ToStringObjectElements(HazardActors));
 }
 
-TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::CalculateShotParams()
+TOptional<FAIShotSetupResult> UGolfAIShotComponent::CalculateShotParams()
 {
 	const auto FirstResult = CalculateShotParamsForCurrentFocusActor();
 
@@ -277,7 +277,7 @@ float UGolfAIShotComponent::GetHitRestitution(const FHitResult& HitResult) const
 	return 0.0f;
 }
 
-TOptional<UGolfAIShotComponent::FAIShotSetupResult> UGolfAIShotComponent::CalculateShotParamsForCurrentFocusActor()
+TOptional<FAIShotSetupResult> UGolfAIShotComponent::CalculateShotParamsForCurrentFocusActor()
 {
 	const auto InitialShotParamsOptional = CalculateInitialShotParams();
 	if (!InitialShotParamsOptional)
@@ -664,7 +664,7 @@ float UGolfAIShotComponent::GetMaxProjectileHeight(float FlickPitchAngle, float 
 	return FMath::Square(FlickSpeed) * FMath::Square(FMath::Sin(FMath::DegreesToRadians(FlickPitchAngle))) / (2 * FMath::Abs(World->GetGravityZ()));
 }
 
-UGolfAIShotComponent::FAIShotSetupResult UGolfAIShotComponent::CalculateDefaultShotParams() const
+FAIShotSetupResult UGolfAIShotComponent::CalculateDefaultShotParams() const
 {
 	const auto Box = PG::CollisionUtils::GetAABB(*ShotContext.PlayerPawn);
 	const auto ZExtent = Box.GetExtent().Z;
@@ -903,10 +903,4 @@ namespace
 
 		return Velocity;
 	}
-}
-
-FString UGolfAIShotComponent::FAIShotSetupResult::ToString() const
-{
-	return FString::Printf(TEXT("FlickParams=[%s]; FocusActor=%s; ShotPitch=%.1f; ShotYaw=%.1f"),
-		*FlickParams.ToString(), *LoggingUtils::GetName(FocusActor), ShotPitch, ShotYaw);
 }
