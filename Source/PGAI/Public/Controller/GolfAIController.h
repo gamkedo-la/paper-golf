@@ -70,9 +70,19 @@ protected:
 
 private:
 
+	struct FShotAnimationState
+	{
+		FTimerHandle TimerHandle{};
+		double CurrentValue{};
+		double TargetValue{};
+		float StartTimeSeconds{};
+		float EndTimeSeconds{};
+	};
+
 	void OnScored();
 
 	bool SetupShot();
+	void InterpolateShotSetup(float ShootDeltaTime);
 
 	void ExecuteTurn();
 
@@ -93,6 +103,14 @@ private:
 	void InitDebugDraw();
 	void CleanupDebugDraw();
 
+	void ClearTimers();
+	void ClearShotAnimationTimers();
+
+	bool InterpolateShotAnimationState(FShotAnimationState& AnimationState, double& DeltaValue) const;
+	void InterpolateAnimation(FShotAnimationState& AnimationState, TFunction<FRotator(double)> RotatorCreator) const;
+	void InterpolateYawAnimation();
+	void InterpolatePitchAnimation();
+
 private:
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly)
 	TObjectPtr<UGolfControllerCommonComponent> GolfControllerCommonComponent{};
@@ -109,13 +127,26 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float OutOfBoundsDelayTime{ 3.0f };
 
+	UPROPERTY(EditDefaultsOnly, Category = "Shot Animation")
+	float ShotAnimationMinTime{ 0.5f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot Animation")
+	float ShotAnimationInterpSpeed{ 1.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot Animation")
+	float ShotAnimationFinishDeltaTime{ 0.25f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot Animation")
+	float ShotAnimationDeltaTime{ 1 / 60.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot Animation")
+	float ShotAnimationEaseFactor{ 2.0f };
+
 	UPROPERTY(Transient)
 	TObjectPtr<APaperGolfPawn> PlayerPawn{};
 
 	UPROPERTY(Transient)
-	TOptional<FFlickParams> ShotFlickParams{};
-
-	UPROPERTY(Transient)
+	TOptional<FAIShotSetupResult> ShotSetupParams{};
 
 	FTimerHandle TurnTimerHandle{};
 
@@ -124,6 +155,10 @@ private:
 #endif
 
 	EShotType ShotType{ EShotType::Default };
+
+	FShotAnimationState YawAnimationState{};
+	FShotAnimationState PitchAnimationState{};
+
 
 	bool bCanFlick{ };
 	bool bScored{};

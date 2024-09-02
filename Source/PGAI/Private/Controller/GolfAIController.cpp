@@ -27,7 +27,6 @@ AGolfAIController::AGolfAIController()
 
 	GolfControllerCommonComponent = CreateDefaultSubobject<UGolfControllerCommonComponent>(TEXT("GolfControllerCommon"));
 	GolfAIShotComponent = CreateDefaultSubobject<UGolfAIShotComponent>(TEXT("GolfAIShot"));
-
 }
 
 void AGolfAIController::BeginPlay()
@@ -52,7 +51,29 @@ void AGolfAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 	Super::EndPlay(EndPlayReason);
 
+	ClearTimers();
 	CleanupDebugDraw();
+}
+
+void AGolfAIController::ClearTimers()
+{
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ClearTimers"), *GetName());
+
+	GetWorldTimerManager().ClearTimer(TurnTimerHandle);
+
+	ClearShotAnimationTimers();
+}
+
+void AGolfAIController::ClearShotAnimationTimers()
+{
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ClearShotAnimationTimers"), *GetName());
+
+	auto& TimerManager = GetWorldTimerManager();
+
+	TimerManager.ClearTimer(YawAnimationState.TimerHandle);
+	TimerManager.ClearTimer(PitchAnimationState.TimerHandle);
+
+	YawAnimationState = PitchAnimationState = {};
 }
 
 void AGolfAIController::Reset()
@@ -60,6 +81,8 @@ void AGolfAIController::Reset()
 	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: Reset"), *GetName());
 
 	Super::Reset();
+
+	ClearTimers();
 
 	ShotType = EShotType::Default;
 	PlayerPawn = nullptr;
@@ -291,9 +314,9 @@ void AGolfAIController::ExecuteTurn()
 		return;
 	}
 
-	if (!ShotFlickParams)
+	if (!ShotSetupParams)
 	{
-		UE_VLOG_UELOG(this, LogPGAI, Warning, TEXT("%s: ExecuteTurn - ShotFlickParams is not defined"), *GetName());
+		UE_VLOG_UELOG(this, LogPGAI, Warning, TEXT("%s: ExecuteTurn - ShotSetupParams is not defined"), *GetName());
 		return;
 	}
 
@@ -305,7 +328,7 @@ void AGolfAIController::ExecuteTurn()
 
 	AddStroke();
 
-	PaperGolfPawn->Flick(*ShotFlickParams);
+	PaperGolfPawn->Flick(ShotSetupParams->FlickParams);
 
 	if (auto GolfPlayerState = GetGolfPlayerState(); ensure(GolfPlayerState))
 	{
@@ -317,10 +340,9 @@ void AGolfAIController::ExecuteTurn()
 
 bool AGolfAIController::SetupShot()
 {
-	ShotFlickParams.Reset();
+	ShotSetupParams.Reset();
 
-	auto PaperGolfPawn = GetPaperGolfPawn();
-	if (!PaperGolfPawn)
+	if (!IsValid(PlayerPawn))
 	{
 		return false;
 	}
@@ -330,7 +352,7 @@ bool AGolfAIController::SetupShot()
 
 	const auto ShotSetupResult = GolfAIShotComponent->SetupShot(
 		{
-			.PlayerPawn = PaperGolfPawn,
+			.PlayerPawn = PlayerPawn,
 			.PlayerState = GetGolfPlayerState(),
 			.GolfHole = GolfControllerCommonComponent->GetCurrentGolfHole(),
 			.FocusActorScores = std::move(FocusActorScores),
@@ -338,16 +360,119 @@ bool AGolfAIController::SetupShot()
 		}
 	);
 
-	PaperGolfPawn->SetFocusActor(ShotSetupResult.FocusActor);
+	PlayerPawn->SetFocusActor(ShotSetupResult.FocusActor);
 
-	this->ShotType = ShotSetupResult.FlickParams.ShotType;
-
-	PaperGolfPawn->AddActorLocalRotation(
-		FRotator(ShotSetupResult.ShotPitch, ShotSetupResult.ShotYaw, 0.0f));
-
-	ShotFlickParams = ShotSetupResult.FlickParams;
+	ShotType = ShotSetupResult.FlickParams.ShotType;
+	ShotSetupParams = ShotSetupResult;
 
 	return true;
+}
+
+void AGolfAIController::InterpolateShotSetup(float ShootDeltaTime)
+{
+	check(ShotSetupParams);
+
+	ClearShotAnimationTimers();
+
+	auto World = GetWorld();
+
+	if (!ensure(World) || !IsValid(PlayerPawn))
+	{
+		return;
+	}
+
+	const auto TotalSetupTime = ShootDeltaTime - ShotAnimationFinishDeltaTime;
+
+	if (ShootDeltaTime <= ShotAnimationMinTime || TotalSetupTime <= 0)
+	{
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: InterpolateShotSetup - ShootDeltaTime=%.1f; ShotAnimationMinTime=%.1f; TotalSetupTime=%.1f - just changing rotation immediately"),
+			*GetName(), ShootDeltaTime, ShotAnimationMinTime, TotalSetupTime);
+		PlayerPawn->AddDeltaRotation(
+			FRotator(ShotSetupParams->ShotPitch, ShotSetupParams->ShotYaw, 0.0f));
+
+		return;
+	}
+
+	const auto YawSetupTime = TotalSetupTime / 2;
+	const auto PitchSetupTime = TotalSetupTime - YawSetupTime;
+
+	YawAnimationState.StartTimeSeconds = World->GetTimeSeconds();
+	YawAnimationState.EndTimeSeconds = YawAnimationState.StartTimeSeconds + YawSetupTime;
+	YawAnimationState.TargetValue = ShotSetupParams->ShotYaw;
+
+	PitchAnimationState.StartTimeSeconds = YawAnimationState.EndTimeSeconds;
+	PitchAnimationState.EndTimeSeconds = PitchAnimationState.StartTimeSeconds + PitchSetupTime;
+	PitchAnimationState.TargetValue = ShotSetupParams->ShotPitch;
+
+	auto& TimerManager = GetWorldTimerManager();
+	if (!FMath::IsNearlyZero(YawAnimationState.TargetValue))
+	{
+		TimerManager.SetTimer(YawAnimationState.TimerHandle, this, &ThisClass::InterpolateYawAnimation, ShotAnimationDeltaTime, true);
+	}
+
+	if (!FMath::IsNearlyZero(PitchAnimationState.TargetValue))
+	{
+		TimerManager.SetTimer(PitchAnimationState.TimerHandle, this, &ThisClass::InterpolatePitchAnimation, ShotAnimationDeltaTime, true, YawSetupTime);
+	}
+}
+
+bool AGolfAIController::InterpolateShotAnimationState(FShotAnimationState& AnimationState, double& DeltaValue) const
+{
+	auto World = GetWorld();
+
+	const auto EarlyExitDelta = [&]()
+	{
+		DeltaValue = AnimationState.TargetValue - AnimationState.CurrentValue;
+	};
+
+	if (!World)
+	{
+		EarlyExitDelta();
+		return true;
+	}
+
+	const auto CurrentTimeSeconds = World->GetTimeSeconds();
+	if (CurrentTimeSeconds >= AnimationState.EndTimeSeconds)
+	{
+		EarlyExitDelta();
+		return true;
+	}
+
+	const auto Alpha = FMath::Clamp((CurrentTimeSeconds - AnimationState.StartTimeSeconds) / (AnimationState.EndTimeSeconds - AnimationState.StartTimeSeconds), 0.0f, 1.0f);
+	const auto NewValue = FMath::InterpEaseInOut(0.0, AnimationState.TargetValue, Alpha, ShotAnimationEaseFactor);
+
+	DeltaValue = NewValue - AnimationState.CurrentValue;
+	AnimationState.CurrentValue = NewValue;
+
+	return false;
+}
+
+void AGolfAIController::InterpolateAnimation(FShotAnimationState& AnimationState, TFunction<FRotator(double)> RotatorCreator) const
+{
+	if (!IsValid(PlayerPawn))
+	{
+		return;
+	}
+
+	double DeltaValue{};
+	const bool bClearTimer = InterpolateShotAnimationState(AnimationState, DeltaValue);
+
+	PlayerPawn->AddDeltaRotation(RotatorCreator(DeltaValue));
+
+	if (bClearTimer)
+	{
+		GetWorldTimerManager().ClearTimer(AnimationState.TimerHandle);
+	}
+}
+
+void AGolfAIController::InterpolateYawAnimation()
+{
+	InterpolateAnimation(YawAnimationState, [](double DeltaValue) { return FRotator(0.0, DeltaValue, 0.0); });
+}
+
+void AGolfAIController::InterpolatePitchAnimation()
+{
+	InterpolateAnimation(PitchAnimationState, [](double DeltaValue) { return FRotator(DeltaValue, 0.0, 0.0); });
 }
 
 void AGolfAIController::DoAdditionalOnShotFinished()
@@ -400,6 +525,9 @@ void AGolfAIController::SetupNextShot(bool bSetCanFlick)
 		if (SetupShot())
 		{
 			UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: SetupNextShot - Shooting after %.1fs"), *GetName(), ShotDelayTime);
+
+			InterpolateShotSetup(ShotDelayTime);
+
 			GetWorldTimerManager().SetTimer(TurnTimerHandle, this, &AGolfAIController::ExecuteTurn, ShotDelayTime, false);
 		}
 		else
