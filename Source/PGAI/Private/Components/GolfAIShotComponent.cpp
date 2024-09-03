@@ -181,6 +181,7 @@ bool UGolfAIShotComponent::ShotWillEndUpInHazard(const FAIShotSetupResult& ShotS
 
 	if (!PlayerPawn->PredictFlick(ShotSetupResult.FlickParams, FlickPredictParams, PathResult))
 	{
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: ShotWillEndUpInHazard - FALSE - PredictFlick did not hit anything"), *LoggingUtils::GetName(GetOwner()), *GetName());
 		return false;
 	}
 
@@ -233,6 +234,9 @@ bool UGolfAIShotComponent::ShotWillEndUpInHazard(const FAIShotSetupResult& ShotS
 			}
 		}
 	}
+
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s-%s: ShotWillEndUpInHazard - FALSE - Did not find a threat in %d hazards: %s"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), HazardActors.Num(), *PG::ToStringObjectElements(HazardActors));
 
 	return false;
 }

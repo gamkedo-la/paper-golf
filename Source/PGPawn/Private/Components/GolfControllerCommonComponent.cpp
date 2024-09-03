@@ -297,7 +297,8 @@ AActor* UGolfControllerCommonComponent::GetBestFocusActor(TArray<FShotFocusScore
 		{
 			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s: SetPaperGolfPawnAimFocus - Skipping target=%s as DotProduct=%f < FocusMinAlignment=%f"),
 				*GetName(), *FocusTarget->GetName(), FocusAlignment, FocusMinAlignment);
-			UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position, FocusTarget->GetActorLocation(), FColor::Orange, TEXT("Target (ALIGNMENT): %s"), *FocusTarget->GetName());
+			UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position, FocusTarget->GetActorLocation(), FColor::Orange, TEXT("Target (ALIGNMENT=%.1fd): %s"),
+				FMath::RadiansToDegrees(FMath::Acos(FocusAlignment)), *FocusTarget->GetName());
 
 			continue;
 		}
@@ -310,10 +311,14 @@ AActor* UGolfControllerCommonComponent::GetBestFocusActor(TArray<FShotFocusScore
 		{
 			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s: SetPaperGolfPawnAimFocus - Skipping target=%s as too close to it - Dist2D=%fm < MinDist=%fm"),
 				*GetName(), *FocusTarget->GetName(), FMath::Sqrt(DistSq2D) / 100, FMath::Sqrt(MinDistSq2D) / 100);
-			UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position, FocusTarget->GetActorLocation(), FColor::Yellow, TEXT("Target (TOO CLOSE): %s"), *FocusTarget->GetName());
+			UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position, FocusTarget->GetActorLocation(), FColor::Yellow, TEXT("Target (TOO CLOSE: %.1fm, %.1fd): %s"),
+				FMath::Sqrt(DistSq2D) / 100, FMath::RadiansToDegrees(FMath::Acos(FocusAlignment)), *FocusTarget->GetName());
 
 			continue;
 		}
+
+		UE_VLOG_LOCATION(GetOwner(), LogPGPawn, Verbose, FocusTarget->GetActorLocation() + 100 * FVector::ZAxisVector, 5.0f, FColor::Green, TEXT("Target (%.1fd, %1fm)"),
+			FMath::RadiansToDegrees(FMath::Acos(FocusAlignment)), FMath::Sqrt(DistSq2D) / 100, *FocusTarget->GetName());
 
 		// Consider Z as don't want to aim at targets way above or below us
 		if (OutFocusScores && HasLOSToFocus(Position, FocusTarget))
