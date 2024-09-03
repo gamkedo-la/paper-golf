@@ -1,0 +1,1 @@
+"C:\Program Files\Epic Games\UE_5.4\Engine\Binaries\Win64\UnrealEditor.exe" "%CD%\..\..\PaperGolf.uproject" -game -ExecCmds="pg.mp.numConnections 2, pg.diff.pAccExp 1.5, pg.diff.pAccMax 0.6, stat fps, stat unit, Log LogMultiplayerSessions VeryVerbose Log LogOnline VeryVerbose Log LogSteamShared VeryVerbose"

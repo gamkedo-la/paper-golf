@@ -173,7 +173,7 @@ void UMenu::OnFindSessionsComplete(const TArray<FOnlineSessionSearchResult>& Ses
 		return;
 	}
 
-	for (const auto& Result : SessionResults)
+	for ([[maybe_unused]]int32 Index = 0; const auto& Result : SessionResults)
 	{
 		const auto& Id = Result.GetSessionIdStr();
 		const auto& User = Result.Session.OwningUserName;
@@ -181,33 +181,45 @@ void UMenu::OnFindSessionsComplete(const TArray<FOnlineSessionSearchResult>& Ses
 		FString SettingsValue;
 		const bool FoundMatchType = Result.Session.SessionSettings.Get(UMultiplayerSessionsSubsystem::SessionMatchTypeName, SettingsValue);
 
-		if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(
-				-1,
-				15.f,
-				FColor::Cyan,
-				FString::Printf(TEXT("Id: %s, User: %s"), *Id, *User)
-			);
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Verbose, TEXT("%s: OnFindSessionsComplete - Result %d/%d - Id=%s; User=%s; MatchType=%s"),
+			*GetName(), Index + 1, SessionResults.Num(), *Id, *User, FoundMatchType ? *SettingsValue : TEXT("NULL"));
 
-			GEngine->AddOnScreenDebugMessage(
-				-1,
-				15.f,
-				FColor::Cyan,
-				FString::Printf(TEXT("Joining Match Type: %s"), FoundMatchType ? *MatchType : TEXT("NULL"))
-			);
-		}
-
-		if (MatchType == MatchType)
+		// TODO: Have a wildcard flag here to join any supported match type - not just a specific one like stroke or match play
+		if (FoundMatchType && SettingsValue == MatchType)
 		{
 			// Joining configured match type (e.g. FreeForAll) - get ip address
+#if !UE_BUILD_SHIPPING
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(
+					-1,
+					15.f,
+					FColor::Cyan,
+					FString::Printf(TEXT("Id: %s, User: %s"), *Id, *User)
+				);
+
+				GEngine->AddOnScreenDebugMessage(
+					-1,
+					15.f,
+					FColor::Cyan,
+					FString::Printf(TEXT("Joining Match Type: %s"), *MatchType)
+				);
+			}
+#endif
+
+			UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: OnFindSessionsComplete - MATCHED - Result %d/%d - Id=%s; User=%s; MatchType=%s"),
+				*GetName(), Index + 1, SessionResults.Num(), *Id, *User, FoundMatchType ? *SettingsValue : TEXT("NULL"));
 
 			// Register callback when session is joined
 			MultiplayerSessionsSubsystem->JoinSession(Result);
 
 			return;
 		}
+		++Index;
 	}
+
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: OnFindSessionsComplete - Could not find a viable session to join out of %d results"),
+		*GetName(), SessionResults.Num());
 
 	BtnJoin->SetIsEnabled(true);
 }
@@ -242,6 +254,7 @@ void UMenu::OnJoinSessionComplete(EOnJoinSessionCompleteResult::Type Result)
 
 	if (Result == EOnJoinSessionCompleteResult::Success && OnlineSessionInterface->GetResolvedConnectString(NAME_GameSession, IpAddress))
 	{
+#if !UE_BUILD_SHIPPING
 		if (GEngine)
 		{
 			GEngine->AddOnScreenDebugMessage(
@@ -251,6 +264,7 @@ void UMenu::OnJoinSessionComplete(EOnJoinSessionCompleteResult::Type Result)
 				FString::Printf(TEXT("Connect String: %s"), *IpAddress)
 			);
 		}
+#endif
 
 		// Need to client travel to this hosting player - client travel is on the player controller
 
