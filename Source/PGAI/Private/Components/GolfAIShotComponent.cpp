@@ -88,6 +88,22 @@ FAIShotSetupResult UGolfAIShotComponent::SetupShot(FAIShotContext&& InShotContex
 	return *ShotParams;
 }
 
+void UGolfAIShotComponent::StartHole()
+{
+	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: StartHole"), *LoggingUtils::GetName(GetOwner()), *GetName());
+
+	// TODO: This is where we can reset the strategy for the hole based on the AI's score relative to players in the game
+	// A good spot to reshuffle the shot configs, mixing in perfect and error shots
+}
+
+void UGolfAIShotComponent::Reset()
+{
+	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: Reset"), *LoggingUtils::GetName(GetOwner()), *GetName());
+
+	FocusActor = nullptr;
+	InitialFocusYaw = 0;
+}
+
 void UGolfAIShotComponent::BeginPlay()
 {
 	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: BeginPlay"), *LoggingUtils::GetName(GetOwner()), *GetName());

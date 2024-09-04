@@ -135,8 +135,6 @@ private:
 
 	void DoCourseComplete();
 
-	void SetPlayerColor(IGolfController& Controller);
-
 	void InitPlayerStateDefaults();
 
 	void InitNumberOfPlayers(const FString& Options);

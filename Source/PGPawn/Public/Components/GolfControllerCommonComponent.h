@@ -77,6 +77,8 @@ public:
 	AActor* GetCurrentGolfHole() const;
 	const TArray<AActor*>& GetFocusableActors() const;
 
+	void SyncHoleChanged(const FSimpleDelegate& InHoleSyncedDelegate);
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -134,16 +136,14 @@ private:
 	int32 LastHoleNumber{};
 	float LastFlickTime{};
 	float FirstRestCheckPassTime{ -1.0f };
+	bool bOnHoleChangedTriggered{};
 
 	TWeakObjectPtr<APaperGolfPawn> WeakPaperGolfPawn{};
 	FTimerHandle NextShotTimerHandle{};
 	FDelegateHandle OnFlickHandle{};
 
-	DECLARE_DELEGATE(FOnControllerShotFinished);
-
-	FOnControllerShotFinished OnControllerShotFinished{};
-
-	// TODO: Move focus actors here for AI reuse?
+	FSimpleDelegate OnControllerShotFinished{};
+	FSimpleDelegate OnHoleSyncedDelegate{};
 };
 
 #pragma region Inline Definitions

@@ -4,6 +4,7 @@
 #include "Controller/GolfPlayerController.h"
 
 #include "Pawn/PaperGolfPawn.h"
+#include "PlayerStart/GolfPlayerStart.h"
 
 #include "Interfaces/FocusableActor.h"
 
@@ -37,7 +38,6 @@
 
 #include "Debug/PGConsoleVars.h"
 
-#include <limits>
 #include "Net/UnrealNetwork.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GolfPlayerController)
@@ -59,6 +59,7 @@ void AGolfPlayerController::DoReset()
 	ShotType = EShotType::Default;
 	TotalRotation = FRotator::ZeroRotator;
 	PlayerPawn = nullptr;
+	PlayerStart = nullptr;
 
 	bTurnActivated = false;
 	bCanFlick = false;
@@ -807,6 +808,90 @@ void AGolfPlayerController::DestroyPawn()
 	PlayerPawn = nullptr;
 }
 
+#pragma region Start hole logic
+
+void AGolfPlayerController::ReceivePlayerStart(AActor* InPlayerStart)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ReceivePlayerStart - PlayerStart=%s"), *GetName(), *LoggingUtils::GetName(InPlayerStart));
+
+	PlayerStart = InPlayerStart;
+}
+
+void AGolfPlayerController::StartHole()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: StartHole"), *GetName());
+
+	ClientStartHole(PlayerStart);
+}
+
+void AGolfPlayerController::ClientStartHole_Implementation(AActor* InPlayerStart)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientStartHole: PlayerStart=%s"), *GetName(), *LoggingUtils::GetName(InPlayerStart));
+
+	PlayerStart = InPlayerStart;
+
+	// This is where we need to look to grab the current hole, play the hole flyby if it hasn't been seen, and then do the camera introduction
+	// We also need to sync when the current hole number replicates
+	check(GolfControllerCommonComponent);
+
+	GolfControllerCommonComponent->SyncHoleChanged(FSimpleDelegate::CreateUObject(this, &ThisClass::TriggerHoleFlybyAndPlayerCameraIntroduction));
+}
+
+#pragma endregion Start hole logic
+
+void AGolfPlayerController::TriggerHoleFlybyAndPlayerCameraIntroduction()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: TriggerHoleFlybyAndPlayerCameraIntroduction"), *GetName());
+
+	if (!IsHoleFlybySeen())
+	{
+		const auto GolfHole = AGolfHole::GetCurrentHole(this);
+		if (ensure(GolfHole))
+		{
+			// TODO: Trigger the hole flyby sequence on the GolfHole and then 
+			// have a callback for when it completes to trigger the player introduction
+			MarkHoleFlybySeen();
+			TriggerPlayerCameraIntroduction();
+		}
+		else
+		{
+			UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s: TriggerHoleFlybyAndPlayerCameraIntroduction - GolfHole is NULL"), *GetName());
+
+			MarkHoleFlybySeen();
+			TriggerPlayerCameraIntroduction();
+		}
+	}
+	else
+	{
+		TriggerPlayerCameraIntroduction();
+	}
+}
+
+void AGolfPlayerController::TriggerPlayerCameraIntroduction()
+{
+	const auto GolfPlayerStart = Cast<AGolfPlayerStart>(PlayerStart);
+
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: TriggerPlayerCameraIntroduction: GolfPlayerStart=%s"), *GetName(), *LoggingUtils::GetName(GolfPlayerStart));
+
+	if (!GolfPlayerStart)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: TriggerPlayerCameraIntroduction - GolfPlayerStart is NULL - skipping"), *GetName());
+		MarkFirstPlayerTurnReady();
+	}
+	else
+	{
+		// TOOD: Call the player camera introduction on the player start and pass in a callback for when the sequence completes so that we can call MarkFirstPlayerTurnReady to begin the first turn
+		MarkFirstPlayerTurnReady();
+	}
+}
+
+void AGolfPlayerController::MarkFirstPlayerTurnReady()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: MarkFirstPlayerTurnReady"), *GetName());
+
+	// TODO: This should coordinate with DoActivateTurn on the first turn on non-dedicated servers to actually transition the player to active to start the shot
+}
+
 #pragma region Turn and spectator logic
 
 void AGolfPlayerController::ActivateTurn()
@@ -834,6 +919,7 @@ void AGolfPlayerController::ActivateTurn()
 
 		Possess(PlayerPawn);
 		// Turn activation will happen on SetPawn after possession has replicated
+		// TODO: May need to avoid having Possess set camera target (or do that in SetPawn) if hole flyby is playing or we are doing player camera introduction
 	}
 	else
 	{
@@ -865,6 +951,8 @@ void AGolfPlayerController::DoActivateTurn()
 	{
 		SetInputEnabled(true);
 	}
+
+	// TODO: If we just started the hole and need to see the hole flyby and then the player camera introduction then we'd want to defer the rest of these tasks until after they complete
 
 	if (bTurnActivated)
 	{
@@ -903,6 +991,11 @@ void AGolfPlayerController::DoActivateTurn()
 
 bool AGolfPlayerController::ShouldEnableInputForActivateTurn() const
 {
+	return IsHoleFlybySeen();
+}
+
+bool AGolfPlayerController::IsHoleFlybySeen() const
+{
 	auto GameInstance = GetGameInstance();
 	if (!ensure(GameInstance))
 	{
@@ -911,7 +1004,7 @@ bool AGolfPlayerController::ShouldEnableInputForActivateTurn() const
 
 	auto TutorialTrackingSubsystem = GameInstance->GetSubsystem<UTutorialTrackingSubsystem>();
 
-	if(!ensure(TutorialTrackingSubsystem))
+	if (!ensure(TutorialTrackingSubsystem))
 	{
 		return true;
 	}
@@ -929,6 +1022,36 @@ bool AGolfPlayerController::ShouldEnableInputForActivateTurn() const
 	}
 
 	return TutorialTrackingSubsystem->IsHoleFlybySeen(GolfGameState->GetCurrentHoleNumber());
+}
+
+void AGolfPlayerController::MarkHoleFlybySeen()
+{
+	auto GameInstance = GetGameInstance();
+	if (!ensure(GameInstance))
+	{
+		return;
+	}
+
+	auto TutorialTrackingSubsystem = GameInstance->GetSubsystem<UTutorialTrackingSubsystem>();
+
+	if (!ensure(TutorialTrackingSubsystem))
+	{
+		return;
+	}
+
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return;
+	}
+
+	auto GolfGameState = World->GetGameState<APaperGolfGameStateBase>();
+	if (!ensure(GolfGameState))
+	{
+		return;
+	}
+
+	TutorialTrackingSubsystem->MarkHoleFlybySeen(GolfGameState->GetCurrentHoleNumber());
 }
 
 void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState)

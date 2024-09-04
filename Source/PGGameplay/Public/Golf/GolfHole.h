@@ -93,6 +93,8 @@ private:
 	// Set to true initially as by default the hole is active so need to detect the flipped condition
 	UPROPERTY(ReplicatedUsing = OnRep_GolfHoleState)
 	EGolfHoleState GolfHoleState{};
+
+	// TODO: Will hold reference to cinematic sequence to play for the hole when player starts the hole
 };
 
 #pragma region Inline Definitions

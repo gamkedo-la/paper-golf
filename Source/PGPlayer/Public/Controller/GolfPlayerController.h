@@ -53,6 +53,8 @@ public:
 	using IGolfController::GetPaperGolfPawn;
 	virtual APaperGolfPawn* GetPaperGolfPawn() override;
 
+	virtual void ReceivePlayerStart(AActor* PlayerStart) override;
+	virtual void StartHole() override;
 	virtual void ActivateTurn() override;
 	virtual void Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState) override;
 
@@ -126,6 +128,8 @@ protected:
 
 	virtual void ClientReset_Implementation() override;
 
+	void TriggerHoleFlybyAndPlayerCameraIntroduction();
+
 private:
 
 	void DetermineShotType();
@@ -167,6 +171,9 @@ private:
 	void ClientActivateTurn();
 
 	UFUNCTION(Client, Reliable)
+	void ClientStartHole(AActor* InPlayerStart);
+
+	UFUNCTION(Client, Reliable)
 	void ClientSpectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState);
 
 	void DoActivateTurn();
@@ -205,6 +212,11 @@ private:
 	bool IsLocalClient() const;
 	bool IsLocalServer() const;
 	bool IsRemoteServer() const;
+
+	bool IsHoleFlybySeen() const;
+	void MarkHoleFlybySeen();
+	void TriggerPlayerCameraIntroduction();
+	void MarkFirstPlayerTurnReady();
 
 private:
 
@@ -252,6 +264,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<APaperGolfPawn> PlayerPawn{};
+
+	UPROPERTY(Transient)
+	TObjectPtr<AActor> PlayerStart{};
 
 	bool bCanFlick{ };
 	bool bTurnActivated{};

@@ -362,6 +362,8 @@ void UGolfTurnBasedDirectorComponent::ActivatePlayer(IGolfController* Player)
 
 		GameMode->RestartPlayer(Cast<AController>(Player));
 		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Display, TEXT("%s: ActivatePlayer - Player=%s - Spawning into game"), *GetName(), *PG::StringUtils::ToString(Player));
+
+		Player->StartHole();
 	}
 
 	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: ActivatePlayer - Player=%s - starting turn"), *GetName(), *PG::StringUtils::ToString(Player));

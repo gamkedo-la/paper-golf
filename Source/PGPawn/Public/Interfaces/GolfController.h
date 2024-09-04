@@ -35,6 +35,22 @@ public:
 	virtual bool HasScored() const = 0;
 	virtual bool IsActivePlayer() const = 0;
 	virtual bool IsReadyForNextShot() const = 0;
+
+
+	/*
+	* Receive the player start that is used for the starting location for this player.  In the sequence of start actions, the following order occurs.
+	* 
+	* 1) ReceivePlayerStart
+	* 2) StartHole
+	* 3) ActivateTurn
+	* 
+	*/
+	virtual void ReceivePlayerStart(AActor* PlayerStart) = 0;
+	/*
+	* Called when it is this player's turn for the first time on a hole.
+	* Called right before ActivateTurn on the server.
+	*/
+	virtual void StartHole() = 0;
 	virtual void ActivateTurn() = 0;
 	virtual void Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* PlayerState) = 0;
 

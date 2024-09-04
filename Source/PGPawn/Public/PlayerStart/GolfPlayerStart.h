@@ -21,4 +21,6 @@ public:
 private:
 	UPROPERTY(EditAnywhere, Category = "Golf")
 	int32 HoleNumber{};
+
+	// TODO: Will hold reference to an actor that will have a camera component to use for the player introduction near the player start
 };

@@ -352,11 +352,6 @@ void APaperGolfGameModeBase::DoCourseComplete()
 	}
 }
 
-void APaperGolfGameModeBase::SetPlayerColor(IGolfController& Controller)
-{
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: SetPlayerColor - Controller=%s"), *GetName(), *Controller.ToString());
-}
-
 void APaperGolfGameModeBase::BeginPlay()
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: BeginPlay"), *GetName());
@@ -442,6 +437,11 @@ AActor* APaperGolfGameModeBase::ChoosePlayerStart_Implementation(AController* Pl
 
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: ChoosePlayerStart_Implementation - Player=%s; PlayerStart=%s"),
 		*GetName(), *LoggingUtils::GetName(Player), *LoggingUtils::GetName(Actor));
+
+	if (auto GolfController = Cast<IGolfController>(Player); GolfController)
+	{
+		GolfController->ReceivePlayerStart(Actor);
+	}
 
 	return Actor;
 }

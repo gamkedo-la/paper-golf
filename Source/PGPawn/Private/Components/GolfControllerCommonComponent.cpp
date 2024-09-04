@@ -801,6 +801,30 @@ void UGolfControllerCommonComponent::OnHoleChanged(int32 HoleNumber)
 		SetPaperGolfPawnAimFocus();
 		GolfController->ResetShot();
 	}
+
+	bOnHoleChangedTriggered = true;
+	if (OnHoleSyncedDelegate.IsBound())
+	{
+		OnHoleSyncedDelegate.Execute();
+		OnHoleSyncedDelegate.Unbind();
+	}
+}
+
+void UGolfControllerCommonComponent::SyncHoleChanged(const FSimpleDelegate& InHoleSyncedDelegate)
+{
+	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: SyncHoleChanged"),
+		*GetName(), *LoggingUtils::GetName(GetOwner()));
+
+	// Sync call happened after the hole changed event was triggered, just call immediately
+	if (bOnHoleChangedTriggered)
+	{
+		InHoleSyncedDelegate.Execute();
+	}
+	else
+	{
+		// Deferred execution until the current hole number on the game state has propagated to clients
+		OnHoleSyncedDelegate = InHoleSyncedDelegate;
+	}
 }
 
 void UGolfControllerCommonComponent::BeginTurn()
@@ -844,6 +868,8 @@ void UGolfControllerCommonComponent::Reset()
 
 	ShotHistory.Reset();
 	LastFlickTime = 0.f;
+	bOnHoleChangedTriggered = false;
+	OnHoleSyncedDelegate.Unbind();
 
 	InitFocusableActors();
 }
