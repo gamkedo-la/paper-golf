@@ -570,6 +570,8 @@ void APaperGolfPawn::MulticastFlick_Implementation(const FNetworkFlickParams& Pa
 	// Reset camera for spectators
 	SetCameraForFlick();
 
+	OnFlick.Broadcast();
+
 	PawnAudioComponent->PlayFlick();
 }
 

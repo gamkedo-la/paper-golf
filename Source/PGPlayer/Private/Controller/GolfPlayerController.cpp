@@ -60,6 +60,8 @@ void AGolfPlayerController::DoReset()
 	TotalRotation = FRotator::ZeroRotator;
 	PlayerPawn = nullptr;
 	PlayerStart = nullptr;
+	CurrentSpectatorPlayerState = nullptr;
+	SpectatingPawnPlayerStateMap.Reset();
 
 	bTurnActivated = false;
 	bCanFlick = false;
@@ -125,8 +127,6 @@ void AGolfPlayerController::MarkScored()
 {
 	bScored = true;
 
-	GolfControllerCommonComponent->OnScored();
-
 	// Rep notifies are not called on the server so we need to invoke the function manually if the server is also a client
 	if (HasAuthority())
 	{
@@ -157,6 +157,9 @@ void AGolfPlayerController::OnScored()
 	{
 		return;
 	}
+
+	GolfControllerCommonComponent->OnScored();
+	EndAnyActiveTurn();
 
 	bCanFlick = false;
 
@@ -747,11 +750,20 @@ void AGolfPlayerController::OnUnPossess()
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnUnPossess - ExistingPawn=%s"), *GetName(), *LoggingUtils::GetName(GetPawn()));
 
 	Super::OnUnPossess();
+}
+
+void AGolfPlayerController::PawnPendingDestroy(APawn* InPawn)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: PawnPendingDestroy - InPawn=%s"), *GetName(), *LoggingUtils::GetName(InPawn));
+
+	Super::PawnPendingDestroy(InPawn);
 
 	if (!HasAuthority())
 	{
 		// Pawn destructions come in as unposess on clients after scoring - be sure to end any active turn
 		EndAnyActiveTurn();
+		// spectate current golf hole until a new spectate target is assigned 
+		SpectateCurrentGolfHole();
 	}
 }
 
@@ -890,7 +902,14 @@ void AGolfPlayerController::OnHoleComplete()
 		return;
 	}
 
-	// When the hole is complete focus on it
+	SpectateCurrentGolfHole();
+}
+
+void AGolfPlayerController::SpectateCurrentGolfHole()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SpectateCurrentGolfHole"), *GetName());
+
+	// Fine to re-target the golf hole as the camera manager doesn't interrupt a transition to the same target
 	if (auto GolfHole = AGolfHole::GetCurrentHole(this); GolfHole)
 	{
 		SetViewTargetWithBlend(GolfHole, HoleCameraCutTime, EViewTargetBlendFunction::VTBlend_EaseInOut, HoleCameraCutExponent);
@@ -1014,6 +1033,8 @@ void AGolfPlayerController::DoActivateTurn()
 
 	// Ensure that input is always activated and timer is always registered
 	EnableInput(this);
+
+	CurrentSpectatorPlayerState = nullptr;
 
 	if (ShouldEnableInputForActivateTurn())
 	{
@@ -1151,6 +1172,8 @@ void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* I
 		PlayerState->SetIsSpectator(true);
 	}
 
+	CurrentSpectatorPlayerState = InPlayerState;
+
 	ClientSpectate(InPawn, InPlayerState);
 
 	SpectatePawn(InPawn, InPlayerState);
@@ -1160,6 +1183,8 @@ void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientSpectate - InPawn=%s; InPlayerState=%s"),
 		*GetName(), *LoggingUtils::GetName(InPawn), InPlayerState ? *InPlayerState->GetPlayerName() : TEXT("NULL"));
+
+	CurrentSpectatorPlayerState = InPlayerState;
 
 	// Turn off collision on our own pawn
 	if (IsValid(PlayerPawn))
@@ -1177,24 +1202,116 @@ void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn
 
 		if (InPawn)
 		{
-			OnFlickSpectateShotHandle = InPawn->OnFlick.AddWeakLambda(this, 
-				[this, InPawn = MakeWeakObjectPtr(InPawn), HUD = MakeWeakObjectPtr(HUD), InPlayerState = MakeWeakObjectPtr(InPlayerState)]()
-			{
-				if (HUD.IsValid())
-				{
-					HUD->BeginSpectatorShot(InPawn.Get(), InPlayerState.Get());
-				}
-
-				// Removing the handle invalidates the delegate so we need to do it last
-				const auto HandleToRemove = OnFlickSpectateShotHandle;
-				OnFlickSpectateShotHandle.Reset();
-				if (InPawn.IsValid())
-				{
-					InPawn->OnFlick.Remove(OnFlickSpectateShotHandle);
-				}
-			});
+			OnHandleSpectatorShot(InPlayerState, InPawn);
+		}
+		else if(InPlayerState)
+		{
+			// On simulated proxies, the InPawn is null if it was first spawned on the server as the spawning may not have replicated yet,
+			// so need to listen for when the player state is replicated on the pawn and then can trigger the OnFlick logic
+			// There is a chance that the flick event could happen before the state change replicates, but the issue would be cosmetic
+			InPlayerState->OnPawnSet.AddUniqueDynamic(this, &ThisClass::OnSpectatorShotPawnSet);
 		}
 	}
+}
+
+void AGolfPlayerController::OnSpectatorShotPawnSet(APlayerState* InPlayer, APawn* InNewPawn, APawn* InOldPawn)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnSpectatorShotPawnSet - InPlayer=%s; InNewPawn=%s; InOldPawn=%s"),
+		*GetName(), *LoggingUtils::GetName(InPlayer), *LoggingUtils::GetName(InNewPawn), *LoggingUtils::GetName(InOldPawn));
+
+	OnHandleSpectatorShot(Cast<AGolfPlayerState>(InPlayer), Cast<APaperGolfPawn>(InNewPawn));
+
+	if (InPlayer)
+	{
+		InPlayer->OnPawnSet.RemoveDynamic(this, &ThisClass::OnSpectatorShotPawnSet);
+	}
+}
+
+void AGolfPlayerController::OnSpectatedPawnDestroyed(AActor* InPawn)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnSpectatedPawnDestroyed - InPawn=%s"),
+		*GetName(), *LoggingUtils::GetName(InPawn));
+
+	const auto StrongCurrentSpectatorState = CurrentSpectatorPlayerState.Get();
+	if (!StrongCurrentSpectatorState)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Verbose, TEXT("%s: OnSpectatedPawnDestroyed - InPawn=%s - CurrentSpectatorPlayerState is NULL - skipping"),
+			*GetName(), *LoggingUtils::GetName(InPawn));
+		return;
+	}
+
+	const auto MatchedPlayer = [&]()
+	{
+		const auto MatchedPlayerResult = SpectatingPawnPlayerStateMap.Find(InPawn);
+		return MatchedPlayerResult ? MatchedPlayerResult->Get() : nullptr;
+	}();
+
+	if (!MatchedPlayer)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnSpectatedPawnDestroyed - InPawn=%s - No matching player state found"),
+			*GetName(), *LoggingUtils::GetName(InPawn));
+		return;
+	}
+
+	// If we are spectating the current player state and InNewPawn is NULL it likely means that pawn is destroyed so switch to the golf hole
+	if (StrongCurrentSpectatorState == MatchedPlayer)
+	{
+		SpectateCurrentGolfHole();
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Verbose, TEXT("%s: OnSpectatedPawnDestroyed - InPawn=%s - Skipping as StrongCurrentSpectatorState=%s != MatchedPlayer=%s"),
+			*GetName(), *LoggingUtils::GetName(InPawn), *StrongCurrentSpectatorState->GetPlayerName(), *MatchedPlayer->GetPlayerName());
+	}
+}
+
+void AGolfPlayerController::OnHandleSpectatorShot(AGolfPlayerState* InPlayerState, APaperGolfPawn* InPawn)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnHandleSpectatorShot - InPlayerState=%s; InPawn=%s"),
+		*GetName(), *LoggingUtils::GetName(InPlayerState), *LoggingUtils::GetName(InPawn));
+
+	if (!InPawn)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: OnHandleSpectatorShot - InPlayerState=%s - InPawn is NULL"), *GetName(), *LoggingUtils::GetName(InPlayerState));
+
+		return;
+	}
+
+	SpectatingPawnPlayerStateMap.Add(InPawn, InPlayerState);
+	InPawn->OnDestroyed.AddUniqueDynamic(this, &ThisClass::OnSpectatedPawnDestroyed);
+
+	if (auto StrongCurrentSpectatorState = CurrentSpectatorPlayerState.Get(); !StrongCurrentSpectatorState || StrongCurrentSpectatorState != InPlayerState)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: OnHandleSpectatorShot - Skipping as spectator status has changed - CurrentSpectatorPlayerState=%s; InPlayerState=%s"),
+			*GetName(), StrongCurrentSpectatorState ? *StrongCurrentSpectatorState->GetPlayerName() : TEXT("NULL"), InPlayerState ? *InPlayerState->GetPlayerName() : TEXT("NULL"));
+		return;
+	}
+
+	const auto HUD = GetHUD<APGHUD>();
+
+	if (!ensure(HUD))
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s: OnHandleSpectatorShot - InPlayerState=%s; InPawn=%s - HUD is NULL"), *GetName(),
+			*LoggingUtils::GetName(InPlayerState), *LoggingUtils::GetName(InPawn));
+		return;
+	}
+
+	OnFlickSpectateShotHandle = InPawn->OnFlick.AddWeakLambda(this,
+		[this, InPawn = MakeWeakObjectPtr(InPawn), HUD = MakeWeakObjectPtr(HUD), InPlayerState = MakeWeakObjectPtr(InPlayerState)]()
+		{
+			if (HUD.IsValid())
+			{
+				HUD->BeginSpectatorShot(InPawn.Get(), InPlayerState.Get());
+			}
+
+			// Removing the handle invalidates the delegate so we need to do it last
+			const auto HandleToRemove = OnFlickSpectateShotHandle;
+			OnFlickSpectateShotHandle.Reset();
+			if (InPawn.IsValid())
+			{
+				InPawn->OnFlick.Remove(OnFlickSpectateShotHandle);
+			}
+		});
 }
 
 void AGolfPlayerController::EndAnyActiveTurn()

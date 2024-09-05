@@ -9,6 +9,8 @@
 
 #include "Utils/StringUtils.h"
 
+#include "GameFramework/PlayerState.h"
+
 namespace LoggingUtils
 {
 	template<PG::StringUtils::UEnumConcept T>
@@ -22,6 +24,12 @@ namespace LoggingUtils
 
 	template<PG::StringUtils::GetNameConcept T>
 	FString GetName(const T& Object);
+
+	template<>
+	FString GetName(const APlayerState* Object);
+
+	template<>
+	FString GetName(const APlayerState& Object);
 
 	auto GetBoolString(bool Result);
 
@@ -55,6 +63,18 @@ namespace LoggingUtils
 	inline FString GetName(const TScriptInterface<T>& Object)
 	{
 		return (PG::StringUtils::UObjectInterfaceToString<T>{})(Object);
+	}
+
+	template<>
+	inline FString LoggingUtils::GetName(const APlayerState* Object)
+	{
+		return Object ? GetName(*Object) : TEXT("NULL");
+	}
+
+	template<>
+	inline FString LoggingUtils::GetName(const APlayerState& Object)
+	{
+		return Object.GetPlayerName();
 	}
 
 	inline auto GetBoolString(bool bResult)

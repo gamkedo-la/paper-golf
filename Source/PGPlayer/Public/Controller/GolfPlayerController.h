@@ -113,6 +113,7 @@ protected:
 
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnUnPossess() override;
+	virtual void PawnPendingDestroy(APawn* InPawn) override;
 
 	// Called on both clients and server via a rep notify
 	virtual void SetPawn(APawn* InPawn) override;
@@ -226,9 +227,18 @@ private:
 	void MarkHoleFlybySeen();
 	void TriggerPlayerCameraIntroduction();
 	void DoPlayerCameraIntroduction();
+	void SpectateCurrentGolfHole();
 	void MarkFirstPlayerTurnReady();
 
 	bool CameraIntroductionInProgress() const;
+
+	void OnHandleSpectatorShot(AGolfPlayerState* InPlayerState, APaperGolfPawn* InPawn);
+
+	UFUNCTION()
+	void OnSpectatorShotPawnSet(APlayerState* InPlayer, APawn* InNewPawn, APawn* InOldPawn);
+
+	UFUNCTION()
+	void OnSpectatedPawnDestroyed(AActor* InPawn);
 
 private:
 
@@ -288,6 +298,10 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<APaperGolfPawn> PlayerPawn{};
+
+	TWeakObjectPtr<AGolfPlayerState> CurrentSpectatorPlayerState{};
+
+	TMap<TWeakObjectPtr<AActor>, TWeakObjectPtr<AGolfPlayerState>> SpectatingPawnPlayerStateMap{};
 
 	UPROPERTY(Transient)
 	TObjectPtr<AActor> PlayerStart{};
