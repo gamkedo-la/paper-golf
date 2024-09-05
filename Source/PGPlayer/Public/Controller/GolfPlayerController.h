@@ -130,6 +130,9 @@ protected:
 
 	void TriggerHoleFlybyAndPlayerCameraIntroduction();
 
+	UFUNCTION()
+	void OnHoleComplete();
+
 private:
 	enum class EPlayerPreTurnState : uint8
 	{
@@ -271,6 +274,12 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Camera")
 	float PlayerCameraIntroductionBlendExp{ 3.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Camera")
+	float HoleCameraCutTime{ 2.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Camera")
+	float HoleCameraCutExponent{ 1.0f };
 
 	EShotType ShotType{ EShotType::Default };
 

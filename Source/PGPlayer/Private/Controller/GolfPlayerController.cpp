@@ -707,6 +707,14 @@ void AGolfPlayerController::Init()
 	bCanFlick = false;
 
 	InitFromConsoleVariables();
+
+	if (auto World = GetWorld(); ensure(World))
+	{
+		if (auto GolfEventsSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventsSubsystem))
+		{
+			GolfEventsSubsystem->OnPaperGolfNextHole.AddUniqueDynamic(this, &ThisClass::OnHoleComplete);
+		}
+	}
 }
 
 void AGolfPlayerController::InitFromConsoleVariables()
@@ -873,6 +881,26 @@ void AGolfPlayerController::TriggerHoleFlybyAndPlayerCameraIntroduction()
 	}
 }
 
+void AGolfPlayerController::OnHoleComplete()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnHoleComplete"), *GetName());
+
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	// When the hole is complete focus on it
+	if (auto GolfHole = AGolfHole::GetCurrentHole(this); GolfHole)
+	{
+		SetViewTargetWithBlend(GolfHole, HoleCameraCutTime, EViewTargetBlendFunction::VTBlend_EaseInOut, HoleCameraCutExponent);
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: OnHoleComplete - GolfHole is NULL - skipping view target"), *GetName());
+	}
+}
+
 void AGolfPlayerController::TriggerPlayerCameraIntroduction()
 {
 	const auto GolfPlayerStart = Cast<AGolfPlayerStart>(PlayerStart);
@@ -907,6 +935,8 @@ void AGolfPlayerController::DoPlayerCameraIntroduction()
 		PreTurnState = EPlayerPreTurnState::None;
 		return;
 	}
+
+	SetInputEnabled(false);
 
 	PreTurnState = EPlayerPreTurnState::CameraIntroductionPlaying;
 
