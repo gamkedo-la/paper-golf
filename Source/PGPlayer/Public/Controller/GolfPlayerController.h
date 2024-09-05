@@ -131,6 +131,12 @@ protected:
 	void TriggerHoleFlybyAndPlayerCameraIntroduction();
 
 private:
+	enum class EPlayerPreTurnState : uint8
+	{
+		None,
+		CameraIntroductionRequested,
+		CameraIntroductionPlaying
+	};
 
 	void DetermineShotType();
 
@@ -216,7 +222,10 @@ private:
 	bool IsHoleFlybySeen() const;
 	void MarkHoleFlybySeen();
 	void TriggerPlayerCameraIntroduction();
+	void DoPlayerCameraIntroduction();
 	void MarkFirstPlayerTurnReady();
+
+	bool CameraIntroductionInProgress() const;
 
 private:
 
@@ -257,6 +266,12 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Correction")
 	int32 FlickZNotUpdatedMaxRetries{ 2 };
 
+	UPROPERTY(EditDefaultsOnly, Category = "Camera")
+	float PlayerCameraIntroductionTime{ 5.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Camera")
+	float PlayerCameraIntroductionBlendExp{ 3.0f };
+
 	EShotType ShotType{ EShotType::Default };
 
 	FTimerHandle NextShotTimerHandle{};
@@ -271,6 +286,7 @@ private:
 	bool bCanFlick{ };
 	bool bTurnActivated{};
 	bool bInputEnabled{ true };
+	EPlayerPreTurnState PreTurnState{ EPlayerPreTurnState::None };
 
 	UPROPERTY(Transient, ReplicatedUsing = OnRep_Scored)
 	bool bScored{};
@@ -280,6 +296,11 @@ private:
 };
 
 #pragma region Inline Definitions
+
+FORCEINLINE bool AGolfPlayerController::CameraIntroductionInProgress() const
+{
+	return PreTurnState == EPlayerPreTurnState::CameraIntroductionRequested || PreTurnState == EPlayerPreTurnState::CameraIntroductionPlaying;
+}
 
 FORCEINLINE bool AGolfPlayerController::IsReadyForShot() const
 {

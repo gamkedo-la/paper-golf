@@ -6,8 +6,11 @@
 #include "GameFramework/PlayerStart.h"
 #include "GolfPlayerStart.generated.h"
 
+class USpringArmComponent;
+class UCameraComponent;
+
 /**
- * 
+ * Player start for golf holes.
  */
 UCLASS()
 class PGPAWN_API AGolfPlayerStart : public APlayerStart
@@ -15,6 +18,9 @@ class PGPAWN_API AGolfPlayerStart : public APlayerStart
 	GENERATED_BODY()
 
 public:
+
+	AGolfPlayerStart(const FObjectInitializer& ObjectInitializer);
+
 	UFUNCTION(BlueprintPure, Category = "Golf")
 	int32 GetHoleNumber() const { return HoleNumber; }
 
@@ -22,5 +28,9 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Golf")
 	int32 HoleNumber{};
 
-	// TODO: Will hold reference to an actor that will have a camera component to use for the player introduction near the player start
+	UPROPERTY(Category = "Camera", VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USpringArmComponent> CameraSpringArm{};
+
+	UPROPERTY(Category = "Camera", VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UCameraComponent> Camera{};
 };

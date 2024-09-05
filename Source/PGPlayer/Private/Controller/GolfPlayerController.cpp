@@ -66,6 +66,7 @@ void AGolfPlayerController::DoReset()
 	bOutOfBounds = false;
 	bScored = false;
 	bInputEnabled = true; // this is the default constructor value
+	PreTurnState = EPlayerPreTurnState::None;
 
 	check(GolfControllerCommonComponent);
 
@@ -764,6 +765,11 @@ void AGolfPlayerController::SetPawn(APawn* InPawn)
 
 	if (IsValid(PaperGolfPawn))
 	{
+		if (PreTurnState == EPlayerPreTurnState::CameraIntroductionRequested)
+		{
+			DoPlayerCameraIntroduction();
+		}
+
 		DoActivateTurn();
 	}
 }
@@ -878,18 +884,50 @@ void AGolfPlayerController::TriggerPlayerCameraIntroduction()
 		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: TriggerPlayerCameraIntroduction - GolfPlayerStart is NULL - skipping"), *GetName());
 		MarkFirstPlayerTurnReady();
 	}
+	else if(PlayerPawn)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: TriggerPlayerCameraIntroduction - PlayerPawn is already valid - triggering immediately"), *GetName());
+		DoPlayerCameraIntroduction();
+	}
 	else
 	{
-		// TOOD: Call the player camera introduction on the player start and pass in a callback for when the sequence completes so that we can call MarkFirstPlayerTurnReady to begin the first turn
-		MarkFirstPlayerTurnReady();
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: TriggerPlayerCameraIntroduction - PlayerPawn is NULL - waiting for SetPawn"), *GetName());
+		PreTurnState = EPlayerPreTurnState::CameraIntroductionRequested;
 	}
+}
+
+void AGolfPlayerController::DoPlayerCameraIntroduction()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DoPlayerCameraIntroduction"), *GetName());
+
+	const auto GolfPlayerStart = Cast<AGolfPlayerStart>(PlayerStart);
+	// function should not have been called if player start wasn't a golf player start
+	if (!ensure(GolfPlayerStart))
+	{
+		PreTurnState = EPlayerPreTurnState::None;
+		return;
+	}
+
+	PreTurnState = EPlayerPreTurnState::CameraIntroductionPlaying;
+
+	SetViewTarget(GolfPlayerStart);
+	SetViewTargetWithBlend(PlayerPawn, PlayerCameraIntroductionTime, EViewTargetBlendFunction::VTBlend_EaseInOut, PlayerCameraIntroductionBlendExp, false);
+
+	FTimerHandle TimerHandle;
+	GetWorldTimerManager().SetTimer(TimerHandle, this, &ThisClass::MarkFirstPlayerTurnReady, PlayerCameraIntroductionTime);
 }
 
 void AGolfPlayerController::MarkFirstPlayerTurnReady()
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: MarkFirstPlayerTurnReady"), *GetName());
 
-	// TODO: This should coordinate with DoActivateTurn on the first turn on non-dedicated servers to actually transition the player to active to start the shot
+	PreTurnState = EPlayerPreTurnState::None;
+	if (bTurnActivated)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: MarkFirstPlayerTurnReady - Setting input enabled"), *GetName());
+
+		SetInputEnabled(true);
+	}
 }
 
 #pragma region Turn and spectator logic
@@ -951,6 +989,11 @@ void AGolfPlayerController::DoActivateTurn()
 	{
 		SetInputEnabled(true);
 	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DoActivateTurn - Skipping input activation until after introductions completed"), *GetName());
+		SetInputEnabled(false);
+	}
 
 	// TODO: If we just started the hole and need to see the hole flyby and then the player camera introduction then we'd want to defer the rest of these tasks until after they complete
 
@@ -991,7 +1034,7 @@ void AGolfPlayerController::DoActivateTurn()
 
 bool AGolfPlayerController::ShouldEnableInputForActivateTurn() const
 {
-	return IsHoleFlybySeen();
+	return IsHoleFlybySeen() && !CameraIntroductionInProgress();
 }
 
 bool AGolfPlayerController::IsHoleFlybySeen() const
