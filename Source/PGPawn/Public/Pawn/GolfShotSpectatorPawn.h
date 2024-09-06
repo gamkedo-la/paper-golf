@@ -34,6 +34,9 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
+	void SetCameraLag(bool bEnableLag);
+
+private:
 
 	UPROPERTY(Category = "Camera", VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USpringArmComponent> CameraSpringArm{};

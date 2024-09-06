@@ -20,6 +20,7 @@ class AGolfHole;
 class UShotArcPreviewComponent;
 class UGolfControllerCommonComponent;
 class APaperGolfGameStateBase;
+class IPawnCameraLook;
 
 /**
  * 
@@ -82,6 +83,9 @@ public:
 
 	virtual bool IsLookInputIgnored() const override { return false; }
 
+	UFUNCTION(BlueprintPure)
+	bool IsSpectatingShotSetup() const;
+
 	// TODO: Can we remove UFUNCTION on some of these
 protected:
 	virtual void BeginPlay() override;
@@ -134,6 +138,7 @@ protected:
 	UFUNCTION()
 	void OnHoleComplete();
 
+	virtual void SetSpectatorPawn(class ASpectatorPawn* NewSpectatorPawn) override;
 private:
 	enum class EPlayerPreTurnState : uint8
 	{
@@ -167,7 +172,6 @@ private:
 	void SetupNextShot(bool bSetCanFlick);
 
 	void SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState* InPlayerState);
-	void SetCameraToViewPawn(APawn* InPawn, AGolfPlayerState* InPlayerState);
 
 	void SetPositionTo(const FVector& Position, const TOptional<FRotator>& OptionalRotation = {});
 
@@ -240,6 +244,8 @@ private:
 	UFUNCTION()
 	void OnSpectatedPawnDestroyed(AActor* InPawn);
 
+	IPawnCameraLook* GetPawnCameraLook() const;
+
 private:
 
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
@@ -291,6 +297,12 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Camera")
 	float HoleCameraCutExponent{ 1.0f };
 
+	UPROPERTY(EditDefaultsOnly, Category = "Camera")
+	float SpectatorShotCameraCutTime{ 2.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Camera")
+	float SpectatorShotCameraCutExponent{ 1.0f };
+
 	EShotType ShotType{ EShotType::Default };
 
 	FTimerHandle NextShotTimerHandle{};
@@ -315,6 +327,8 @@ private:
 	bool bScored{};
 
 	bool bOutOfBounds{};
+
+	bool bSpectatorFlicked{};
 
 };
 

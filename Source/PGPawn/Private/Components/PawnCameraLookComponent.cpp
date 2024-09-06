@@ -13,6 +13,7 @@
 UPawnCameraLookComponent::UPawnCameraLookComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bStartWithTickEnabled = false;
 }
 
 void UPawnCameraLookComponent::AddCameraRelativeRotation(const FRotator& DeltaRotation)
@@ -24,7 +25,15 @@ void UPawnCameraLookComponent::AddCameraRelativeRotation(const FRotator& DeltaRo
 
 	FRotator RelativeRotation = CameraSpringArm->GetRelativeRotation();
 	RelativeRotation.Pitch = FMath::ClampAngle(RelativeRotation.Pitch + DeltaRotation.Pitch, MinCameraRotation.Pitch, MaxCameraRotation.Pitch);
-	RelativeRotation.Yaw = FMath::ClampAngle(RelativeRotation.Yaw + DeltaRotation.Yaw, MinCameraRotation.Yaw, MaxCameraRotation.Yaw);
+
+	if (MaxCameraRotation.Yaw - MinCameraRotation.Yaw < 360.0f)
+	{
+		RelativeRotation.Yaw = FMath::ClampAngle(RelativeRotation.Yaw + DeltaRotation.Yaw, MinCameraRotation.Yaw, MaxCameraRotation.Yaw);
+	}
+	else
+	{
+		RelativeRotation.Yaw += DeltaRotation.Yaw;
+	}
 
 	CameraSpringArm->SetRelativeRotation(RelativeRotation);
 

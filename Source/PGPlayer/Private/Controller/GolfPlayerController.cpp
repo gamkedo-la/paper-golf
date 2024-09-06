@@ -4,6 +4,8 @@
 #include "Controller/GolfPlayerController.h"
 
 #include "Pawn/PaperGolfPawn.h"
+
+#include "Pawn/GolfShotSpectatorPawn.h"
 #include "PlayerStart/GolfPlayerStart.h"
 
 #include "Interfaces/FocusableActor.h"
@@ -62,6 +64,7 @@ void AGolfPlayerController::DoReset()
 	PlayerStart = nullptr;
 	CurrentSpectatorPlayerState = nullptr;
 	SpectatingPawnPlayerStateMap.Reset();
+	bSpectatorFlicked = false;
 
 	bTurnActivated = false;
 	bCanFlick = false;
@@ -413,33 +416,38 @@ void AGolfPlayerController::Reset()
 
 void AGolfPlayerController::AddPitchInput(float Val)
 {
-	if (IsValid(PlayerPawn))
+	if (auto PawnCameraLook = GetPawnCameraLook(); PawnCameraLook)
 	{
-		PlayerPawn->AddCameraRelativeRotation(FRotator(Val, 0.f, 0.f));
+		PawnCameraLook->AddCameraRelativeRotation(FRotator(Val, 0.f, 0.f));
 	}
 }
 
 void AGolfPlayerController::AddYawInput(float Val)
 {
-	if (IsValid(PlayerPawn))
+	if (auto PawnCameraLook = GetPawnCameraLook(); PawnCameraLook)
 	{
-		PlayerPawn->AddCameraRelativeRotation(FRotator(0.f, Val, 0.f));
+		PawnCameraLook->AddCameraRelativeRotation(FRotator(0.f, Val, 0.f));
 	}
+}
+
+bool AGolfPlayerController::IsSpectatingShotSetup() const
+{
+	return CurrentSpectatorPlayerState.IsValid() && !bSpectatorFlicked;
 }
 
 void AGolfPlayerController::ResetCameraRotation()
 {
-	if (IsValid(PlayerPawn))
+	if (auto PawnCameraLook = GetPawnCameraLook(); PawnCameraLook)
 	{
-		PlayerPawn->ResetCameraRelativeRotation();
+		PawnCameraLook->ResetCameraRelativeRotation();
 	}
 }
 
 void AGolfPlayerController::AddCameraZoomDelta(float ZoomDelta)
 {
-	if (IsValid(PlayerPawn))
+	if (auto PawnCameraLook = GetPawnCameraLook(); PawnCameraLook)
 	{
-		PlayerPawn->AddCameraZoomDelta(ZoomDelta);
+		PawnCameraLook->AddCameraZoomDelta(ZoomDelta);
 	}
 }
 
@@ -1035,6 +1043,7 @@ void AGolfPlayerController::DoActivateTurn()
 	EnableInput(this);
 
 	CurrentSpectatorPlayerState = nullptr;
+	bSpectatorFlicked = false;
 
 	if (ShouldEnableInputForActivateTurn())
 	{
@@ -1173,6 +1182,7 @@ void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* I
 	}
 
 	CurrentSpectatorPlayerState = InPlayerState;
+	bSpectatorFlicked = false;
 
 	ClientSpectate(InPawn, InPlayerState);
 
@@ -1185,6 +1195,7 @@ void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn
 		*GetName(), *LoggingUtils::GetName(InPawn), InPlayerState ? *InPlayerState->GetPlayerName() : TEXT("NULL"));
 
 	CurrentSpectatorPlayerState = InPlayerState;
+	bSpectatorFlicked = false;
 
 	// Turn off collision on our own pawn
 	if (IsValid(PlayerPawn))
@@ -1265,6 +1276,21 @@ void AGolfPlayerController::OnSpectatedPawnDestroyed(AActor* InPawn)
 	}
 }
 
+IPawnCameraLook* AGolfPlayerController::GetPawnCameraLook() const
+{
+	APawn* CameraLookPawn;
+	if (IsSpectatingShotSetup())
+	{
+		CameraLookPawn = GetSpectatorPawn();
+	}
+	else
+	{
+		CameraLookPawn = GetPawn();
+	}
+
+	return Cast<IPawnCameraLook>(CameraLookPawn);
+}
+
 void AGolfPlayerController::OnHandleSpectatorShot(AGolfPlayerState* InPlayerState, APaperGolfPawn* InPawn)
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnHandleSpectatorShot - InPlayerState=%s; InPawn=%s"),
@@ -1287,18 +1313,24 @@ void AGolfPlayerController::OnHandleSpectatorShot(AGolfPlayerState* InPlayerStat
 		return;
 	}
 
-	const auto HUD = GetHUD<APGHUD>();
-
-	if (!ensure(HUD))
+	// Track the player pawn for the spectator camera
+	if (auto MySpectatorPawn = Cast<AGolfShotSpectatorPawn>(GetSpectatorPawn()); IsValid(MySpectatorPawn))
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s: OnHandleSpectatorShot - InPlayerState=%s; InPawn=%s - HUD is NULL"), *GetName(),
-			*LoggingUtils::GetName(InPlayerState), *LoggingUtils::GetName(InPawn));
-		return;
+		MySpectatorPawn->TrackPlayer(InPawn);
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnHandleSpectatorShot - SpectatorPawn=%s is not a AGolfShotSpectatorPawn"), *GetName(), *LoggingUtils::GetName(GetSpectatorPawn()));
 	}
 
 	OnFlickSpectateShotHandle = InPawn->OnFlick.AddWeakLambda(this,
-		[this, InPawn = MakeWeakObjectPtr(InPawn), HUD = MakeWeakObjectPtr(HUD), InPlayerState = MakeWeakObjectPtr(InPlayerState)]()
+		[this, InPawn = MakeWeakObjectPtr(InPawn), HUD = MakeWeakObjectPtr(GetHUD<APGHUD>()), InPlayerState = MakeWeakObjectPtr(InPlayerState)]()
 		{
+			bSpectatorFlicked = true;
+
+			// Transition back to viewing pawn after flick
+			SetViewTargetWithBlend(InPawn.Get(), SpectatorShotCameraCutTime, EViewTargetBlendFunction::VTBlend_EaseInOut, SpectatorShotCameraCutExponent);
+
 			if (HUD.IsValid())
 			{
 				HUD->BeginSpectatorShot(InPawn.Get(), InPlayerState.Get());
@@ -1341,33 +1373,35 @@ void AGolfPlayerController::SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState
 
 	ChangeState(NAME_Spectating);
 	ClientGotoState(NAME_Spectating);
-
-	SetCameraToViewPawn(PawnToSpectate, InPlayerState);
 }
 
-void AGolfPlayerController::SetCameraToViewPawn(APawn* InPawn, AGolfPlayerState* InPlayerState)
+void AGolfPlayerController::SetSpectatorPawn(ASpectatorPawn* NewSpectatorPawn)
 {
-	AActor* ActorToSpectate = InPlayerState;
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SetSpectatorPawn - NewSpectatorPawn=%s"),
+		*GetName(), *LoggingUtils::GetName(NewSpectatorPawn));
 
-	if (!IsValid(ActorToSpectate))
+	Super::SetSpectatorPawn(NewSpectatorPawn);
+
+	if (auto GolfSpectatorPawn = Cast<AGolfShotSpectatorPawn>(NewSpectatorPawn); IsValid(GolfSpectatorPawn))
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: SetCameraToViewPawn: InPlayerState=NULL; InPawn=%s"),
-			*GetName(), *LoggingUtils::GetName(InPawn)
-		);
+		EnableInput(this);
 
-		ActorToSpectate = InPawn;
+		if (auto SpectatorPlayerState = CurrentSpectatorPlayerState.Get(); SpectatorPlayerState && SpectatorPlayerState->GetPawn())
+		{
+			GolfSpectatorPawn->TrackPlayer(Cast<APaperGolfPawn>(SpectatorPlayerState->GetPawn()));
+		}
+		else
+		{
+			UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SetSpectatorPawn - Pawn has not yet replicated for SpectatorPlayerState=%s"),
+				*GetName(), *LoggingUtils::GetName(SpectatorPlayerState));
+			SetViewTarget(GolfSpectatorPawn);
+		}
 	}
 	else
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: SetCameraToViewPawn: Tracking player state %s with pawn %s"),
-			*GetName(),
-			*InPlayerState->GetPlayerName(),
-			*LoggingUtils::GetName(InPawn)
-		);
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SetSpectatorPawn - NewSpectatorPawn=%s is not a AGolfShotSpectatorPawn"),
+			*GetName(), *LoggingUtils::GetName(NewSpectatorPawn));
 	}
-
-	EnableInput(this);
-	SetViewTarget(ActorToSpectate);
 }
 
 

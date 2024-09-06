@@ -23,8 +23,13 @@ AGolfShotSpectatorPawn::AGolfShotSpectatorPawn()
 	CameraSpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraSpringArm"));
 
 	CameraSpringArm->TargetArmLength = 1000.0;
-	CameraSpringArm->bEnableCameraLag = true;
-	CameraSpringArm->bEnableCameraRotationLag = true;
+	CameraSpringArm->bInheritYaw = true;
+	CameraSpringArm->bInheritPitch = false;
+	CameraSpringArm->bInheritRoll = false;
+
+	// False by default so that it snaps to the target immediately
+	SetCameraLag(false);
+
 	CameraSpringArm->CameraLagSpeed = 2.0f;
 	CameraSpringArm->CameraRotationLagSpeed = 2.0f;
 	CameraSpringArm->TargetOffset = FVector(0, 0, 100);
@@ -48,7 +53,20 @@ void AGolfShotSpectatorPawn::TrackPlayer(const APaperGolfPawn* PlayerPawn)
 		return;
 	}
 
+	SetCameraLag(false);
+	ResetCameraRelativeRotation();
+
 	SetActorTransform(PlayerPawn->GetActorTransform());
+
+	if (auto PC = Cast<APlayerController>(GetController()); PC)
+	{
+		PC->SetViewTarget(this);
+	}
+
+	// reinitialize
+	CameraLookComponent->Initialize(*CameraSpringArm);
+
+	GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this, [this]() { SetCameraLag(true); }));
 }
 
 void AGolfShotSpectatorPawn::AddCameraRelativeRotation(const FRotator& DeltaRotation)
@@ -68,7 +86,15 @@ void AGolfShotSpectatorPawn::AddCameraZoomDelta(float ZoomDelta)
 
 void AGolfShotSpectatorPawn::BeginPlay()
 {
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: BeginPlay"), *GetName());
+
 	Super::BeginPlay();
 
 	CameraLookComponent->Initialize(*CameraSpringArm);
+	SetCameraLag(false);
+}
+
+void AGolfShotSpectatorPawn::SetCameraLag(bool bEnableLag)
+{
+	CameraSpringArm->bEnableCameraRotationLag = CameraSpringArm->bEnableCameraLag = bEnableLag;
 }
