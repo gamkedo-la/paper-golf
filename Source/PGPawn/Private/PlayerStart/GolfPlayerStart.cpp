@@ -2,11 +2,10 @@
 
 
 #include "PlayerStart/GolfPlayerStart.h"
-
-#include UE_INLINE_GENERATED_CPP_BY_NAME(GolfPlayerStart)
-
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+
+#include UE_INLINE_GENERATED_CPP_BY_NAME(GolfPlayerStart)
 
 AGolfPlayerStart::AGolfPlayerStart(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
