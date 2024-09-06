@@ -66,7 +66,9 @@ void AGolfShotSpectatorPawn::TrackPlayer(const APaperGolfPawn* PlayerPawn)
 	// reinitialize
 	CameraLookComponent->Initialize(*CameraSpringArm);
 
-	GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this, [this]() { SetCameraLag(true); }));
+	// Need to do on next tick to avoid camera lag on setting view target which is very nauseating to the player
+	// We enable camera lag for the look controls
+	GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateUObject(this, &ThisClass::SetCameraLag, true));
 }
 
 void AGolfShotSpectatorPawn::AddCameraRelativeRotation(const FRotator& DeltaRotation)
