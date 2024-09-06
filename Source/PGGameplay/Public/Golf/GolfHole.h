@@ -54,6 +54,8 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent)
 	void BlueprintOnActiveHoleChanged(bool bIsActiveHole);
 
+	virtual void BeginPlay() override;
+
 private:
 
 	int32 GetHoleNumber_Implementation() const;
@@ -64,6 +66,8 @@ private:
 
 	UFUNCTION()
 	void OnComponentEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
+	void OnHoleChanged(int32 NewHoleNumber);
 
 	void OnScored(APaperGolfPawn& Pawn);
 

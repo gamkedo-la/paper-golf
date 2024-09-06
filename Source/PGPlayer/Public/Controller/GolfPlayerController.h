@@ -86,6 +86,9 @@ public:
 	UFUNCTION(BlueprintPure)
 	bool IsSpectatingShotSetup() const;
 
+	UFUNCTION(BlueprintPure)
+	bool IsInCinematicSequence() const;
+
 	// TODO: Can we remove UFUNCTION on some of these
 protected:
 	virtual void BeginPlay() override;
@@ -135,8 +138,9 @@ protected:
 
 	void TriggerHoleFlybyAndPlayerCameraIntroduction();
 
-	UFUNCTION()
-	void OnHoleComplete();
+
+	UFUNCTION(BlueprintCallable)
+	void SkipHoleFlybyAndCameraIntroduction();
 
 	virtual void SetSpectatorPawn(class ASpectatorPawn* NewSpectatorPawn) override;
 private:
@@ -146,6 +150,9 @@ private:
 		CameraIntroductionRequested,
 		CameraIntroductionPlaying
 	};
+
+	UFUNCTION()
+	void OnHoleComplete();
 
 	void DetermineShotType();
 
@@ -246,6 +253,8 @@ private:
 
 	IPawnCameraLook* GetPawnCameraLook() const;
 
+	void SnapCameraBackToPlayer();
+
 private:
 
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
@@ -306,6 +315,8 @@ private:
 	EShotType ShotType{ EShotType::Default };
 
 	FTimerHandle NextShotTimerHandle{};
+	FTimerHandle CameraIntroductionStartTimerHandle{};
+
 	FDelegateHandle OnFlickSpectateShotHandle{};
 
 	UPROPERTY(Transient)
@@ -320,6 +331,7 @@ private:
 
 	bool bCanFlick{ };
 	bool bTurnActivated{};
+	bool bTurnActivationRequested{};
 	bool bInputEnabled{ true };
 	EPlayerPreTurnState PreTurnState{ EPlayerPreTurnState::None };
 

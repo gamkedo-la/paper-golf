@@ -70,11 +70,8 @@ void UGolfControllerCommonComponent::BeginPlay()
 			}
 		}));
 
-		// If not server, then have to listen for when game state changes holes so that we can init the focus actors correctly
-		if (!GetOwner()->HasAuthority())
-		{
-			GameState->OnHoleChanged.AddUObject(this, &ThisClass::OnHoleChanged);
-		}
+		// Set up listener that will fire on second hole for all players, while on server the above will fire for Hole One
+		GameState->OnHoleChanged.AddUObject(this, &ThisClass::OnHoleChanged);
 	}
 }
 
@@ -704,7 +701,6 @@ void UGolfControllerCommonComponent::InitFocusableActors()
 	ensureMsgf(GolfHole, TEXT("%s: InitFocusableActors - No relevant AGolfHole in world for hole focus. No aim targeting will occur."),
 		*GetName());
 
-	LastHoleNumber = HoleNumber;
 }
 
 bool UGolfControllerCommonComponent::HasLOSToFocus(const FVector& Position, const AActor* FocusActor) const
@@ -791,6 +787,13 @@ void UGolfControllerCommonComponent::OnHoleChanged(int32 HoleNumber)
 	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: OnHoleChanged - HoleNumber=%d"),
 		*GetName(), *LoggingUtils::GetName(GetOwner()), HoleNumber);
 
+	if (HoleNumber == LastHoleNumber)
+	{
+		// Usually this happens on server when this function was already triggered
+		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: OnHoleChanged - HoleNumber=%d is unchanged. Skipping."),
+			*GetName(), *LoggingUtils::GetName(GetOwner()), HoleNumber);
+	}
+
 	InitFocusableActors();
 
 	// Make sure we immediately reset the aim focus if we are the active player after the hole changed
@@ -808,6 +811,8 @@ void UGolfControllerCommonComponent::OnHoleChanged(int32 HoleNumber)
 		OnHoleSyncedDelegate.Execute();
 		OnHoleSyncedDelegate.Unbind();
 	}
+
+	LastHoleNumber = HoleNumber;
 }
 
 void UGolfControllerCommonComponent::SyncHoleChanged(const FSimpleDelegate& InHoleSyncedDelegate)
@@ -837,9 +842,6 @@ void UGolfControllerCommonComponent::BeginTurn()
 	{
 		if (auto PaperGolfPawn = GolfController->GetPaperGolfPawn(); PaperGolfPawn /* && !PaperGolfPawn->IsAtRest()*/)
 		{
-			//UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s-%s: BeginTurn - Resetting shot state as paper golf pawn is not at rest"),
-			//	*GetName(), *LoggingUtils::GetName(GetOwner()));
-
 			// Always reset the state when activating turn - this fixes and physics offset issues
 			PaperGolfPawn->SetUpForNextShot();
 

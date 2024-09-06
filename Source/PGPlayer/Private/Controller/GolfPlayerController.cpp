@@ -67,6 +67,7 @@ void AGolfPlayerController::DoReset()
 	bSpectatorFlicked = false;
 
 	bTurnActivated = false;
+	bTurnActivationRequested = false;
 	bCanFlick = false;
 	bOutOfBounds = false;
 	bScored = false;
@@ -435,6 +436,12 @@ bool AGolfPlayerController::IsSpectatingShotSetup() const
 	return CurrentSpectatorPlayerState.IsValid() && !bSpectatorFlicked;
 }
 
+bool AGolfPlayerController::IsInCinematicSequence() const
+{
+	// TODO: Add hole fly by to this once that is implemented
+	return CameraIntroductionInProgress();
+}
+
 void AGolfPlayerController::ResetCameraRotation()
 {
 	if (auto PawnCameraLook = GetPawnCameraLook(); PawnCameraLook)
@@ -798,7 +805,11 @@ void AGolfPlayerController::SetPawn(APawn* InPawn)
 			DoPlayerCameraIntroduction();
 		}
 
-		DoActivateTurn();
+		// Need to do this on clients as pawn will come in potentially aftert he client RPC for activate turn
+		if (!HasAuthority() && bTurnActivationRequested)
+		{
+			DoActivateTurn();
+		}
 	}
 }
 
@@ -970,8 +981,7 @@ void AGolfPlayerController::DoPlayerCameraIntroduction()
 	SetViewTarget(GolfPlayerStart);
 	SetViewTargetWithBlend(PlayerPawn, PlayerCameraIntroductionTime, EViewTargetBlendFunction::VTBlend_EaseInOut, PlayerCameraIntroductionBlendExp, false);
 
-	FTimerHandle TimerHandle;
-	GetWorldTimerManager().SetTimer(TimerHandle, this, &ThisClass::MarkFirstPlayerTurnReady, PlayerCameraIntroductionTime);
+	GetWorldTimerManager().SetTimer(CameraIntroductionStartTimerHandle, this, &ThisClass::MarkFirstPlayerTurnReady, PlayerCameraIntroductionTime);
 }
 
 void AGolfPlayerController::MarkFirstPlayerTurnReady()
@@ -1016,16 +1026,14 @@ void AGolfPlayerController::ActivateTurn()
 		// Turn activation will happen on SetPawn after possession has replicated
 		// TODO: May need to avoid having Possess set camera target (or do that in SetPawn) if hole flyby is playing or we are doing player camera introduction
 	}
-	else
-	{
-		// Make sure that we execute on the server if this isn't a listen server client
-		if (!IsLocalController())
-		{
-			DoActivateTurn();
-		}
 
-		ClientActivateTurn();
+	// Make sure that we execute on the server if this isn't a listen server client
+	if (!IsLocalController())
+	{
+		DoActivateTurn();
 	}
+
+	ClientActivateTurn();
 }
 
 void AGolfPlayerController::ClientActivateTurn_Implementation()
@@ -1071,6 +1079,8 @@ void AGolfPlayerController::DoActivateTurn()
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DoActivateTurn - Skipping turn activation as Pawn=%s is not APaperGolfPawn"),
 			*GetName(), *LoggingUtils::GetName(GetPawn()));
+		// Wait until pawn replicates and then it will call back in here
+		bTurnActivationRequested = true;
 		return;
 	}
 
@@ -1078,6 +1088,7 @@ void AGolfPlayerController::DoActivateTurn()
 
 	SetupNextShot(true);
 	bTurnActivated = true;
+	bTurnActivationRequested = false;
 
 	PaperGolfPawn->SetReadyForShot(true);
 
@@ -1349,7 +1360,7 @@ void AGolfPlayerController::OnHandleSpectatorShot(AGolfPlayerState* InPlayerStat
 void AGolfPlayerController::EndAnyActiveTurn()
 {
 	SetInputEnabled(false);
-	bTurnActivated = false;
+	bTurnActivated = bTurnActivationRequested = false;
 	GolfControllerCommonComponent->EndTurn();
 }
 
@@ -1373,6 +1384,34 @@ void AGolfPlayerController::SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState
 
 	ChangeState(NAME_Spectating);
 	ClientGotoState(NAME_Spectating);
+}
+
+void AGolfPlayerController::SkipHoleFlybyAndCameraIntroduction()
+{
+	if (!CameraIntroductionInProgress())
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SkipHoleFlybyAndCameraIntroduction - CameraIntroduction not in progress - skipping"), *GetName());
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SkipHoleFlybyAndCameraIntroduction"), *GetName());
+
+
+	MarkHoleFlybySeen();
+	GetWorldTimerManager().ClearTimer(CameraIntroductionStartTimerHandle);
+
+	MarkFirstPlayerTurnReady();
+
+	SnapCameraBackToPlayer();
+}
+
+void AGolfPlayerController::SnapCameraBackToPlayer()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SnapCameraBackToPlayer"), *GetName());
+
+	// Need to toggle off and back on in order to force transition if in camera introduction since it will only cancel the blend if the target switches
+	SetViewTarget(nullptr);
+	SetViewTarget(PlayerPawn);
 }
 
 void AGolfPlayerController::SetSpectatorPawn(ASpectatorPawn* NewSpectatorPawn)
@@ -1419,7 +1458,9 @@ void AGolfPlayerController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 	Category.Category = FString::Printf(TEXT("GolfPlayerController (%s)"), *GetName());
 
 	Category.Add(TEXT("TurnActivated"), LoggingUtils::GetBoolString(bTurnActivated));
+	Category.Add(TEXT("TurnActivationRequested"), LoggingUtils::GetBoolString(bTurnActivationRequested));
 	Category.Add(TEXT("CanFlick"), LoggingUtils::GetBoolString(bCanFlick));
+	Category.Add(TEXT("PreTurnState"), FString::Printf(TEXT("%d"), PreTurnState));
 	Category.Add(TEXT("GolfInputEnabled"), LoggingUtils::GetBoolString(bInputEnabled));
 	Category.Add(TEXT("ControllerInputEnabled"), LoggingUtils::GetBoolString(InputEnabled()));
 	Category.Add(TEXT("OutOfBounds"), LoggingUtils::GetBoolString(bOutOfBounds));
