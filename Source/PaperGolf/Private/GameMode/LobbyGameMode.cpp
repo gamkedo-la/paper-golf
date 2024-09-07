@@ -10,6 +10,8 @@
 #include "Logging/LoggingUtils.h"
 #include "PaperGolfLogging.h"
 
+#include "Utils/ObjectUtils.h"
+
 #include "Config/GameModeOptionParams.h"
 
 #include "GameMode/PaperGolfGameModeBase.h"
