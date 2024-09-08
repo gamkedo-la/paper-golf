@@ -604,6 +604,11 @@ void AGolfAIController::SetPositionTo(const FVector& Position, const TOptional<F
 	SetupNextShot(false);
 }
 
+void AGolfAIController::ReceivePlayerStart(AActor* PlayerStart)
+{
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ReceivePlayerStart - PlayerStart=%s"), *GetName(), *LoggingUtils::GetName(PlayerStart));
+}
+
 #pragma region Visual Logger
 #if ENABLE_VISUAL_LOG
 void AGolfAIController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
@@ -623,10 +628,6 @@ void AGolfAIController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 	{
 		GolfPlayerState->GrabDebugSnapshot(Snapshot);
 	}
-}
-void AGolfAIController::ReceivePlayerStart(AActor* PlayerStart)
-{
-	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ReceivePlayerStart - PlayerStart=%s"), *GetName(), *LoggingUtils::GetName(PlayerStart));
 }
 
 void AGolfAIController::InitDebugDraw()
