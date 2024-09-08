@@ -53,6 +53,11 @@ void AGolfShotSpectatorPawn::TrackPlayer(const APaperGolfPawn* PlayerPawn)
 		return;
 	}
 
+	if (auto PlayerRootComponent = PlayerPawn->GetPivotComponent(); PlayerRootComponent)
+	{
+		PlayerRootComponent->TransformUpdated.AddUObject(this, &ThisClass::OnPlayerTransformUpdated);
+	}
+
 	SetCameraLag(false);
 	ResetCameraRelativeRotation();
 
@@ -96,7 +101,33 @@ void AGolfShotSpectatorPawn::BeginPlay()
 	SetCameraLag(false);
 }
 
+void AGolfShotSpectatorPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: EndPlay"), *GetName());
+
+	Super::EndPlay(EndPlayReason);
+
+	if (auto PlayerPawn = TrackedPlayerPawn.Get(); PlayerPawn)
+	{
+		if (auto PlayerRootComponent = PlayerPawn->GetPivotComponent(); PlayerRootComponent)
+		{
+			PlayerRootComponent->TransformUpdated.RemoveAll(this);
+		}
+	}
+}
+
 void AGolfShotSpectatorPawn::SetCameraLag(bool bEnableLag)
 {
 	CameraSpringArm->bEnableCameraRotationLag = CameraSpringArm->bEnableCameraLag = bEnableLag;
+}
+
+void AGolfShotSpectatorPawn::OnPlayerTransformUpdated(USceneComponent* UpdatedComponent, EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport)
+{
+	if (!ensure(UpdatedComponent))
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogPGPawn, VeryVerbose, TEXT("%s: OnPlayerTransformUpdated=%s - %s"), *GetName(), *UpdatedComponent->GetName(), *UpdatedComponent->GetComponentTransform().ToString());
+	SetActorTransform(UpdatedComponent->GetComponentTransform());
 }

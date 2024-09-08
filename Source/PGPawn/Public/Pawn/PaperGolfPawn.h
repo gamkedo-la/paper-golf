@@ -153,6 +153,9 @@ public:
 
 	virtual ELifetimeCondition AllowActorComponentToReplicate(const UActorComponent* ComponentToReplicate) const;
 
+	UFUNCTION(BlueprintPure)
+	USceneComponent* GetPivotComponent() const;
+
 protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void BeginPlay() override;
@@ -334,4 +337,8 @@ FORCEINLINE AActor* APaperGolfPawn::GetFocusActor() const
 	return FocusActor;
 }
 
+FORCEINLINE USceneComponent* APaperGolfPawn::GetPivotComponent() const
+{
+	return _PivotComponent;
+}
 #pragma endregion Inline Definitions

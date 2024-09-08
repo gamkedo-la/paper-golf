@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/SpectatorPawn.h"
 
+#include "Engine/EngineTypes.h"
 #include "Interfaces/PawnCameraLook.h"
 #include "GolfShotSpectatorPawn.generated.h"
 
@@ -32,9 +33,12 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
 	void SetCameraLag(bool bEnableLag);
+
+	void OnPlayerTransformUpdated(USceneComponent* UpdatedComponent, EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport);
 
 private:
 
