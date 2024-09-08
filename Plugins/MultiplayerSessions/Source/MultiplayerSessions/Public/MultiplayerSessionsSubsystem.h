@@ -66,6 +66,9 @@ public:
 	UFUNCTION(BlueprintPure)
 	bool IsLanMatch() const;
 
+	UFUNCTION(BlueprintPure)
+	bool GetOnlineUserName(AController* Controller, FString& UserName) const;
+
 protected:
 
 	// Internal callbacks we'll add for the delegates we'll add to the OnlineSessionInterface delegate list
