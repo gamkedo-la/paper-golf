@@ -8,7 +8,8 @@
 #include "Online/OnlineSessionNames.h"
 #include "OnlineSubsystem.h"
 #include "OnlineSessionSettings.h" 
-
+#include "Interfaces/OnlineIdentityInterface.h"
+#include "GameFramework/PlayerState.h"
 #include "VisualLogger/VisualLogger.h"
 
 #include "Engine/LocalPlayer.h"
@@ -286,6 +287,73 @@ void UMultiplayerSessionsSubsystem::JoinSession(const FOnlineSessionSearchResult
 		OnlineSessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegateHandle);
 		MultiplayerOnJoinSessionComplete.Broadcast(EOnJoinSessionCompleteResult::UnknownError);
 	}
+}
+
+bool UMultiplayerSessionsSubsystem::GetOnlineUserName(AController* Controller, FString& UserName) const
+{
+	// If using Subsystem NULL then this information is not available
+	if (LastSubsystemName.IsNone() || LastSubsystemName == NULL_SUBSYSTEM)
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: GetOnlineUserName - FALSE - Controller=%s: Using Subsystem NULL - info not available - returning false"),
+			*GetName(), Controller ? *Controller->GetName() : TEXT("NULL"));
+		return false;
+	}
+
+	const auto PC = Cast<APlayerController>(Controller);
+	if (!IsValid(PC))
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: GetOnlineUserName - FALSE - Controller=%s is not a PlayerController - returning false"), *GetName(),
+			Controller ? *Controller->GetName() : TEXT("NULL"));
+		return false;
+
+	}
+
+	if (!IsValid(PC->PlayerState))
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: GetOnlineUserName - FALSE - Controller=%s - PlayerState is not valid - returning false"), *GetName(),
+			*Controller->GetName());
+		return false;
+	}
+
+	const auto CurrentOnlineSub = IOnlineSubsystem::Get(LastSubsystemName);
+	if (!CurrentOnlineSub)
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: GetOnlineUserName - FALSE - IOnlineSubsystem::Get() returned NULL - returning false"), *GetName());
+		return false;
+	}
+
+	const IOnlineIdentityPtr Identity = CurrentOnlineSub->GetIdentityInterface();
+	if (!Identity.IsValid())
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: GetOnlineUserName - FALSE - IOnlineSubsystem::GetIdentityInterface() returned NULL for Subsystem=%s - returning false"),
+			*GetName(), *CurrentOnlineSub->GetSubsystemName().ToString());
+		return false;
+	}
+
+	const FUniqueNetIdRepl& UserId = PC->PlayerState->GetUniqueId();
+
+	if (!UserId.IsValid())
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: GetOnlineUserName - FALSE - (%s) Controller=%s; PlayerState=%s - UserId is not valid - returning false"),
+			*GetName(), *LastSubsystemName.ToString(), *PC->GetName(), *PC->PlayerState->GetName());
+		return false;
+	}
+
+	const auto& UniqueNetId = UserId.GetUniqueNetId();
+	if (!UniqueNetId.IsValid())
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: GetOnlineUserName - FALSE - (%s) Controller=%s; PlayerState=%s - UniqueNetId is not valid - returning false"),
+			*GetName(), *LastSubsystemName.ToString(), *PC->GetName(), *PC->PlayerState->GetName());
+		return false;
+	}
+
+	// If you pass an index like 0-4 it gets the username of the local connected player controller
+	UserName = Identity->GetPlayerNickname(*UniqueNetId);
+
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: GetOnlineUserName - %s - (%s) Controller=%s; PlayerState=%s - UserName=%s"),
+		*GetName(), *LastSubsystemName.ToString(), UserName.IsEmpty() ? TEXT("FALSE") : TEXT("TRUE"), *PC->GetName(), *PC->PlayerState->GetName(), *UserName);
+
+	return !UserName.IsEmpty();
 }
 
 void UMultiplayerSessionsSubsystem::StartSession()

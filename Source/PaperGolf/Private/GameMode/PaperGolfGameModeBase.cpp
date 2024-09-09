@@ -25,6 +25,7 @@
 #include "Utils/VisualLoggerUtils.h"
 
 #include "Subsystems/GolfEventsSubsystem.h"
+#include "MultiplayerSessionsSubsystem.h"
 
 #include "Config/PlayerConfig.h"
 #include "Config/PlayerStateConfigurator.h"
@@ -194,16 +195,15 @@ void APaperGolfGameModeBase::OnPlayerJoined(AController* NewPlayer)
 
 	if (NewPlayer)
 	{
-		SetDefaultPlayerName(*NewPlayer);
+		ConfigureJoinedPlayerState(*NewPlayer);
 	}
 }
 
-void APaperGolfGameModeBase::SetDefaultPlayerName(AController& Player)
+void APaperGolfGameModeBase::ConfigureJoinedPlayerState(AController& Player)
 {
 	// See https://forums.unrealengine.com/t/pass-playerstate-to-the-server-when-the-client-join-a-session/719511
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: SetDefaultPlayerName - Player=%s"), *GetName(), *Player.GetName());
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: ConfigureJoinedPlayerState - Player=%s"), *GetName(), *Player.GetName());
 
-	// TODO: Need option for player to set name when joining session
 
 	if (!Player.IsPlayerController())
 	{
@@ -218,13 +218,51 @@ void APaperGolfGameModeBase::SetDefaultPlayerName(AController& Player)
 		return;
 	}
 
-	++HumanPlayerDefaultNameIndex;
-	PlayerState->SetPlayerName(FString::Printf(TEXT("Player %d"), HumanPlayerDefaultNameIndex));
+	SetHumanPlayerName(Player, *PlayerState);
 
 	if (PlayerStateConfigurator)
 	{
 		PlayerStateConfigurator->AssignToPlayer(*PlayerState);
 	}
+}
+
+void APaperGolfGameModeBase::SetHumanPlayerName(AController& PlayerController, APlayerState& PlayerState)
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: SetHumanPlayerName - PlayerController=%s; PlayerState=%s"), 
+		*GetName(), *LoggingUtils::GetName(&PlayerController), *LoggingUtils::GetName(&PlayerState));
+
+	// TODO: Need option for player to set name when joining session if it's not an online session
+
+	// Try to set from multiplayer sessions and if failed then use default index strategy
+	if (!TrySetHumanPlayerNameFromMultiplayerSessions(PlayerController, PlayerState))
+	{
+		++HumanPlayerDefaultNameIndex;
+		PlayerState.SetPlayerName(FString::Printf(TEXT("Player %d"), HumanPlayerDefaultNameIndex));
+	}
+}
+
+bool APaperGolfGameModeBase::TrySetHumanPlayerNameFromMultiplayerSessions(AController& PlayerController, APlayerState& PlayerState)
+{
+	UGameInstance* GameInstance = GetGameInstance();
+	if (!ensure(GameInstance))
+	{
+		return false;
+	}
+
+	auto Subsystem = GameInstance->GetSubsystem<UMultiplayerSessionsSubsystem>();
+	if (!ensure(Subsystem))
+	{
+		return false;
+	}
+
+	FString OnlineName;
+	if (Subsystem->GetOnlineUserName(&PlayerController, OnlineName))
+	{
+		PlayerState.SetPlayerName(OnlineName);
+		return true;
+	}
+
+	return false;
 }
 
 void APaperGolfGameModeBase::StartGame()

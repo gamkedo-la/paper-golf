@@ -119,7 +119,10 @@ private:
 	void CreateBots();
 	void CreateBot(int32 BotNumber);
 	void InitBot(AGolfAIController& AIController, int32 BotNumber);
-	void SetDefaultPlayerName(AController& Player);
+
+	void ConfigureJoinedPlayerState(AController& Player);
+	void SetHumanPlayerName(AController& PlayerController, APlayerState& PlayerState);
+	bool TrySetHumanPlayerNameFromMultiplayerSessions(AController& PlayerController, APlayerState& PlayerState);
 
 	void StartGame();
 	void StartGameWithDelay();

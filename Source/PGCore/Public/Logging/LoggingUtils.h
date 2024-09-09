@@ -74,7 +74,8 @@ namespace LoggingUtils
 	template<>
 	inline FString LoggingUtils::GetName(const APlayerState& Object)
 	{
-		return Object.GetPlayerName();
+		const auto& Name = Object.GetPlayerName();
+		return !Name.IsEmpty() ? Name : Object.GetName();
 	}
 
 	inline auto GetBoolString(bool bResult)
