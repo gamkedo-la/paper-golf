@@ -1,0 +1,10 @@
+#!/bin/bash
+outputFolder=$1
+
+if [ -z "$outputFolder" ]; then
+    outputFolder="$HOME/DropBox"
+    echo "Using DropBox folder by default"
+fi
+
+python Tools/Packaging/zip_editor_deps.py "$outputFolder/PaperGolfEditorBinaries.zip"
+printf "\n\n"
