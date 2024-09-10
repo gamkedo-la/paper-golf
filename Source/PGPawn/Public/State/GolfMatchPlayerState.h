@@ -26,6 +26,7 @@ public:
 	virtual bool CompareByScore(const AGolfPlayerState& Other) const override;
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
+	virtual void CopyProperties(APlayerState* PlayerState) override;
 
 #if ENABLE_VISUAL_LOG
 	virtual void GrabDebugSnapshot(FVisualLogEntry* Snapshot) const override;
@@ -35,9 +36,12 @@ private:
 	UFUNCTION() 
 	void OnRep_DisplayScore();
 
+	int32 GetNumScoreChanges() const;
+
+	void SetDisplayScore(int32 Points, int32 NumChanges);
+
 private:
 
-	// TODO: Maybe use Score for this even though it is a float
 	UPROPERTY(ReplicatedUsing = OnRep_DisplayScore)
-	uint8 DisplayScore{};
+	uint32 DisplayScore{};
 };

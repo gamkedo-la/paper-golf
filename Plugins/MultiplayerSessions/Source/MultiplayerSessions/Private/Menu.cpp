@@ -312,7 +312,7 @@ const FOnlineSessionSearchResult* UMenu::FindBestSessionResult(const TArray<FOnl
 
 const FOnlineSessionSearchResult* UMenu::MatchSessionResult(const TArray<FOnlineSessionSearchResult>& SessionResults, const TArray<FString> AllowedMatchTypes) const
 {
-	for ([[maybe_unused]] int32 Index = 0; const auto & Result : SessionResults)
+	for ([[maybe_unused]] int32 Index = 0; const auto& Result : SessionResults)
 	{
 		const auto& Id = Result.GetSessionIdStr();
 		const auto& User = Result.Session.OwningUserName;

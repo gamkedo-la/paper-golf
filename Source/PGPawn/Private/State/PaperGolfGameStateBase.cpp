@@ -23,7 +23,6 @@ void APaperGolfGameStateBase::GetLifetimeReplicatedProps(TArray<FLifetimePropert
 
 	DOREPLIFETIME(APaperGolfGameStateBase, CurrentHoleNumber);
 	DOREPLIFETIME(APaperGolfGameStateBase, ActivePlayer);
-
 }
 
 void APaperGolfGameStateBase::SetCurrentHoleNumber(int32 Hole)
