@@ -29,6 +29,10 @@ public:
 	*/
 	FAIShotSetupResult SetupShot(FAIShotContext&& ShotContext);
 
+	void StartHole();
+
+	void Reset();
+
 protected:
 	virtual void BeginPlay() override;
 

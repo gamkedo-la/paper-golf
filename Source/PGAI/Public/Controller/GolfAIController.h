@@ -36,6 +36,8 @@ public:
 	virtual void GrabDebugSnapshot(FVisualLogEntry* Snapshot) const override;
 #endif
 
+	virtual void ReceivePlayerStart(AActor* PlayerStart) override;
+
 	// Inherited via IGolfController
 	using IGolfController::GetPaperGolfPawn;
 	virtual APaperGolfPawn* GetPaperGolfPawn() override;
@@ -47,6 +49,8 @@ public:
 	virtual bool IsActivePlayer() const override;
 
 	virtual bool IsReadyForNextShot() const override;
+
+	virtual void StartHole() override;
 
 	virtual void ActivateTurn() override;
 

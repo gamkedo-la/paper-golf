@@ -135,8 +135,6 @@ void AGolfHole::Reset()
 	Super::Reset();
 
 	OverlapConditionComponent->Reset();
-
-	UpdateColliderRegistration();
 }
 
 void AGolfHole::PostInitializeComponents()
@@ -148,6 +146,36 @@ void AGolfHole::PostInitializeComponents()
 	OverlapConditionComponent->Initialize(
 		UOverlapConditionComponent::FOverlapConditionDelegate::CreateUObject(this, &AGolfHole::CheckedScored),
 		UOverlapConditionComponent::FOverlapTriggerDelegate::CreateUObject(this, &AGolfHole::OnScored));
+}
+
+void AGolfHole::BeginPlay()
+{
+	Super::BeginPlay();
+
+	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: BeginPlay"), *GetName());
+
+	// listen for hole changes to propagate the collider registration updates, but only on the server
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return;
+	}
+
+	auto GameState = World->GetGameState<APaperGolfGameStateBase>();
+	if (!ensureMsgf(GameState, TEXT("%s: BeginPlay: GameState=%s is not APaperGolfGameStateBase"),
+		*GetName(), *LoggingUtils::GetName(World->GetGameState())))
+	{
+		UE_VLOG_UELOG(this, LogPGGameplay, Error, TEXT("%s: BeginPlay: GameState=%s is not APaperGolfGameStateBase"),
+			*GetName(), *LoggingUtils::GetName(World->GetGameState()));
+		return;
+	}
+
+	GameState->OnHoleChanged.AddUObject(this, &AGolfHole::OnHoleChanged);
 }
 
 void AGolfHole::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -197,6 +225,13 @@ void AGolfHole::OnComponentEndOverlap(UPrimitiveComponent* OverlappedComponent, 
 	}
 
 	OverlapConditionComponent->EndOverlap(*PaperGolfPawn);
+}
+
+void AGolfHole::OnHoleChanged(int32 NewHoleNumber)
+{
+	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: OnHoleChanged - NewHoleNumber=%d"), *GetName(), NewHoleNumber);
+
+	UpdateColliderRegistration();
 }
 
 void AGolfHole::OnScored(APaperGolfPawn& PaperGolfPawn)

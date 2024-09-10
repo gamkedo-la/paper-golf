@@ -18,12 +18,6 @@ namespace PG
 		TEXT("Toggle on/off"),
 		ECVF_Scalability | ECVF_RenderThreadSafe);
 
-	TAutoConsoleVariable<int32> CMultiplayerNumPublicConnections(
-		TEXT("pg.mp.numConnections"),
-		-1,
-		TEXT("Set number of public connections"),
-		ECVF_Scalability | ECVF_RenderThreadSafe);
-
 	TAutoConsoleVariable<int32> CStartHoleOverride(
 		TEXT("pg.startHole"),
 		-1,

@@ -10,6 +10,8 @@
 #include "Logging/LoggingUtils.h"
 #include "PaperGolfLogging.h"
 
+#include "Utils/ObjectUtils.h"
+
 #include "Config/GameModeOptionParams.h"
 
 #include "GameMode/PaperGolfGameModeBase.h"
@@ -61,6 +63,22 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 	{
 		return;
 	}
+
+#if !UE_BUILD_SHIPPING
+	if (GEngine)
+	{
+		FString OnlineName;
+		const bool hasOnlineName = Subsystem->GetOnlineUserName(NewPlayer, OnlineName);
+
+		GEngine->AddOnScreenDebugMessage(
+			-1,
+			15.f,
+			FColor::Green,
+			FString::Printf(TEXT("User: %s has joined"),
+				hasOnlineName ? *OnlineName : *FString::Printf(TEXT("Player %d"), NumberOfPlayers))
+		);
+	}
+#endif
 
 	if (NumberOfPlayers == Subsystem->GetDesiredNumPublicConnections())
 	{

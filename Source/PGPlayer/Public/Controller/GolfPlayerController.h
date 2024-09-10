@@ -20,6 +20,7 @@ class AGolfHole;
 class UShotArcPreviewComponent;
 class UGolfControllerCommonComponent;
 class APaperGolfGameStateBase;
+class IPawnCameraLook;
 
 /**
  * 
@@ -53,6 +54,8 @@ public:
 	using IGolfController::GetPaperGolfPawn;
 	virtual APaperGolfPawn* GetPaperGolfPawn() override;
 
+	virtual void ReceivePlayerStart(AActor* PlayerStart) override;
+	virtual void StartHole() override;
 	virtual void ActivateTurn() override;
 	virtual void Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState) override;
 
@@ -79,6 +82,12 @@ public:
 	virtual void AddYawInput(float Val) override;
 
 	virtual bool IsLookInputIgnored() const override { return false; }
+
+	UFUNCTION(BlueprintPure)
+	bool IsSpectatingShotSetup() const;
+
+	UFUNCTION(BlueprintPure)
+	bool IsInCinematicSequence() const;
 
 	// TODO: Can we remove UFUNCTION on some of these
 protected:
@@ -111,6 +120,7 @@ protected:
 
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnUnPossess() override;
+	virtual void PawnPendingDestroy(APawn* InPawn) override;
 
 	// Called on both clients and server via a rep notify
 	virtual void SetPawn(APawn* InPawn) override;
@@ -126,7 +136,23 @@ protected:
 
 	virtual void ClientReset_Implementation() override;
 
+	void TriggerHoleFlybyAndPlayerCameraIntroduction();
+
+
+	UFUNCTION(BlueprintCallable)
+	void SkipHoleFlybyAndCameraIntroduction();
+
+	virtual void SetSpectatorPawn(class ASpectatorPawn* NewSpectatorPawn) override;
 private:
+	enum class EPlayerPreTurnState : uint8
+	{
+		None,
+		CameraIntroductionRequested,
+		CameraIntroductionPlaying
+	};
+
+	UFUNCTION()
+	void OnHoleComplete();
 
 	void DetermineShotType();
 
@@ -153,7 +179,6 @@ private:
 	void SetupNextShot(bool bSetCanFlick);
 
 	void SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState* InPlayerState);
-	void SetCameraToViewPawn(APawn* InPawn, AGolfPlayerState* InPlayerState);
 
 	void SetPositionTo(const FVector& Position, const TOptional<FRotator>& OptionalRotation = {});
 
@@ -165,6 +190,9 @@ private:
 
 	UFUNCTION(Client, Reliable)
 	void ClientActivateTurn();
+
+	UFUNCTION(Client, Reliable)
+	void ClientStartHole(AActor* InPlayerStart);
 
 	UFUNCTION(Client, Reliable)
 	void ClientSpectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState);
@@ -206,6 +234,27 @@ private:
 	bool IsLocalServer() const;
 	bool IsRemoteServer() const;
 
+	bool IsHoleFlybySeen() const;
+	void MarkHoleFlybySeen();
+	void TriggerPlayerCameraIntroduction();
+	void DoPlayerCameraIntroduction();
+	void SpectateCurrentGolfHole();
+	void MarkFirstPlayerTurnReady();
+
+	bool CameraIntroductionInProgress() const;
+
+	void OnHandleSpectatorShot(AGolfPlayerState* InPlayerState, APaperGolfPawn* InPawn);
+
+	UFUNCTION()
+	void OnSpectatorShotPawnSet(APlayerState* InPlayer, APawn* InNewPawn, APawn* InOldPawn);
+
+	UFUNCTION()
+	void OnSpectatedPawnDestroyed(AActor* InPawn);
+
+	IPawnCameraLook* GetPawnCameraLook() const;
+
+	void SnapCameraBackToPlayer();
+
 private:
 
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
@@ -245,26 +294,62 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Correction")
 	int32 FlickZNotUpdatedMaxRetries{ 2 };
 
+	UPROPERTY(EditDefaultsOnly, Category = "Camera")
+	float PlayerCameraIntroductionTime{ 5.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Camera")
+	float PlayerCameraIntroductionBlendExp{ 3.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Camera")
+	float HoleCameraCutTime{ 2.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Camera")
+	float HoleCameraCutExponent{ 1.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Camera")
+	float SpectatorShotCameraCutTime{ 2.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Camera")
+	float SpectatorShotCameraCutExponent{ 1.0f };
+
 	EShotType ShotType{ EShotType::Default };
 
 	FTimerHandle NextShotTimerHandle{};
+	FTimerHandle CameraIntroductionStartTimerHandle{};
+
 	FDelegateHandle OnFlickSpectateShotHandle{};
 
 	UPROPERTY(Transient)
 	TObjectPtr<APaperGolfPawn> PlayerPawn{};
 
+	TWeakObjectPtr<AGolfPlayerState> CurrentSpectatorPlayerState{};
+
+	TMap<TWeakObjectPtr<AActor>, TWeakObjectPtr<AGolfPlayerState>> SpectatingPawnPlayerStateMap{};
+
+	UPROPERTY(Transient)
+	TObjectPtr<AActor> PlayerStart{};
+
 	bool bCanFlick{ };
 	bool bTurnActivated{};
+	bool bTurnActivationRequested{};
 	bool bInputEnabled{ true };
+	EPlayerPreTurnState PreTurnState{ EPlayerPreTurnState::None };
 
 	UPROPERTY(Transient, ReplicatedUsing = OnRep_Scored)
 	bool bScored{};
 
 	bool bOutOfBounds{};
 
+	bool bSpectatorFlicked{};
+
 };
 
 #pragma region Inline Definitions
+
+FORCEINLINE bool AGolfPlayerController::CameraIntroductionInProgress() const
+{
+	return PreTurnState == EPlayerPreTurnState::CameraIntroductionRequested || PreTurnState == EPlayerPreTurnState::CameraIntroductionPlaying;
+}
 
 FORCEINLINE bool AGolfPlayerController::IsReadyForShot() const
 {

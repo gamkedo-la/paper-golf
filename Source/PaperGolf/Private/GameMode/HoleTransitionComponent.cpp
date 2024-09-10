@@ -327,8 +327,8 @@ void UHoleTransitionComponent::OnNextHoleTimer()
 	const auto NextHoleNumber = AGolfHole::Execute_GetHoleNumber(GolfHoles[LastHoleIndex]);
 	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Display, TEXT("%s: OnNextHoleTimer - Transitioning to Hole Number=%d"), *GetName(), NextHoleNumber);
 
-	GameState->SetCurrentHoleNumber(NextHoleNumber);
 	ResetGameStateForNextHole();
+	GameState->SetCurrentHoleNumber(NextHoleNumber);
 
 	GolfEventSubsystem->OnPaperGolfStartHole.Broadcast(NextHoleNumber);
 }

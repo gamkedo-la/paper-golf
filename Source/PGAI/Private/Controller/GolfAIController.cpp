@@ -86,6 +86,7 @@ void AGolfAIController::Reset()
 
 	ShotType = EShotType::Default;
 	PlayerPawn = nullptr;
+	ShotSetupParams.Reset();
 
 	bTurnActivated = false;
 	bCanFlick = false;
@@ -95,6 +96,9 @@ void AGolfAIController::Reset()
 	check(GolfControllerCommonComponent);
 
 	GolfControllerCommonComponent->Reset();
+
+	check(GolfAIShotComponent);
+	GolfAIShotComponent->Reset();
 }
 
 void AGolfAIController::MarkScored()
@@ -162,6 +166,13 @@ bool AGolfAIController::IsReadyForNextShot() const
 	}
 
 	return true;
+}
+
+void AGolfAIController::StartHole()
+{
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: StartHole"), *GetName());
+
+	GolfAIShotComponent->StartHole();
 }
 
 void AGolfAIController::ActivateTurn()
@@ -593,6 +604,11 @@ void AGolfAIController::SetPositionTo(const FVector& Position, const TOptional<F
 	SetupNextShot(false);
 }
 
+void AGolfAIController::ReceivePlayerStart(AActor* PlayerStart)
+{
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ReceivePlayerStart - PlayerStart=%s"), *GetName(), *LoggingUtils::GetName(PlayerStart));
+}
+
 #pragma region Visual Logger
 #if ENABLE_VISUAL_LOG
 void AGolfAIController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
@@ -613,6 +629,7 @@ void AGolfAIController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 		GolfPlayerState->GrabDebugSnapshot(Snapshot);
 	}
 }
+
 void AGolfAIController::InitDebugDraw()
 {
 	// Ensure that state logged regularly so we see the updates in the visual logger

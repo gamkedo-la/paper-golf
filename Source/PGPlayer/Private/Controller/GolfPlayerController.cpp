@@ -5,6 +5,9 @@
 
 #include "Pawn/PaperGolfPawn.h"
 
+#include "Pawn/GolfShotSpectatorPawn.h"
+#include "PlayerStart/GolfPlayerStart.h"
+
 #include "Interfaces/FocusableActor.h"
 
 #include "Library/PaperGolfPawnUtilities.h"
@@ -37,7 +40,6 @@
 
 #include "Debug/PGConsoleVars.h"
 
-#include <limits>
 #include "Net/UnrealNetwork.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GolfPlayerController)
@@ -59,12 +61,18 @@ void AGolfPlayerController::DoReset()
 	ShotType = EShotType::Default;
 	TotalRotation = FRotator::ZeroRotator;
 	PlayerPawn = nullptr;
+	PlayerStart = nullptr;
+	CurrentSpectatorPlayerState = nullptr;
+	SpectatingPawnPlayerStateMap.Reset();
+	bSpectatorFlicked = false;
 
 	bTurnActivated = false;
+	bTurnActivationRequested = false;
 	bCanFlick = false;
 	bOutOfBounds = false;
 	bScored = false;
 	bInputEnabled = true; // this is the default constructor value
+	PreTurnState = EPlayerPreTurnState::None;
 
 	check(GolfControllerCommonComponent);
 
@@ -123,8 +131,6 @@ void AGolfPlayerController::MarkScored()
 {
 	bScored = true;
 
-	GolfControllerCommonComponent->OnScored();
-
 	// Rep notifies are not called on the server so we need to invoke the function manually if the server is also a client
 	if (HasAuthority())
 	{
@@ -155,6 +161,9 @@ void AGolfPlayerController::OnScored()
 	{
 		return;
 	}
+
+	GolfControllerCommonComponent->OnScored();
+	EndAnyActiveTurn();
 
 	bCanFlick = false;
 
@@ -408,33 +417,44 @@ void AGolfPlayerController::Reset()
 
 void AGolfPlayerController::AddPitchInput(float Val)
 {
-	if (IsValid(PlayerPawn))
+	if (auto PawnCameraLook = GetPawnCameraLook(); PawnCameraLook)
 	{
-		PlayerPawn->AddCameraRelativeRotation(FRotator(Val, 0.f, 0.f));
+		PawnCameraLook->AddCameraRelativeRotation(FRotator(Val, 0.f, 0.f));
 	}
 }
 
 void AGolfPlayerController::AddYawInput(float Val)
 {
-	if (IsValid(PlayerPawn))
+	if (auto PawnCameraLook = GetPawnCameraLook(); PawnCameraLook)
 	{
-		PlayerPawn->AddCameraRelativeRotation(FRotator(0.f, Val, 0.f));
+		PawnCameraLook->AddCameraRelativeRotation(FRotator(0.f, Val, 0.f));
 	}
+}
+
+bool AGolfPlayerController::IsSpectatingShotSetup() const
+{
+	return CurrentSpectatorPlayerState.IsValid() && !bSpectatorFlicked;
+}
+
+bool AGolfPlayerController::IsInCinematicSequence() const
+{
+	// TODO: Add hole fly by to this once that is implemented
+	return CameraIntroductionInProgress();
 }
 
 void AGolfPlayerController::ResetCameraRotation()
 {
-	if (IsValid(PlayerPawn))
+	if (auto PawnCameraLook = GetPawnCameraLook(); PawnCameraLook)
 	{
-		PlayerPawn->ResetCameraRelativeRotation();
+		PawnCameraLook->ResetCameraRelativeRotation();
 	}
 }
 
 void AGolfPlayerController::AddCameraZoomDelta(float ZoomDelta)
 {
-	if (IsValid(PlayerPawn))
+	if (auto PawnCameraLook = GetPawnCameraLook(); PawnCameraLook)
 	{
-		PlayerPawn->AddCameraZoomDelta(ZoomDelta);
+		PawnCameraLook->AddCameraZoomDelta(ZoomDelta);
 	}
 }
 
@@ -705,6 +725,14 @@ void AGolfPlayerController::Init()
 	bCanFlick = false;
 
 	InitFromConsoleVariables();
+
+	if (auto World = GetWorld(); ensure(World))
+	{
+		if (auto GolfEventsSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventsSubsystem))
+		{
+			GolfEventsSubsystem->OnPaperGolfNextHole.AddUniqueDynamic(this, &ThisClass::OnHoleComplete);
+		}
+	}
 }
 
 void AGolfPlayerController::InitFromConsoleVariables()
@@ -737,11 +765,20 @@ void AGolfPlayerController::OnUnPossess()
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnUnPossess - ExistingPawn=%s"), *GetName(), *LoggingUtils::GetName(GetPawn()));
 
 	Super::OnUnPossess();
+}
+
+void AGolfPlayerController::PawnPendingDestroy(APawn* InPawn)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: PawnPendingDestroy - InPawn=%s"), *GetName(), *LoggingUtils::GetName(InPawn));
+
+	Super::PawnPendingDestroy(InPawn);
 
 	if (!HasAuthority())
 	{
 		// Pawn destructions come in as unposess on clients after scoring - be sure to end any active turn
 		EndAnyActiveTurn();
+		// spectate current golf hole until a new spectate target is assigned 
+		SpectateCurrentGolfHole();
 	}
 }
 
@@ -763,7 +800,16 @@ void AGolfPlayerController::SetPawn(APawn* InPawn)
 
 	if (IsValid(PaperGolfPawn))
 	{
-		DoActivateTurn();
+		if (PreTurnState == EPlayerPreTurnState::CameraIntroductionRequested)
+		{
+			DoPlayerCameraIntroduction();
+		}
+
+		// Need to do this on clients as pawn will come in potentially aftert he client RPC for activate turn
+		if (!HasAuthority() && bTurnActivationRequested)
+		{
+			DoActivateTurn();
+		}
 	}
 }
 
@@ -807,6 +853,150 @@ void AGolfPlayerController::DestroyPawn()
 	PlayerPawn = nullptr;
 }
 
+#pragma region Start hole logic
+
+void AGolfPlayerController::ReceivePlayerStart(AActor* InPlayerStart)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ReceivePlayerStart - PlayerStart=%s"), *GetName(), *LoggingUtils::GetName(InPlayerStart));
+
+	PlayerStart = InPlayerStart;
+}
+
+void AGolfPlayerController::StartHole()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: StartHole"), *GetName());
+
+	ClientStartHole(PlayerStart);
+}
+
+void AGolfPlayerController::ClientStartHole_Implementation(AActor* InPlayerStart)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientStartHole: PlayerStart=%s"), *GetName(), *LoggingUtils::GetName(InPlayerStart));
+
+	PlayerStart = InPlayerStart;
+
+	// This is where we need to look to grab the current hole, play the hole flyby if it hasn't been seen, and then do the camera introduction
+	// We also need to sync when the current hole number replicates
+	check(GolfControllerCommonComponent);
+
+	GolfControllerCommonComponent->SyncHoleChanged(FSimpleDelegate::CreateUObject(this, &ThisClass::TriggerHoleFlybyAndPlayerCameraIntroduction));
+}
+
+#pragma endregion Start hole logic
+
+void AGolfPlayerController::TriggerHoleFlybyAndPlayerCameraIntroduction()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: TriggerHoleFlybyAndPlayerCameraIntroduction"), *GetName());
+
+	if (!IsHoleFlybySeen())
+	{
+		const auto GolfHole = AGolfHole::GetCurrentHole(this);
+		if (ensure(GolfHole))
+		{
+			// TODO: Trigger the hole flyby sequence on the GolfHole and then 
+			// have a callback for when it completes to trigger the player introduction
+			MarkHoleFlybySeen();
+			TriggerPlayerCameraIntroduction();
+		}
+		else
+		{
+			UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s: TriggerHoleFlybyAndPlayerCameraIntroduction - GolfHole is NULL"), *GetName());
+
+			MarkHoleFlybySeen();
+			TriggerPlayerCameraIntroduction();
+		}
+	}
+	else
+	{
+		TriggerPlayerCameraIntroduction();
+	}
+}
+
+void AGolfPlayerController::OnHoleComplete()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnHoleComplete"), *GetName());
+
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	SpectateCurrentGolfHole();
+}
+
+void AGolfPlayerController::SpectateCurrentGolfHole()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SpectateCurrentGolfHole"), *GetName());
+
+	// Fine to re-target the golf hole as the camera manager doesn't interrupt a transition to the same target
+	if (auto GolfHole = AGolfHole::GetCurrentHole(this); GolfHole)
+	{
+		SetViewTargetWithBlend(GolfHole, HoleCameraCutTime, EViewTargetBlendFunction::VTBlend_EaseInOut, HoleCameraCutExponent);
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: OnHoleComplete - GolfHole is NULL - skipping view target"), *GetName());
+	}
+}
+
+void AGolfPlayerController::TriggerPlayerCameraIntroduction()
+{
+	const auto GolfPlayerStart = Cast<AGolfPlayerStart>(PlayerStart);
+
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: TriggerPlayerCameraIntroduction: GolfPlayerStart=%s"), *GetName(), *LoggingUtils::GetName(GolfPlayerStart));
+
+	if (!GolfPlayerStart)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: TriggerPlayerCameraIntroduction - GolfPlayerStart is NULL - skipping"), *GetName());
+		MarkFirstPlayerTurnReady();
+	}
+	else if(PlayerPawn)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: TriggerPlayerCameraIntroduction - PlayerPawn is already valid - triggering immediately"), *GetName());
+		DoPlayerCameraIntroduction();
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: TriggerPlayerCameraIntroduction - PlayerPawn is NULL - waiting for SetPawn"), *GetName());
+		PreTurnState = EPlayerPreTurnState::CameraIntroductionRequested;
+	}
+}
+
+void AGolfPlayerController::DoPlayerCameraIntroduction()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DoPlayerCameraIntroduction"), *GetName());
+
+	const auto GolfPlayerStart = Cast<AGolfPlayerStart>(PlayerStart);
+	// function should not have been called if player start wasn't a golf player start
+	if (!ensure(GolfPlayerStart))
+	{
+		PreTurnState = EPlayerPreTurnState::None;
+		return;
+	}
+
+	SetInputEnabled(false);
+
+	PreTurnState = EPlayerPreTurnState::CameraIntroductionPlaying;
+
+	SetViewTarget(GolfPlayerStart);
+	SetViewTargetWithBlend(PlayerPawn, PlayerCameraIntroductionTime, EViewTargetBlendFunction::VTBlend_EaseInOut, PlayerCameraIntroductionBlendExp, false);
+
+	GetWorldTimerManager().SetTimer(CameraIntroductionStartTimerHandle, this, &ThisClass::MarkFirstPlayerTurnReady, PlayerCameraIntroductionTime);
+}
+
+void AGolfPlayerController::MarkFirstPlayerTurnReady()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: MarkFirstPlayerTurnReady"), *GetName());
+
+	PreTurnState = EPlayerPreTurnState::None;
+	if (bTurnActivated)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: MarkFirstPlayerTurnReady - Setting input enabled"), *GetName());
+
+		SetInputEnabled(true);
+	}
+}
+
 #pragma region Turn and spectator logic
 
 void AGolfPlayerController::ActivateTurn()
@@ -834,17 +1024,16 @@ void AGolfPlayerController::ActivateTurn()
 
 		Possess(PlayerPawn);
 		// Turn activation will happen on SetPawn after possession has replicated
+		// TODO: May need to avoid having Possess set camera target (or do that in SetPawn) if hole flyby is playing or we are doing player camera introduction
 	}
-	else
-	{
-		// Make sure that we execute on the server if this isn't a listen server client
-		if (!IsLocalController())
-		{
-			DoActivateTurn();
-		}
 
-		ClientActivateTurn();
+	// Make sure that we execute on the server if this isn't a listen server client
+	if (!IsLocalController())
+	{
+		DoActivateTurn();
 	}
+
+	ClientActivateTurn();
 }
 
 void AGolfPlayerController::ClientActivateTurn_Implementation()
@@ -861,10 +1050,20 @@ void AGolfPlayerController::DoActivateTurn()
 	// Ensure that input is always activated and timer is always registered
 	EnableInput(this);
 
+	CurrentSpectatorPlayerState = nullptr;
+	bSpectatorFlicked = false;
+
 	if (ShouldEnableInputForActivateTurn())
 	{
 		SetInputEnabled(true);
 	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DoActivateTurn - Skipping input activation until after introductions completed"), *GetName());
+		SetInputEnabled(false);
+	}
+
+	// TODO: If we just started the hole and need to see the hole flyby and then the player camera introduction then we'd want to defer the rest of these tasks until after they complete
 
 	if (bTurnActivated)
 	{
@@ -880,6 +1079,8 @@ void AGolfPlayerController::DoActivateTurn()
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DoActivateTurn - Skipping turn activation as Pawn=%s is not APaperGolfPawn"),
 			*GetName(), *LoggingUtils::GetName(GetPawn()));
+		// Wait until pawn replicates and then it will call back in here
+		bTurnActivationRequested = true;
 		return;
 	}
 
@@ -887,6 +1088,7 @@ void AGolfPlayerController::DoActivateTurn()
 
 	SetupNextShot(true);
 	bTurnActivated = true;
+	bTurnActivationRequested = false;
 
 	PaperGolfPawn->SetReadyForShot(true);
 
@@ -903,6 +1105,11 @@ void AGolfPlayerController::DoActivateTurn()
 
 bool AGolfPlayerController::ShouldEnableInputForActivateTurn() const
 {
+	return IsHoleFlybySeen() && !CameraIntroductionInProgress();
+}
+
+bool AGolfPlayerController::IsHoleFlybySeen() const
+{
 	auto GameInstance = GetGameInstance();
 	if (!ensure(GameInstance))
 	{
@@ -911,7 +1118,7 @@ bool AGolfPlayerController::ShouldEnableInputForActivateTurn() const
 
 	auto TutorialTrackingSubsystem = GameInstance->GetSubsystem<UTutorialTrackingSubsystem>();
 
-	if(!ensure(TutorialTrackingSubsystem))
+	if (!ensure(TutorialTrackingSubsystem))
 	{
 		return true;
 	}
@@ -929,6 +1136,36 @@ bool AGolfPlayerController::ShouldEnableInputForActivateTurn() const
 	}
 
 	return TutorialTrackingSubsystem->IsHoleFlybySeen(GolfGameState->GetCurrentHoleNumber());
+}
+
+void AGolfPlayerController::MarkHoleFlybySeen()
+{
+	auto GameInstance = GetGameInstance();
+	if (!ensure(GameInstance))
+	{
+		return;
+	}
+
+	auto TutorialTrackingSubsystem = GameInstance->GetSubsystem<UTutorialTrackingSubsystem>();
+
+	if (!ensure(TutorialTrackingSubsystem))
+	{
+		return;
+	}
+
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return;
+	}
+
+	auto GolfGameState = World->GetGameState<APaperGolfGameStateBase>();
+	if (!ensure(GolfGameState))
+	{
+		return;
+	}
+
+	TutorialTrackingSubsystem->MarkHoleFlybySeen(GolfGameState->GetCurrentHoleNumber());
 }
 
 void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState)
@@ -955,6 +1192,9 @@ void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* I
 		PlayerState->SetIsSpectator(true);
 	}
 
+	CurrentSpectatorPlayerState = InPlayerState;
+	bSpectatorFlicked = false;
+
 	ClientSpectate(InPawn, InPlayerState);
 
 	SpectatePawn(InPawn, InPlayerState);
@@ -964,6 +1204,9 @@ void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientSpectate - InPawn=%s; InPlayerState=%s"),
 		*GetName(), *LoggingUtils::GetName(InPawn), InPlayerState ? *InPlayerState->GetPlayerName() : TEXT("NULL"));
+
+	CurrentSpectatorPlayerState = InPlayerState;
+	bSpectatorFlicked = false;
 
 	// Turn off collision on our own pawn
 	if (IsValid(PlayerPawn))
@@ -981,30 +1224,143 @@ void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn
 
 		if (InPawn)
 		{
-			OnFlickSpectateShotHandle = InPawn->OnFlick.AddWeakLambda(this, 
-				[this, InPawn = MakeWeakObjectPtr(InPawn), HUD = MakeWeakObjectPtr(HUD), InPlayerState = MakeWeakObjectPtr(InPlayerState)]()
-			{
-				if (HUD.IsValid())
-				{
-					HUD->BeginSpectatorShot(InPawn.Get(), InPlayerState.Get());
-				}
-
-				// Removing the handle invalidates the delegate so we need to do it last
-				const auto HandleToRemove = OnFlickSpectateShotHandle;
-				OnFlickSpectateShotHandle.Reset();
-				if (InPawn.IsValid())
-				{
-					InPawn->OnFlick.Remove(OnFlickSpectateShotHandle);
-				}
-			});
+			OnHandleSpectatorShot(InPlayerState, InPawn);
+		}
+		else if(InPlayerState)
+		{
+			// On simulated proxies, the InPawn is null if it was first spawned on the server as the spawning may not have replicated yet,
+			// so need to listen for when the player state is replicated on the pawn and then can trigger the OnFlick logic
+			// There is a chance that the flick event could happen before the state change replicates, but the issue would be cosmetic
+			InPlayerState->OnPawnSet.AddUniqueDynamic(this, &ThisClass::OnSpectatorShotPawnSet);
 		}
 	}
+}
+
+void AGolfPlayerController::OnSpectatorShotPawnSet(APlayerState* InPlayer, APawn* InNewPawn, APawn* InOldPawn)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnSpectatorShotPawnSet - InPlayer=%s; InNewPawn=%s; InOldPawn=%s"),
+		*GetName(), *LoggingUtils::GetName(InPlayer), *LoggingUtils::GetName(InNewPawn), *LoggingUtils::GetName(InOldPawn));
+
+	OnHandleSpectatorShot(Cast<AGolfPlayerState>(InPlayer), Cast<APaperGolfPawn>(InNewPawn));
+
+	if (InPlayer)
+	{
+		InPlayer->OnPawnSet.RemoveDynamic(this, &ThisClass::OnSpectatorShotPawnSet);
+	}
+}
+
+void AGolfPlayerController::OnSpectatedPawnDestroyed(AActor* InPawn)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnSpectatedPawnDestroyed - InPawn=%s"),
+		*GetName(), *LoggingUtils::GetName(InPawn));
+
+	const auto StrongCurrentSpectatorState = CurrentSpectatorPlayerState.Get();
+	if (!StrongCurrentSpectatorState)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Verbose, TEXT("%s: OnSpectatedPawnDestroyed - InPawn=%s - CurrentSpectatorPlayerState is NULL - skipping"),
+			*GetName(), *LoggingUtils::GetName(InPawn));
+		return;
+	}
+
+	const auto MatchedPlayer = [&]()
+	{
+		const auto MatchedPlayerResult = SpectatingPawnPlayerStateMap.Find(InPawn);
+		return MatchedPlayerResult ? MatchedPlayerResult->Get() : nullptr;
+	}();
+
+	if (!MatchedPlayer)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnSpectatedPawnDestroyed - InPawn=%s - No matching player state found"),
+			*GetName(), *LoggingUtils::GetName(InPawn));
+		return;
+	}
+
+	// If we are spectating the current player state and InNewPawn is NULL it likely means that pawn is destroyed so switch to the golf hole
+	if (StrongCurrentSpectatorState == MatchedPlayer)
+	{
+		SpectateCurrentGolfHole();
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Verbose, TEXT("%s: OnSpectatedPawnDestroyed - InPawn=%s - Skipping as StrongCurrentSpectatorState=%s != MatchedPlayer=%s"),
+			*GetName(), *LoggingUtils::GetName(InPawn), *StrongCurrentSpectatorState->GetPlayerName(), *MatchedPlayer->GetPlayerName());
+	}
+}
+
+IPawnCameraLook* AGolfPlayerController::GetPawnCameraLook() const
+{
+	APawn* CameraLookPawn;
+	if (IsSpectatingShotSetup())
+	{
+		CameraLookPawn = GetSpectatorPawn();
+	}
+	else
+	{
+		CameraLookPawn = GetPawn();
+	}
+
+	return Cast<IPawnCameraLook>(CameraLookPawn);
+}
+
+void AGolfPlayerController::OnHandleSpectatorShot(AGolfPlayerState* InPlayerState, APaperGolfPawn* InPawn)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnHandleSpectatorShot - InPlayerState=%s; InPawn=%s"),
+		*GetName(), *LoggingUtils::GetName(InPlayerState), *LoggingUtils::GetName(InPawn));
+
+	if (!InPawn)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: OnHandleSpectatorShot - InPlayerState=%s - InPawn is NULL"), *GetName(), *LoggingUtils::GetName(InPlayerState));
+
+		return;
+	}
+
+	SpectatingPawnPlayerStateMap.Add(InPawn, InPlayerState);
+	InPawn->OnDestroyed.AddUniqueDynamic(this, &ThisClass::OnSpectatedPawnDestroyed);
+
+	if (auto StrongCurrentSpectatorState = CurrentSpectatorPlayerState.Get(); !StrongCurrentSpectatorState || StrongCurrentSpectatorState != InPlayerState)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: OnHandleSpectatorShot - Skipping as spectator status has changed - CurrentSpectatorPlayerState=%s; InPlayerState=%s"),
+			*GetName(), StrongCurrentSpectatorState ? *StrongCurrentSpectatorState->GetPlayerName() : TEXT("NULL"), InPlayerState ? *InPlayerState->GetPlayerName() : TEXT("NULL"));
+		return;
+	}
+
+	// Track the player pawn for the spectator camera
+	if (auto MySpectatorPawn = Cast<AGolfShotSpectatorPawn>(GetSpectatorPawn()); IsValid(MySpectatorPawn))
+	{
+		MySpectatorPawn->TrackPlayer(InPawn);
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnHandleSpectatorShot - SpectatorPawn=%s is not a AGolfShotSpectatorPawn"), *GetName(), *LoggingUtils::GetName(GetSpectatorPawn()));
+	}
+
+	OnFlickSpectateShotHandle = InPawn->OnFlick.AddWeakLambda(this,
+		[this, InPawn = MakeWeakObjectPtr(InPawn), HUD = MakeWeakObjectPtr(GetHUD<APGHUD>()), InPlayerState = MakeWeakObjectPtr(InPlayerState)]()
+		{
+			bSpectatorFlicked = true;
+
+			// Transition back to viewing pawn after flick
+			SetViewTargetWithBlend(InPawn.Get(), SpectatorShotCameraCutTime, EViewTargetBlendFunction::VTBlend_EaseInOut, SpectatorShotCameraCutExponent);
+
+			if (HUD.IsValid())
+			{
+				HUD->BeginSpectatorShot(InPawn.Get(), InPlayerState.Get());
+			}
+
+			// Removing the handle invalidates the delegate so we need to do it last
+			const auto HandleToRemove = OnFlickSpectateShotHandle;
+			OnFlickSpectateShotHandle.Reset();
+			if (InPawn.IsValid())
+			{
+				InPawn->OnFlick.Remove(OnFlickSpectateShotHandle);
+			}
+		});
 }
 
 void AGolfPlayerController::EndAnyActiveTurn()
 {
 	SetInputEnabled(false);
-	bTurnActivated = false;
+	bTurnActivated = bTurnActivationRequested = false;
 	GolfControllerCommonComponent->EndTurn();
 }
 
@@ -1028,33 +1384,63 @@ void AGolfPlayerController::SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState
 
 	ChangeState(NAME_Spectating);
 	ClientGotoState(NAME_Spectating);
-
-	SetCameraToViewPawn(PawnToSpectate, InPlayerState);
 }
 
-void AGolfPlayerController::SetCameraToViewPawn(APawn* InPawn, AGolfPlayerState* InPlayerState)
+void AGolfPlayerController::SkipHoleFlybyAndCameraIntroduction()
 {
-	AActor* ActorToSpectate = InPlayerState;
-
-	if (!IsValid(ActorToSpectate))
+	if (!CameraIntroductionInProgress())
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: SetCameraToViewPawn: InPlayerState=NULL; InPawn=%s"),
-			*GetName(), *LoggingUtils::GetName(InPawn)
-		);
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SkipHoleFlybyAndCameraIntroduction - CameraIntroduction not in progress - skipping"), *GetName());
+		return;
+	}
 
-		ActorToSpectate = InPawn;
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SkipHoleFlybyAndCameraIntroduction"), *GetName());
+
+
+	MarkHoleFlybySeen();
+	GetWorldTimerManager().ClearTimer(CameraIntroductionStartTimerHandle);
+
+	MarkFirstPlayerTurnReady();
+
+	SnapCameraBackToPlayer();
+}
+
+void AGolfPlayerController::SnapCameraBackToPlayer()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SnapCameraBackToPlayer"), *GetName());
+
+	// Need to toggle off and back on in order to force transition if in camera introduction since it will only cancel the blend if the target switches
+	SetViewTarget(nullptr);
+	SetViewTarget(PlayerPawn);
+}
+
+void AGolfPlayerController::SetSpectatorPawn(ASpectatorPawn* NewSpectatorPawn)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SetSpectatorPawn - NewSpectatorPawn=%s"),
+		*GetName(), *LoggingUtils::GetName(NewSpectatorPawn));
+
+	Super::SetSpectatorPawn(NewSpectatorPawn);
+
+	if (auto GolfSpectatorPawn = Cast<AGolfShotSpectatorPawn>(NewSpectatorPawn); IsValid(GolfSpectatorPawn))
+	{
+		EnableInput(this);
+
+		if (auto SpectatorPlayerState = CurrentSpectatorPlayerState.Get(); SpectatorPlayerState && SpectatorPlayerState->GetPawn())
+		{
+			GolfSpectatorPawn->TrackPlayer(Cast<APaperGolfPawn>(SpectatorPlayerState->GetPawn()));
+		}
+		else
+		{
+			UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SetSpectatorPawn - Pawn has not yet replicated for SpectatorPlayerState=%s"),
+				*GetName(), *LoggingUtils::GetName(SpectatorPlayerState));
+			SetViewTarget(GolfSpectatorPawn);
+		}
 	}
 	else
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: SetCameraToViewPawn: Tracking player state %s with pawn %s"),
-			*GetName(),
-			*InPlayerState->GetPlayerName(),
-			*LoggingUtils::GetName(InPawn)
-		);
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SetSpectatorPawn - NewSpectatorPawn=%s is not a AGolfShotSpectatorPawn"),
+			*GetName(), *LoggingUtils::GetName(NewSpectatorPawn));
 	}
-
-	EnableInput(this);
-	SetViewTarget(ActorToSpectate);
 }
 
 
@@ -1072,7 +1458,9 @@ void AGolfPlayerController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 	Category.Category = FString::Printf(TEXT("GolfPlayerController (%s)"), *GetName());
 
 	Category.Add(TEXT("TurnActivated"), LoggingUtils::GetBoolString(bTurnActivated));
+	Category.Add(TEXT("TurnActivationRequested"), LoggingUtils::GetBoolString(bTurnActivationRequested));
 	Category.Add(TEXT("CanFlick"), LoggingUtils::GetBoolString(bCanFlick));
+	Category.Add(TEXT("PreTurnState"), FString::Printf(TEXT("%d"), PreTurnState));
 	Category.Add(TEXT("GolfInputEnabled"), LoggingUtils::GetBoolString(bInputEnabled));
 	Category.Add(TEXT("ControllerInputEnabled"), LoggingUtils::GetBoolString(InputEnabled()));
 	Category.Add(TEXT("OutOfBounds"), LoggingUtils::GetBoolString(bOutOfBounds));

@@ -8,15 +8,13 @@
 
 #include "MultiplayerSessionsSubsystem.generated.h"
 
-// Declaring our own custom delegates for the Menu class to bind callbacks to
-// 
-// 
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMultiplayerOnCreateSessionComplete, bool, bWasSuccessful);
 DECLARE_MULTICAST_DELEGATE_TwoParams(FMultiplayerOnFindSessionsComplete, const TArray<FOnlineSessionSearchResult>& SessionResults, bool bWasSuccessful);
 DECLARE_MULTICAST_DELEGATE_OneParam(FMultiplayerOnJoinSessionComplete, EOnJoinSessionCompleteResult::Type Result);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMultiplayerOnDestroySessionComplete, bool, bWasSuccessful);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMultiplayerOnStartSessionComplete, bool, bWasSuccessful);
+
 
 /**
  * 
@@ -68,6 +66,9 @@ public:
 	UFUNCTION(BlueprintPure)
 	bool IsLanMatch() const;
 
+	UFUNCTION(BlueprintPure)
+	bool GetOnlineUserName(AController* Controller, FString& UserName) const;
+
 protected:
 
 	// Internal callbacks we'll add for the delegates we'll add to the OnlineSessionInterface delegate list
@@ -80,7 +81,7 @@ protected:
 
 private:
 	void DestroyOnlineSubsystem();
-
+	void SetSubsystemEnabled(const FName& SubsystemName, bool bIsEnabled);
 private:
 	IOnlineSessionPtr OnlineSessionInterface{};
 	TSharedPtr<FOnlineSessionSettings> LastSessionSettings{};

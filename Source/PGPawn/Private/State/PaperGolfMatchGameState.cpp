@@ -29,7 +29,7 @@ void APaperGolfMatchGameState::AddPlayerState(APlayerState* PlayerState)
 
 	if (auto GolfPlayerState = Cast<AGolfMatchPlayerState>(PlayerState); GolfPlayerState)
 	{
-		// Add sync listener
+		// Add sync listener for display score
 		if (!GolfPlayerState->OnDisplayScoreUpdated.IsBoundToObject(this))
 		{
 			GolfPlayerState->OnDisplayScoreUpdated.AddUObject(this, &ThisClass::OnDisplayScoreUpdated);
@@ -266,7 +266,7 @@ void APaperGolfMatchGameState::DoAdditionalHoleComplete()
 
 		if (AwardIndex < NumPointAwards)
 		{
-			UE_VLOG_UELOG(this, LogPGPawn, Verbose, TEXT("%s: DoAdditionalHoleComplete - Award %s %d points for #%d finish"), *GetName(),
+			UE_VLOG_UELOG(this, LogPGPawn, Verbose, TEXT("%s: DoAdditionalHoleComplete - Award %d points for #%d finish"), *GetName(),
 				*Entry.State->GetName(), ScoringCriteria.Points[AwardIndex], AwardIndex + 1);
 
 			Entry.State->AwardPoints(ScoringCriteria.Points[AwardIndex]);

@@ -9,11 +9,14 @@
 
 #include "VisualLogger/VisualLoggerDebugSnapshotInterface.h"
 
+#include "Interfaces/PawnCameraLook.h"
+
 #include "PaperGolfPawn.generated.h"
 
 class USpringArmComponent;
 class UCameraComponent;
 class UPaperGolfPawnAudioComponent;
+class UPawnCameraLookComponent;
 
 struct FPredictProjectilePathResult;
 class UCurveFloat;
@@ -32,7 +35,7 @@ struct PGPAWN_API FNetworkFlickParams
 };
 
 UCLASS(Abstract)
-class PGPAWN_API APaperGolfPawn : public APawn, public IVisualLoggerDebugSnapshotInterface
+class PGPAWN_API APaperGolfPawn : public APawn, public IVisualLoggerDebugSnapshotInterface, public IPawnCameraLook
 {
 	GENERATED_BODY()
 
@@ -138,9 +141,10 @@ public:
 	/** Update and smooth simulated physic state, replaces PostNetReceiveLocation() and PostNetReceiveVelocity() */
 	virtual void PostNetReceivePhysicState() override;
 
-	void AddCameraRelativeRotation(const FRotator& DeltaRotation);
-	void ResetCameraRelativeRotation();
-	void AddCameraZoomDelta(float ZoomDelta);
+	// IPawnCameraLook
+	virtual void AddCameraRelativeRotation(const FRotator& DeltaRotation) override;
+	virtual void ResetCameraRelativeRotation() override;
+	virtual void AddCameraZoomDelta(float ZoomDelta) override;
 
 	void ShotFinished();
 
@@ -148,6 +152,9 @@ public:
 	void OnTurnStarted();
 
 	virtual ELifetimeCondition AllowActorComponentToReplicate(const UActorComponent* ComponentToReplicate) const;
+
+	UFUNCTION(BlueprintPure)
+	USceneComponent* GetPivotComponent() const;
 
 protected:
 	virtual void Tick(float DeltaTime) override;
@@ -232,7 +239,6 @@ private:
 	FVector FlickLocation{ 0.0, 0.0, 0.05 };
 
 	FRotator InitialRotation{ EForceInit::ForceInitToZero };
-	FRotator InitialSpringArmRotation{ EForceInit::ForceInitToZero };
 
 	FTransform PaperGolfMeshInitialTransform{};
 
@@ -265,20 +271,6 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot", meta = (ClampMin = "1.0"))
 	float FlickOffsetZTraceSize{ 5.0f };
-
-	UPROPERTY(EditDefaultsOnly, Category = "Camera | Shot")
-	FRotator MinCameraRotation{ -45.0f, -60.0f, 0 };
-
-	UPROPERTY(EditDefaultsOnly, Category = "Camera | Shot")
-	FRotator MaxCameraRotation{ 45.0f, 60.0f, 0 };
-
-	UPROPERTY(EditDefaultsOnly, Category = "Camera | Shot", meta = (ClampMin = "0.0"))
-	float MinCameraSpringArmLength{ 0.0f };
-
-	UPROPERTY(EditDefaultsOnly, Category = "Camera | Shot", meta = (ClampMin = "0.0"))
-	float MaxCameraSpringArmLength{ 2000.0f };
-
-	float InitialCameraSpringArmLength{};
 
 	UPROPERTY(EditDefaultsOnly, Category = "Camera | Spectator", meta = (ClampMin = "0.0"))
 	float SpectatorCameraRotationLag{ 1.0f };
@@ -314,6 +306,9 @@ private:
 
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UPaperGolfPawnAudioComponent> PawnAudioComponent{};
+
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UPawnCameraLookComponent> CameraLookComponent{};
 };
 
 #pragma region Inline Definitions
@@ -342,4 +337,8 @@ FORCEINLINE AActor* APaperGolfPawn::GetFocusActor() const
 	return FocusActor;
 }
 
+FORCEINLINE USceneComponent* APaperGolfPawn::GetPivotComponent() const
+{
+	return _PivotComponent;
+}
 #pragma endregion Inline Definitions

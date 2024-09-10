@@ -16,7 +16,6 @@
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GolfController)
 
 
-
 void IGolfController::DoBeginPlay(const TFunction<void(UGolfEventsSubsystem&)>& ClippedThroughWorldRegistrator)
 {
 	UE_VLOG_UELOG(AsController(), LogPGPawn, Log, TEXT("%s: DoBeginPlay"), *ToString());

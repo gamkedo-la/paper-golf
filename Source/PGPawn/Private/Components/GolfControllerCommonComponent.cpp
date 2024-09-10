@@ -70,11 +70,8 @@ void UGolfControllerCommonComponent::BeginPlay()
 			}
 		}));
 
-		// If not server, then have to listen for when game state changes holes so that we can init the focus actors correctly
-		if (!GetOwner()->HasAuthority())
-		{
-			GameState->OnHoleChanged.AddUObject(this, &ThisClass::OnHoleChanged);
-		}
+		// Set up listener that will fire on second hole for all players, while on server the above will fire for Hole One
+		GameState->OnHoleChanged.AddUObject(this, &ThisClass::OnHoleChanged);
 	}
 }
 
@@ -297,7 +294,8 @@ AActor* UGolfControllerCommonComponent::GetBestFocusActor(TArray<FShotFocusScore
 		{
 			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s: SetPaperGolfPawnAimFocus - Skipping target=%s as DotProduct=%f < FocusMinAlignment=%f"),
 				*GetName(), *FocusTarget->GetName(), FocusAlignment, FocusMinAlignment);
-			UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position, FocusTarget->GetActorLocation(), FColor::Orange, TEXT("Target (ALIGNMENT): %s"), *FocusTarget->GetName());
+			UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position, FocusTarget->GetActorLocation(), FColor::Orange, TEXT("Target (ALIGNMENT=%.1fd): %s"),
+				FMath::RadiansToDegrees(FMath::Acos(FocusAlignment)), *FocusTarget->GetName());
 
 			continue;
 		}
@@ -310,10 +308,14 @@ AActor* UGolfControllerCommonComponent::GetBestFocusActor(TArray<FShotFocusScore
 		{
 			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s: SetPaperGolfPawnAimFocus - Skipping target=%s as too close to it - Dist2D=%fm < MinDist=%fm"),
 				*GetName(), *FocusTarget->GetName(), FMath::Sqrt(DistSq2D) / 100, FMath::Sqrt(MinDistSq2D) / 100);
-			UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position, FocusTarget->GetActorLocation(), FColor::Yellow, TEXT("Target (TOO CLOSE): %s"), *FocusTarget->GetName());
+			UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position, FocusTarget->GetActorLocation(), FColor::Yellow, TEXT("Target (TOO CLOSE: %.1fm, %.1fd): %s"),
+				FMath::Sqrt(DistSq2D) / 100, FMath::RadiansToDegrees(FMath::Acos(FocusAlignment)), *FocusTarget->GetName());
 
 			continue;
 		}
+
+		UE_VLOG_LOCATION(GetOwner(), LogPGPawn, Verbose, FocusTarget->GetActorLocation() + 100 * FVector::ZAxisVector, 5.0f, FColor::Green, TEXT("Target (%.1fd, %1fm)"),
+			FMath::RadiansToDegrees(FMath::Acos(FocusAlignment)), FMath::Sqrt(DistSq2D) / 100, *FocusTarget->GetName());
 
 		// Consider Z as don't want to aim at targets way above or below us
 		if (OutFocusScores && HasLOSToFocus(Position, FocusTarget))
@@ -699,7 +701,6 @@ void UGolfControllerCommonComponent::InitFocusableActors()
 	ensureMsgf(GolfHole, TEXT("%s: InitFocusableActors - No relevant AGolfHole in world for hole focus. No aim targeting will occur."),
 		*GetName());
 
-	LastHoleNumber = HoleNumber;
 }
 
 bool UGolfControllerCommonComponent::HasLOSToFocus(const FVector& Position, const AActor* FocusActor) const
@@ -786,6 +787,13 @@ void UGolfControllerCommonComponent::OnHoleChanged(int32 HoleNumber)
 	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: OnHoleChanged - HoleNumber=%d"),
 		*GetName(), *LoggingUtils::GetName(GetOwner()), HoleNumber);
 
+	if (HoleNumber == LastHoleNumber)
+	{
+		// Usually this happens on server when this function was already triggered
+		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: OnHoleChanged - HoleNumber=%d is unchanged. Skipping."),
+			*GetName(), *LoggingUtils::GetName(GetOwner()), HoleNumber);
+	}
+
 	InitFocusableActors();
 
 	// Make sure we immediately reset the aim focus if we are the active player after the hole changed
@@ -795,6 +803,32 @@ void UGolfControllerCommonComponent::OnHoleChanged(int32 HoleNumber)
 	{
 		SetPaperGolfPawnAimFocus();
 		GolfController->ResetShot();
+	}
+
+	bOnHoleChangedTriggered = true;
+	if (OnHoleSyncedDelegate.IsBound())
+	{
+		OnHoleSyncedDelegate.Execute();
+		OnHoleSyncedDelegate.Unbind();
+	}
+
+	LastHoleNumber = HoleNumber;
+}
+
+void UGolfControllerCommonComponent::SyncHoleChanged(const FSimpleDelegate& InHoleSyncedDelegate)
+{
+	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: SyncHoleChanged"),
+		*GetName(), *LoggingUtils::GetName(GetOwner()));
+
+	// Sync call happened after the hole changed event was triggered, just call immediately
+	if (bOnHoleChangedTriggered)
+	{
+		InHoleSyncedDelegate.Execute();
+	}
+	else
+	{
+		// Deferred execution until the current hole number on the game state has propagated to clients
+		OnHoleSyncedDelegate = InHoleSyncedDelegate;
 	}
 }
 
@@ -808,9 +842,6 @@ void UGolfControllerCommonComponent::BeginTurn()
 	{
 		if (auto PaperGolfPawn = GolfController->GetPaperGolfPawn(); PaperGolfPawn /* && !PaperGolfPawn->IsAtRest()*/)
 		{
-			//UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s-%s: BeginTurn - Resetting shot state as paper golf pawn is not at rest"),
-			//	*GetName(), *LoggingUtils::GetName(GetOwner()));
-
 			// Always reset the state when activating turn - this fixes and physics offset issues
 			PaperGolfPawn->SetUpForNextShot();
 
@@ -839,6 +870,8 @@ void UGolfControllerCommonComponent::Reset()
 
 	ShotHistory.Reset();
 	LastFlickTime = 0.f;
+	bOnHoleChangedTriggered = false;
+	OnHoleSyncedDelegate.Unbind();
 
 	InitFocusableActors();
 }

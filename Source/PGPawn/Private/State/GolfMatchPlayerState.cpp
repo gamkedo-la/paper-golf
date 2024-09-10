@@ -14,14 +14,42 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GolfMatchPlayerState)
 
+namespace
+{
+	// store 18 holes - need 5 bits - use the 5 highest bits
+	// left shift this to highest bits
+	constexpr uint32 ChangeBits = 5; // 18 holes possibly in future
+	constexpr uint32 UpdateMaskShift = 32 - ChangeBits;
+
+	constexpr uint32 UpdateMask = 0b11111 << UpdateMaskShift;
+	constexpr uint32 ScoreMask = ~UpdateMask;
+}
+
 int32 AGolfMatchPlayerState::GetDisplayScore() const
 {
-    return DisplayScore;
+    return DisplayScore & ScoreMask;
+}
+
+int32 AGolfMatchPlayerState::GetNumScoreChanges() const
+{
+	return (DisplayScore & UpdateMask) >> UpdateMaskShift;
+}
+
+void AGolfMatchPlayerState::SetDisplayScore(int32 Points, int32 NumChanges)
+{
+	DisplayScore = static_cast<uint32>(Points | (NumChanges << UpdateMaskShift));
 }
 
 void AGolfMatchPlayerState::AwardPoints(int32 InPoints)
 {
-    DisplayScore += static_cast<uint8>(InPoints);
+	// Need to encode a change bit in order to force replication
+	const int32 DisplayPts = GetDisplayScore() + InPoints;
+	const int32 NumChanges = GetNumScoreChanges() + 1;
+
+	SetDisplayScore(DisplayPts, NumChanges);
+
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: AwardPoints - InPoints=%d - TotalPoints=%d; NumChanges=%d"), *GetName(), InPoints, DisplayPts, NumChanges);
+
     OnDisplayScoreUpdated.Broadcast(*this);
 
     ForceNetUpdate();
@@ -29,7 +57,7 @@ void AGolfMatchPlayerState::AwardPoints(int32 InPoints)
 
 bool AGolfMatchPlayerState::CompareByScore(const AGolfPlayerState& Other) const
 {
-    const auto CompareResult = DisplayScore <=> Other.GetDisplayScore();
+    const auto CompareResult = GetDisplayScore() <=> Other.GetDisplayScore();
     if(CompareResult == 0)
 	{
         return Super::CompareByScore(Other);
@@ -46,9 +74,22 @@ void AGolfMatchPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 	DOREPLIFETIME(AGolfMatchPlayerState, DisplayScore);
 }
 
+void AGolfMatchPlayerState::CopyProperties(APlayerState* PlayerState)
+{
+	Super::CopyProperties(PlayerState);
+
+	auto OtherPlayerState = Cast<AGolfMatchPlayerState>(PlayerState);
+	if (!IsValid(OtherPlayerState))
+	{
+		return;
+	}
+
+	DisplayScore = OtherPlayerState->DisplayScore;
+}
+
 void AGolfMatchPlayerState::OnRep_DisplayScore()
 {
-    UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_DisplayScore - DisplayScore=%d"), *GetName(), DisplayScore);
+    UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_DisplayScore - Points=%d; NumScoreChanges=%d"), *GetName(), GetDisplayScore(), GetNumScoreChanges());
     OnDisplayScoreUpdated.Broadcast(*this);
 }
 
@@ -64,7 +105,8 @@ void AGolfMatchPlayerState::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 
 	auto& PlayerStateCategory = Snapshot->Status.Last();
 
-	PlayerStateCategory.Add(TEXT("DisplayScore"), FString::Printf(TEXT("%d"), DisplayScore));
+	PlayerStateCategory.Add(TEXT("DisplayScore"), FString::Printf(TEXT("%d"), GetDisplayScore()));
+	PlayerStateCategory.Add(TEXT("NumScoreChanges"), FString::Printf(TEXT("%d"), GetNumScoreChanges()));
 }
 
 #endif

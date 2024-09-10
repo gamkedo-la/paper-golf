@@ -48,6 +48,8 @@ void AGolfPlayerState::FinishHole()
 
 	// Broadcast immediately on the server
 	OnTotalShotsUpdated.Broadcast(*this);
+
+	ForceNetUpdate();
 }
 
 void AGolfPlayerState::StartHole()

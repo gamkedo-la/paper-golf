@@ -54,6 +54,8 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent)
 	void BlueprintOnActiveHoleChanged(bool bIsActiveHole);
 
+	virtual void BeginPlay() override;
+
 private:
 
 	int32 GetHoleNumber_Implementation() const;
@@ -64,6 +66,8 @@ private:
 
 	UFUNCTION()
 	void OnComponentEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
+	void OnHoleChanged(int32 NewHoleNumber);
 
 	void OnScored(APaperGolfPawn& Pawn);
 
@@ -93,6 +97,8 @@ private:
 	// Set to true initially as by default the hole is active so need to detect the flipped condition
 	UPROPERTY(ReplicatedUsing = OnRep_GolfHoleState)
 	EGolfHoleState GolfHoleState{};
+
+	// TODO: Will hold reference to cinematic sequence to play for the hole when player starts the hole
 };
 
 #pragma region Inline Definitions

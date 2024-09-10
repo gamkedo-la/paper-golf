@@ -8,7 +8,8 @@
 #include "Online/OnlineSessionNames.h"
 #include "OnlineSubsystem.h"
 #include "OnlineSessionSettings.h" 
-
+#include "Interfaces/OnlineIdentityInterface.h"
+#include "GameFramework/PlayerState.h"
 #include "VisualLogger/VisualLogger.h"
 
 #include "Engine/LocalPlayer.h"
@@ -37,7 +38,7 @@ void UMultiplayerSessionsSubsystem::Configure(const FSessionsConfiguration& InCo
 	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: Configure: bIsLanMatch=%s"), *GetName(), InConfiguration.bIsLanMatch ? TEXT("TRUE") : TEXT("FALSE"));
 
 #if WITH_EDITOR
-	const FName& DesiredSubsystem = NULL_SUBSYSTEM;
+	const FName& DesiredSubsystem = GIsEditor || InConfiguration.bIsLanMatch ? NULL_SUBSYSTEM : STEAM_SUBSYSTEM;
 #else
 	const FName& DesiredSubsystem = InConfiguration.bIsLanMatch ? NULL_SUBSYSTEM : STEAM_SUBSYSTEM;
 #endif
@@ -50,6 +51,8 @@ void UMultiplayerSessionsSubsystem::Configure(const FSessionsConfiguration& InCo
 		DestroyOnlineSubsystem();
 	}
 
+	// Must do this before IOnlineSubsystem::Get; otherwise, it will return NULL if not enabled in the config ini
+	SetSubsystemEnabled(DesiredSubsystem, true);
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get(DesiredSubsystem);
 
 	if (!OnlineSubsystem)
@@ -58,11 +61,11 @@ void UMultiplayerSessionsSubsystem::Configure(const FSessionsConfiguration& InCo
 		return;
 	}
 
-	//if (bChangingSubsystems)
-	//{
-	//	UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: Loading subsystem=%s"), *GetName(), *DesiredSubsystem.ToString());
-	//	OnlineSubsystem->Init();
-	//}
+	if (!OnlineSubsystem->IsEnabled())
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: Configure - Subsystem %s could not be enabled"), *GetName(), *DesiredSubsystem.ToString());
+		return;
+	}
 
 	UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: Configure: DesiredSubsystem=%s and using subsystem %s"), *GetName(), *DesiredSubsystem.ToString(), *OnlineSubsystem->GetSubsystemName().ToString());
 
@@ -89,6 +92,8 @@ void UMultiplayerSessionsSubsystem::DestroyOnlineSubsystem()
 
 	UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: DestroyOnlineSubsystem=%s"), *GetName(), *LastSubsystemName.ToString());
 
+	SetSubsystemEnabled(LastSubsystemName, false);
+
 	OnlineSessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegateHandle);
 	OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(FindSessionsCompleteDelegateHandle);
 	OnlineSessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegateHandle);
@@ -99,6 +104,21 @@ void UMultiplayerSessionsSubsystem::DestroyOnlineSubsystem()
 
 	//IOnlineSubsystem::Destroy(LastSubsystemName);
 	LastSubsystemName = NAME_None;
+}
+
+void UMultiplayerSessionsSubsystem::SetSubsystemEnabled(const FName& SubsystemName, bool bIsEnabled)
+{
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: SetSubsystemEnabled: SubsystemName=%s; bIsEnabled=%s"), *GetName(), *SubsystemName.ToString(), bIsEnabled ? TEXT("TRUE") : TEXT("FALSE"));
+
+	// Get the config entry and toggle it  - see OnlineSubsystem.cpp Line 407 for why we need to do this - as otherwise if the entry is bEnabled false then it won't load it with GetSubsystem
+	const FString ConfigSection(FString::Printf(TEXT("OnlineSubsystem%s"), *SubsystemName.ToString()));
+
+	// Set the subsystem enabled status - will only work if the section is present; otherwise, will silently fail
+	// If the section isn't present then it will be enabled by default per the OnlineSubsystem.cpp logic
+	if (ensure(GConfig))
+	{
+		GConfig->SetBool(*ConfigSection, TEXT("bEnabled"), bIsEnabled, GEngineIni);
+	}
 }
 
 void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, const FString& MatchType)
@@ -144,6 +164,8 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, co
 	LastSessionSettings->bShouldAdvertise = true; // allow players to find sessions
 	LastSessionSettings->bUsesPresence = true; // Allow us to use presence to find sessions in our region of the world
 	LastSessionSettings->bUseLobbiesIfAvailable = true; // If cannot find sessions - look for lobbies
+	LastSessionSettings->bAllowInvites = true; // Allow invites to the session
+	LastSessionSettings->bIsDedicated = IsRunningDedicatedServer();
 	LastSessionSettings->Set(SessionMatchTypeName, MatchType, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 	LastSessionSettings->BuildUniqueId = BuildId; // So that we can join other sessions
 
@@ -265,6 +287,73 @@ void UMultiplayerSessionsSubsystem::JoinSession(const FOnlineSessionSearchResult
 		OnlineSessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegateHandle);
 		MultiplayerOnJoinSessionComplete.Broadcast(EOnJoinSessionCompleteResult::UnknownError);
 	}
+}
+
+bool UMultiplayerSessionsSubsystem::GetOnlineUserName(AController* Controller, FString& UserName) const
+{
+	// If using Subsystem NULL then this information is not available
+	if (LastSubsystemName.IsNone() || LastSubsystemName == NULL_SUBSYSTEM)
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: GetOnlineUserName - FALSE - Controller=%s: Using Subsystem NULL - info not available - returning false"),
+			*GetName(), Controller ? *Controller->GetName() : TEXT("NULL"));
+		return false;
+	}
+
+	const auto PC = Cast<APlayerController>(Controller);
+	if (!IsValid(PC))
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: GetOnlineUserName - FALSE - Controller=%s is not a PlayerController - returning false"), *GetName(),
+			Controller ? *Controller->GetName() : TEXT("NULL"));
+		return false;
+
+	}
+
+	if (!IsValid(PC->PlayerState))
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: GetOnlineUserName - FALSE - Controller=%s - PlayerState is not valid - returning false"), *GetName(),
+			*Controller->GetName());
+		return false;
+	}
+
+	const auto CurrentOnlineSub = IOnlineSubsystem::Get(LastSubsystemName);
+	if (!CurrentOnlineSub)
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: GetOnlineUserName - FALSE - IOnlineSubsystem::Get() returned NULL - returning false"), *GetName());
+		return false;
+	}
+
+	const IOnlineIdentityPtr Identity = CurrentOnlineSub->GetIdentityInterface();
+	if (!Identity.IsValid())
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: GetOnlineUserName - FALSE - IOnlineSubsystem::GetIdentityInterface() returned NULL for Subsystem=%s - returning false"),
+			*GetName(), *CurrentOnlineSub->GetSubsystemName().ToString());
+		return false;
+	}
+
+	const FUniqueNetIdRepl& UserId = PC->PlayerState->GetUniqueId();
+
+	if (!UserId.IsValid())
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: GetOnlineUserName - FALSE - (%s) Controller=%s; PlayerState=%s - UserId is not valid - returning false"),
+			*GetName(), *LastSubsystemName.ToString(), *PC->GetName(), *PC->PlayerState->GetName());
+		return false;
+	}
+
+	const auto& UniqueNetId = UserId.GetUniqueNetId();
+	if (!UniqueNetId.IsValid())
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: GetOnlineUserName - FALSE - (%s) Controller=%s; PlayerState=%s - UniqueNetId is not valid - returning false"),
+			*GetName(), *LastSubsystemName.ToString(), *PC->GetName(), *PC->PlayerState->GetName());
+		return false;
+	}
+
+	// If you pass an index like 0-4 it gets the username of the local connected player controller
+	UserName = Identity->GetPlayerNickname(*UniqueNetId);
+
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: GetOnlineUserName - %s - (%s) Controller=%s; PlayerState=%s - UserName=%s"),
+		*GetName(), *LastSubsystemName.ToString(), UserName.IsEmpty() ? TEXT("FALSE") : TEXT("TRUE"), *PC->GetName(), *PC->PlayerState->GetName(), *UserName);
+
+	return !UserName.IsEmpty();
 }
 
 void UMultiplayerSessionsSubsystem::StartSession()
