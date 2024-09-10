@@ -1,0 +1,5 @@
+#!/bin/bash
+
+echo "Zipping Editor Binaries"
+
+./package_binaries
