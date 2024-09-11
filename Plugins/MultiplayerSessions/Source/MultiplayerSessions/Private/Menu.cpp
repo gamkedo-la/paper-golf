@@ -320,7 +320,7 @@ const FOnlineSessionSearchResult* UMenu::MatchSessionResult(const TArray<FOnline
 		FString SettingsValue;
 		const bool FoundMatchType = Result.Session.SessionSettings.Get(UMultiplayerSessionsSubsystem::SessionMatchTypeName, SettingsValue);
 
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Verbose, TEXT("%s: MatchSessionResult - Result %d/%d - Id=%s; User=%s; MatchType=%s"),
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Verbose, TEXT("%s: MatchSessionResult - CHECKING - Result %d/%d - Id=%s; User=%s; MatchType=%s"),
 			*GetName(), Index + 1, SessionResults.Num(), *Id, *User, FoundMatchType ? *SettingsValue : TEXT("NULL"));
 
 		if (FoundMatchType && (AllowedMatchTypes.IsEmpty() || AllowedMatchTypes.Contains(SettingsValue)))

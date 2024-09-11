@@ -15,7 +15,14 @@
 #include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
 
+#include <compare>
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MultiplayerSessionsSubsystem)
+
+namespace
+{
+	const FName BuildIdSettingName = "PGBuildId";
+}
 
 UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem():
 	CreateSessionCompleteDelegate(FOnCreateSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnCreateSessionComplete)),
@@ -121,6 +128,61 @@ void UMultiplayerSessionsSubsystem::SetSubsystemEnabled(const FName& SubsystemNa
 	}
 }
 
+TArray<FOnlineSessionSearchResult> UMultiplayerSessionsSubsystem::FilterSessionSearchResults(const TArray<FOnlineSessionSearchResult>& Results) const
+{
+	TArray<FOnlineSessionSearchResult> FilteredResults;
+
+	for ([[maybe_unused]] int32 Index = 0; const auto& Result : Results)
+	{
+		FString SettingsValue;
+		const bool FoundMatchType = Result.Session.SessionSettings.Get(UMultiplayerSessionsSubsystem::SessionMatchTypeName, SettingsValue);
+
+		if (!FoundMatchType)
+		{
+			continue;
+		}
+
+		// Match build id
+		if (BuildId)
+		{
+			FString BuildIdValue;
+			const bool FoundBuildId = Result.Session.SessionSettings.Get(BuildIdSettingName, BuildIdValue);
+
+			if (!FoundBuildId || FCString::Atoi(*BuildIdValue) != BuildId)
+			{
+				UE_VLOG_UELOG(this, LogMultiplayerSessions, Verbose,
+					TEXT("%s: FilterSessionSearchResults - Skipping %d/%d due to BuildId mismatch: BuildId=%d; BuildIdValue=%s"),
+					*GetName(), Index + 1, Results.Num(), BuildId, *BuildIdValue);
+				continue;
+			}
+		}
+
+		FilteredResults.Add(Result);
+	}
+
+	// Sort the results by ping in 10ms increments and then open connections descending
+	FilteredResults.Sort([](const FOnlineSessionSearchResult& First, const FOnlineSessionSearchResult& Second)
+	{
+		const auto NormalizePing = [](int32 PingInMs)
+		{
+			return PingInMs / 10;
+		};
+
+		const auto FirstPing = NormalizePing(First.PingInMs);
+		const auto SecondPing = NormalizePing(Second.PingInMs);
+
+		const auto PingCompareResult = FirstPing <=> SecondPing;
+		if (PingCompareResult != 0)
+		{
+			return PingCompareResult < 0;
+		}
+
+		return First.Session.NumOpenPublicConnections > Second.Session.NumOpenPublicConnections;
+	});
+
+	return FilteredResults;
+}
+
 void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, const FString& MatchType)
 {
 	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: CreateSession: NumPublicConnections=%d; MatchType=%s"), *GetName(), NumPublicConnections, *MatchType);
@@ -166,8 +228,15 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, co
 	LastSessionSettings->bUseLobbiesIfAvailable = true; // If cannot find sessions - look for lobbies
 	LastSessionSettings->bAllowInvites = true; // Allow invites to the session
 	LastSessionSettings->bIsDedicated = IsRunningDedicatedServer();
+
 	LastSessionSettings->Set(SessionMatchTypeName, MatchType, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-	LastSessionSettings->BuildUniqueId = BuildId; // So that we can join other sessions
+
+	if (BuildId)
+	{
+		LastSessionSettings->Set(BuildIdSettingName, BuildId, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+
+		LastSessionSettings->BuildUniqueId = BuildId; // So that we can join other sessions
+	}
 
 	// Get networkd id of first local player
 	const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
@@ -490,10 +559,16 @@ void UMultiplayerSessionsSubsystem::OnCreateSessionComplete(FName SessionName, b
 
 void UMultiplayerSessionsSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 {
+	TArray<FOnlineSessionSearchResult> SearchResults;
+
 	if (bWasSuccessful)
 	{
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: OnFindSessions COMPLETED: SearchResultsFound=%d"),
-			*GetName(), LastSessionSearch ? LastSessionSearch->SearchResults.Num() : -1);
+		check(LastSessionSearch);
+
+		SearchResults = FilterSessionSearchResults(LastSessionSearch->SearchResults);
+
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: OnFindSessions COMPLETED: RawSearchResultsFound=%d; EligibleSearchResultsFound=%d"),
+			*GetName(), LastSessionSearch->SearchResults.Num(), SearchResults.Num());
 	}
 	else
 	{
@@ -507,15 +582,13 @@ void UMultiplayerSessionsSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 
 	FindSessionsCompleteDelegateHandle.Reset();
 
-	check(LastSessionSearch);
-
-	if (LastSessionSearch->SearchResults.IsEmpty())
+	if (SearchResults.IsEmpty())
 	{
 		MultiplayerOnFindSessionsComplete.Broadcast({}, false);
 	}
 	else
 	{
-		MultiplayerOnFindSessionsComplete.Broadcast(LastSessionSearch->SearchResults, bWasSuccessful);
+		MultiplayerOnFindSessionsComplete.Broadcast(SearchResults, bWasSuccessful);
 	}
 }
 

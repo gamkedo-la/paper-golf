@@ -58,7 +58,7 @@ public:
 	FMultiplayerOnDestroySessionComplete MultiplayerOnDestroySessionComplete;
 	FMultiplayerOnStartSessionComplete MultiplayerOnStartSessionComplete;
 
-	inline static const FName SessionMatchTypeName = "MatchType";
+	inline static const FName SessionMatchTypeName = "PGMatchType";
 
 	int32 GetDesiredNumPublicConnections() const;
 	FString GetDesiredMatchType() const;
@@ -82,6 +82,9 @@ protected:
 private:
 	void DestroyOnlineSubsystem();
 	void SetSubsystemEnabled(const FName& SubsystemName, bool bIsEnabled);
+
+	TArray<FOnlineSessionSearchResult> FilterSessionSearchResults(const TArray<FOnlineSessionSearchResult>& Results) const;
+
 private:
 	IOnlineSessionPtr OnlineSessionInterface{};
 	TSharedPtr<FOnlineSessionSettings> LastSessionSettings{};
