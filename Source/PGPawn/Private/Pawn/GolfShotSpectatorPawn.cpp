@@ -8,7 +8,6 @@
 #include "PGPawnLogging.h"
 
 #include "Pawn/PaperGolfPawn.h"
-
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Components/PawnCameraLookComponent.h"
@@ -46,6 +45,9 @@ void AGolfShotSpectatorPawn::TrackPlayer(const APaperGolfPawn* PlayerPawn)
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: TrackPlayer=%s"), *GetName(), *LoggingUtils::GetName(PlayerPawn));
 
+	// remove any previous tracking
+	UnTrackPivotComponentTransformUpdates();
+
 	TrackedPlayerPawn = PlayerPawn;
 
 	if (!PlayerPawn)
@@ -55,13 +57,18 @@ void AGolfShotSpectatorPawn::TrackPlayer(const APaperGolfPawn* PlayerPawn)
 
 	if (auto PlayerRootComponent = PlayerPawn->GetPivotComponent(); PlayerRootComponent)
 	{
-		PlayerRootComponent->TransformUpdated.AddUObject(this, &ThisClass::OnPlayerTransformUpdated);
+		UpdateSpectatorTransform(PlayerRootComponent);
 	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPGPawn, Warning, TEXT("%s: PlayerPawn=%s has no pivot component"), *GetName(), *LoggingUtils::GetName(PlayerPawn));
+		UpdateSpectatorTransform(PlayerPawn->GetRootComponent());
+	}
+
+	TrackPivotComponentTransformUpdates();
 
 	SetCameraLag(false);
 	ResetCameraRelativeRotation();
-
-	SetActorTransform(PlayerPawn->GetActorTransform());
 
 	if (auto PC = Cast<APlayerController>(GetController()); PC)
 	{
@@ -107,13 +114,7 @@ void AGolfShotSpectatorPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 	Super::EndPlay(EndPlayReason);
 
-	if (auto PlayerPawn = TrackedPlayerPawn.Get(); PlayerPawn)
-	{
-		if (auto PlayerRootComponent = PlayerPawn->GetPivotComponent(); PlayerRootComponent)
-		{
-			PlayerRootComponent->TransformUpdated.RemoveAll(this);
-		}
-	}
+	UnTrackPivotComponentTransformUpdates();
 }
 
 void AGolfShotSpectatorPawn::SetCameraLag(bool bEnableLag)
@@ -128,6 +129,60 @@ void AGolfShotSpectatorPawn::OnPlayerTransformUpdated(USceneComponent* UpdatedCo
 		return;
 	}
 
-	UE_VLOG_UELOG(this, LogPGPawn, VeryVerbose, TEXT("%s: OnPlayerTransformUpdated=%s - %s"), *GetName(), *UpdatedComponent->GetName(), *UpdatedComponent->GetComponentTransform().ToString());
-	SetActorTransform(UpdatedComponent->GetComponentTransform());
+	UE_VLOG_UELOG(this, LogPGPawn, VeryVerbose, TEXT("%s: OnPlayerTransformUpdated=%s - %s"), *GetName(), *UpdatedComponent->GetName(), *UpdatedComponent->GetComponentTransform().ToHumanReadableString());
+	
+	UpdateSpectatorTransform(UpdatedComponent);
+}
+
+void AGolfShotSpectatorPawn::UpdateSpectatorTransform(USceneComponent* TrackedPawnComponent)
+{
+	if (!ensure(TrackedPawnComponent))
+	{
+		return;
+	}
+
+	// Make sure the tracked pawn component is owned by the tracked player pawn
+	if (TrackedPawnComponent->GetOwner() != TrackedPlayerPawn.Get())
+	{
+		UE_VLOG_UELOG(this, LogPGPawn, VeryVerbose, TEXT("%s: UpdateSpectatorTransform - TrackedPawnComponent=%s is owned by %s and not by TrackedPlayerPawn=%s"),
+			*GetName(), *TrackedPawnComponent->GetName(), *LoggingUtils::GetName(TrackedPawnComponent->GetOwner()), *LoggingUtils::GetName(TrackedPlayerPawn));
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogPGPawn, VeryVerbose, TEXT("%s: UpdateSpectatorTransform=%s->%s - %s"),
+		*GetName(), *LoggingUtils::GetName(TrackedPawnComponent->GetOwner()), *TrackedPawnComponent->GetName(), *TrackedPawnComponent->GetComponentTransform().ToHumanReadableString());
+
+	SetActorTransform(TrackedPawnComponent->GetComponentTransform());
+
+	UE_VLOG_LOCATION(this, LogPGPawn, VeryVerbose, TrackedPawnComponent->GetComponentLocation(), 10.0f, FColor::Blue, TEXT("%s: Spectated - %s"),
+		*LoggingUtils::GetName(TrackedPawnComponent->GetOwner()),
+		*([&] { auto Pawn = Cast<APawn>(TrackedPawnComponent->GetOwner()); return Pawn ? LoggingUtils::GetName<APlayerState>(Pawn->GetPlayerState()) : FString{ TEXT("Unknown") }; }()));
+}
+
+void AGolfShotSpectatorPawn::TrackPivotComponentTransformUpdates()
+{
+	auto PlayerPawn = TrackedPlayerPawn.Get();
+	if (!PlayerPawn)
+	{
+		return;
+	}
+
+	if (auto PlayerRootComponent = PlayerPawn->GetPivotComponent(); PlayerRootComponent)
+	{
+		PlayerRootComponent->TransformUpdated.AddUObject(this, &ThisClass::OnPlayerTransformUpdated);
+	}
+}
+
+void AGolfShotSpectatorPawn::UnTrackPivotComponentTransformUpdates()
+{
+	auto PlayerPawn = TrackedPlayerPawn.Get();
+	if (!PlayerPawn)
+	{
+		return;
+	}
+
+	if (auto PlayerRootComponent = PlayerPawn->GetPivotComponent(); PlayerRootComponent)
+	{
+		PlayerRootComponent->TransformUpdated.RemoveAll(this);
+	}
 }

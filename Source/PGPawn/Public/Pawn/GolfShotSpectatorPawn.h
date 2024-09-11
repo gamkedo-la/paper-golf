@@ -42,6 +42,9 @@ private:
 
 	void UpdateSpectatorTransform(USceneComponent* TrackedPawnComponent);
 
+	void TrackPivotComponentTransformUpdates();
+	void UnTrackPivotComponentTransformUpdates();
+
 private:
 
 	UPROPERTY(Category = "Camera", VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))

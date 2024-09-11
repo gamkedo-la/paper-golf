@@ -1186,8 +1186,14 @@ void APaperGolfPawn::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 		Category.AddChild(MeshCategory);
 	}
 
-	// Draw with player state color if available
 	auto GolfPlayerState = GetPlayerState<AGolfPlayerState>();
+
+	if (GolfPlayerState)
+	{
+		GolfPlayerState->GrabDebugSnapshot(Snapshot);
+	}
+
+	// Draw with player state color if available
 	const auto PawnColor = GolfPlayerState ? GolfPlayerState->GetPlayerColor().ToFColor(true) : FColor::Blue;
 
 	DrawPawn(PawnColor, Snapshot);
