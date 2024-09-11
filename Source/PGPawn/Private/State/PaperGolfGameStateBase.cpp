@@ -46,7 +46,7 @@ void APaperGolfGameStateBase::SetActivePlayer(AGolfPlayerState* Player)
 
 void APaperGolfGameStateBase::AddPlayerState(APlayerState* PlayerState)
 {
-	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: AddPlayerState - PlayerState=%s"), *GetName(), *LoggingUtils::GetName(PlayerState));
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: AddPlayerState - PlayerState=%s"), *GetName(), *LoggingUtils::GetName<APlayerState>(PlayerState));
 
 	Super::AddPlayerState(PlayerState);
 
@@ -62,7 +62,7 @@ void APaperGolfGameStateBase::AddPlayerState(APlayerState* PlayerState)
 
 void APaperGolfGameStateBase::RemovePlayerState(APlayerState* PlayerState)
 {
-	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: RemovePlayerState - PlayerState=%s"), *GetName(), *LoggingUtils::GetName(PlayerState));
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: RemovePlayerState - PlayerState=%s"), *GetName(), *LoggingUtils::GetName<APlayerState>(PlayerState));
 
 	if (auto GolfPlayerState = Cast<AGolfPlayerState>(PlayerState); GolfPlayerState)
 	{

@@ -88,7 +88,7 @@ void APGHUD::RemoveActiveMessageWidget()
 void APGHUD::SpectatePlayer_Implementation(APaperGolfPawn* PlayerPawn, AGolfPlayerState* InPlayerState)
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log,
-		TEXT("%s: SpectatePlayer: PlayerPawn=%s; InPlayerState=%s"), *GetName(), *LoggingUtils::GetName(PlayerPawn), *LoggingUtils::GetName(InPlayerState));
+		TEXT("%s: SpectatePlayer: PlayerPawn=%s; InPlayerState=%s"), *GetName(), *LoggingUtils::GetName(PlayerPawn), *LoggingUtils::GetName<APlayerState>(InPlayerState));
 
 	if (ShouldShowActiveTurnWidgets())
 	{
@@ -133,7 +133,7 @@ void APGHUD::HideActiveTurnWidget()
 void APGHUD::BeginSpectatorShot_Implementation(APaperGolfPawn* PlayerPawn, AGolfPlayerState* InPlayerState)
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: BeginSpectatorShot: PlayerPawn=%s; InPlayerState=%s"),
-		*GetName(), *LoggingUtils::GetName(PlayerPawn), *LoggingUtils::GetName(InPlayerState));
+		*GetName(), *LoggingUtils::GetName(PlayerPawn), *LoggingUtils::GetName<APlayerState>(InPlayerState));
 
 	HideActiveTurnWidget();
 }
@@ -370,10 +370,10 @@ void APGHUD::PlayWinSoundIfApplicable()
 	const auto MyPlayerState = PC->GetPlayerState<AGolfPlayerState>();
 
 	if (!ensureMsgf(MyPlayerState, TEXT("%s - PlayerController=%s - Could not get AGolfPlayerState : %s"),
-		*GetName(), *PC->GetName(), *LoggingUtils::GetName(PC->GetPlayerState<APlayerState>())))
+		*GetName(), *PC->GetName(), *LoggingUtils::GetName<APlayerState>(PC->GetPlayerState<APlayerState>())))
 	{
 		UE_VLOG_UELOG(PC, LogPGUI, Error, TEXT("%s - PlayerController=%s - Could not get AGolfPlayerState : %s"),
-			*GetName(), *PC->GetName(), *LoggingUtils::GetName(PC->GetPlayerState<APlayerState>()));
+			*GetName(), *PC->GetName(), *LoggingUtils::GetName<APlayerState>(PC->GetPlayerState<APlayerState>()));
 		return;
 	}
 
@@ -381,7 +381,7 @@ void APGHUD::PlayWinSoundIfApplicable()
 	if (MyPlayerState->IsSpectatorOnly())
 	{
 		UE_VLOG_UELOG(PC, LogPGUI, Log, TEXT("%s - PlayerController=%s - Skipping win sound as player is a spectator only : %s"),
-			*GetName(), *PC->GetName(), *LoggingUtils::GetName(MyPlayerState));
+			*GetName(), *PC->GetName(), *LoggingUtils::GetName<APlayerState>(MyPlayerState));
 		return;
 	}
 
@@ -389,12 +389,12 @@ void APGHUD::PlayWinSoundIfApplicable()
 	if(Index == INDEX_NONE)
 	{
 		UE_VLOG_UELOG(PC, LogPGUI, Warning, TEXT("%s - PlayerController=%s - Could not find player %s in sorted scores list : %s"),
-			*GetName(), *PC->GetName(), *LoggingUtils::GetName(MyPlayerState), *PG::ToStringObjectElements(Players));
+			*GetName(), *PC->GetName(), *LoggingUtils::GetName<APlayerState>(MyPlayerState), *PG::ToStringObjectElements(Players));
 		return;
 	}
 
 	UE_VLOG_UELOG(PC, LogPGUI, Log, TEXT("%s - PlayerController=%s - Found player %s at index %d in sorted scores list : %s"),
-		*GetName(), *PC->GetName(), *LoggingUtils::GetName(MyPlayerState), Index, *PG::ToStringObjectElements(Players));
+		*GetName(), *PC->GetName(), *LoggingUtils::GetName<APlayerState>(MyPlayerState), Index, *PG::ToStringObjectElements(Players));
 
 	// Best score
 	if (Index == 0)

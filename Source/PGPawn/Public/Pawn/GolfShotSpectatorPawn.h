@@ -40,6 +40,8 @@ private:
 
 	void OnPlayerTransformUpdated(USceneComponent* UpdatedComponent, EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport);
 
+	void UpdateSpectatorTransform(USceneComponent* TrackedPawnComponent);
+
 private:
 
 	UPROPERTY(Category = "Camera", VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))

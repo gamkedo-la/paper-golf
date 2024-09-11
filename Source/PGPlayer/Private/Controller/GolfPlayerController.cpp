@@ -1309,7 +1309,7 @@ void AGolfPlayerController::OnHandleSpectatorShot(AGolfPlayerState* InPlayerStat
 
 	if (!InPawn)
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: OnHandleSpectatorShot - InPlayerState=%s - InPawn is NULL"), *GetName(), *LoggingUtils::GetName(InPlayerState));
+		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: OnHandleSpectatorShot - InPlayerState=%s - InPawn is NULL"), *GetName(), *LoggingUtils::GetName<APlayerState>(InPlayerState));
 
 		return;
 	}
@@ -1432,7 +1432,7 @@ void AGolfPlayerController::SetSpectatorPawn(ASpectatorPawn* NewSpectatorPawn)
 		else
 		{
 			UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SetSpectatorPawn - Pawn has not yet replicated for SpectatorPlayerState=%s"),
-				*GetName(), *LoggingUtils::GetName(SpectatorPlayerState));
+				*GetName(), *LoggingUtils::GetName<APlayerState>(SpectatorPlayerState));
 			SetViewTarget(GolfSpectatorPawn);
 		}
 	}

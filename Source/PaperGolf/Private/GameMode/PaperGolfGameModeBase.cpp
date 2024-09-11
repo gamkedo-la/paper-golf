@@ -214,7 +214,7 @@ void APaperGolfGameModeBase::ConfigureJoinedPlayerState(AController& Player)
 	if(!ensureMsgf(PlayerState, TEXT("%s: Player %s does not have AGolfPlayerState; PlayerState=%s"), *GetName(), *Player.GetName(), *LoggingUtils::GetName(Player.GetPlayerState<APlayerState>())))
 	{
 		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: Player %s does not have AGolfPlayerState; PlayerState=%s"),
-			*GetName(), *Player.GetName(), *LoggingUtils::GetName(Player.GetPlayerState<APlayerState>()));
+			*GetName(), *Player.GetName(), *LoggingUtils::GetName<APlayerState>(Player.GetPlayerState<APlayerState>()));
 		return;
 	}
 
@@ -229,7 +229,7 @@ void APaperGolfGameModeBase::ConfigureJoinedPlayerState(AController& Player)
 void APaperGolfGameModeBase::SetHumanPlayerName(AController& PlayerController, APlayerState& PlayerState)
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: SetHumanPlayerName - PlayerController=%s; PlayerState=%s"), 
-		*GetName(), *LoggingUtils::GetName(&PlayerController), *LoggingUtils::GetName(&PlayerState));
+		*GetName(), *LoggingUtils::GetName(&PlayerController), *LoggingUtils::GetName<APlayerState>(&PlayerState));
 
 	// TODO: Need option for player to set name when joining session if it's not an online session
 

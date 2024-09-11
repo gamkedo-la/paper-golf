@@ -26,10 +26,10 @@ namespace LoggingUtils
 	FString GetName(const T& Object);
 
 	template<>
-	FString GetName(const APlayerState* Object);
+	FString GetName<APlayerState>(const APlayerState* Object);
 
 	template<>
-	FString GetName(const APlayerState& Object);
+	FString GetName<APlayerState>(const APlayerState& Object);
 
 	auto GetBoolString(bool Result);
 
@@ -66,13 +66,13 @@ namespace LoggingUtils
 	}
 
 	template<>
-	inline FString LoggingUtils::GetName(const APlayerState* Object)
+	inline FString GetName<APlayerState>(const APlayerState* Object)
 	{
 		return Object ? GetName(*Object) : TEXT("NULL");
 	}
 
 	template<>
-	inline FString LoggingUtils::GetName(const APlayerState& Object)
+	inline FString GetName<APlayerState>(const APlayerState& Object)
 	{
 		const auto& Name = Object.GetPlayerName();
 		return !Name.IsEmpty() ? Name : Object.GetName();

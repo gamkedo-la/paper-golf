@@ -877,7 +877,7 @@ UGolfAIShotComponent::FShotErrorResult UGolfAIShotComponent::CalculateShotError(
 FString FAIShotContext::ToString() const
 {
 	return FString::Printf(TEXT("PlayerPawn=%s; PlayerState=%s; ShotType=%s"),
-		*LoggingUtils::GetName(PlayerPawn), *LoggingUtils::GetName(PlayerState), *LoggingUtils::GetName(ShotType));
+		*LoggingUtils::GetName(PlayerPawn), *LoggingUtils::GetName<APlayerState>(PlayerState.Get()), *LoggingUtils::GetName(ShotType));
 }
 
 namespace
