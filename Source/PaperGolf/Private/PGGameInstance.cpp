@@ -10,6 +10,8 @@
 
 #include "Input/InputCharacteristics.h"
 
+#include "MultiplayerSessionsSubsystem.h"
+
 #include "MoviePlayer.h"
 
 #include "GenericPlatform/GenericPlatformInputDeviceMapper.h"
@@ -19,6 +21,11 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PGGameInstance)
 
+
+namespace
+{
+	constexpr int32 BuildUniqueId = -1443884023;
+}
 
 void UPGGameInstance::Init()
 {
@@ -135,3 +142,14 @@ void UPGGameInstance::HandleControllerPairingChanged(FInputDeviceId ControllerId
 }
 
 #pragma endregion Gamepad Support
+
+void UPGGameInstance::InitMultiplayerSessionsSubsystem()
+{
+	auto Subsystem = GetSubsystem<UMultiplayerSessionsSubsystem>();
+	if (!ensure(Subsystem))
+	{
+		return;
+	}
+
+	Subsystem->SetBuildId(BuildUniqueId);
+}

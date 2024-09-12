@@ -35,6 +35,8 @@ private:
 
 	void DoLoadingScreen();
 
+	void InitMultiplayerSessionsSubsystem();
+
 	void InitGamepadAvailable();
 	void HandleControllerConnectionChange(EInputDeviceConnectionState InputDeviceConnectionState, FPlatformUserId UserId, FInputDeviceId ControllerId);
 	void HandleControllerPairingChanged(FInputDeviceId ControllerId, FPlatformUserId NewUserId, FPlatformUserId OldUserId);
