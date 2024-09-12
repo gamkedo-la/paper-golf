@@ -66,13 +66,13 @@ namespace LoggingUtils
 	}
 
 	template<>
-	inline FString GetName<APlayerState>(const APlayerState* Object)
+	inline FString GetName(const APlayerState* Object)
 	{
 		return Object ? GetName(*Object) : TEXT("NULL");
 	}
 
 	template<>
-	inline FString GetName<APlayerState>(const APlayerState& Object)
+	inline FString GetName(const APlayerState& Object)
 	{
 		const auto& Name = Object.GetPlayerName();
 		return !Name.IsEmpty() ? Name : Object.GetName();
