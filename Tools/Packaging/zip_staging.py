@@ -8,7 +8,11 @@ import re
 # Exclude these staging output manifest files
 # See https://forums.unrealengine.com/t/what-is-manifest-nonufsfiles-win64-for/135806
 # TODO: In future can also read the Manifest_DebugFiles_Win64.txt to see which debug files to exclude
-includeExclude = ["Manifest_.*\.txt", ".*\.pdb",".*\.tps",".*\.ttf"]
+includeExclude = ["Manifest_.*\.txt", ".*\.pdb",".*\.tps",".*\.ttf",
+                   ".*GPUDumpViewer.*"] # Outputed in development builds
+
+# Outputed in development builds but not needed even in the debug symobls as we are using DirectX
+exclude = ["VkLayer_.*"]
 
 def zipdir(ziph, path, exclusions = None, inclusions = None):
     # Do not include the folder being zipped in the archive itself
@@ -43,7 +47,9 @@ ziph = zipfile.ZipFile(zip_file, 'w', zipfile.ZIP_DEFLATED)
 if is_debug_mode:
     zipdir(ziph, source_dir, inclusions = includeExclude)
 else:
-    zipdir(ziph, source_dir, exclusions = includeExclude)
+    # For the main non-debug output zip exclude both the includeExclude list (that is used for the debug symbols)
+    # as well as the straight exclude list
+    zipdir(ziph, source_dir, exclusions = includeExclude + exclude)
 
 ziph.close()
 
