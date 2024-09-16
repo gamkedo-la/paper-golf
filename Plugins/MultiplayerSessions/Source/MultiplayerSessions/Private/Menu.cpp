@@ -25,10 +25,13 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(Menu)
 
-void UMenu::MenuSetup(const TMap<FString, FString>& MatchTypesToDisplayMap, const FString& LobbyPath, int32 MinPlayers, int32 MaxPlayers, int32 InDefaultNumPlayers, bool bDefaultLANMatch)
+void UMenu::MenuSetup(const TMap<FString, FString>& MatchTypesToDisplayMap, const FString& LobbyPath, int32 MinPlayers, int32 MaxPlayers, int32 InDefaultNumPlayers, bool bDefaultLANMatch, bool bDefaultAllowBots)
 {
-	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: MenuSetup: MinPlayers=%d; MaxPlayers=%d; DefaultNumPlayers=%d; bDefaultLANMatch=%s; MatchTypesToDisplayMap=%d; LobbyPath=%s"), 
-		*GetName(), MinPlayers, MaxPlayers, InDefaultNumPlayers, bDefaultLANMatch ? TEXT("TRUE") : TEXT("FALSE"), MatchTypesToDisplayMap.Num(), *LobbyPath);
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: MenuSetup: MinPlayers=%d; MaxPlayers=%d; DefaultNumPlayers=%d; bDefaultLANMatch=%s; DefaultAllowBots=%s; MatchTypesToDisplayMap=%d; LobbyPath=%s"), 
+		*GetName(), MinPlayers, MaxPlayers, InDefaultNumPlayers,
+		bDefaultLANMatch ? TEXT("TRUE") : TEXT("FALSE"), 
+		bDefaultAllowBots ? TEXT("TRUE") : TEXT("FALSE"),
+		MatchTypesToDisplayMap.Num(), *LobbyPath);
 
 	PathToLobby = LobbyPath;
 	DefaultNumPlayers = InDefaultNumPlayers;
@@ -65,6 +68,11 @@ void UMenu::MenuSetup(const TMap<FString, FString>& MatchTypesToDisplayMap, cons
 	if (ChkLanMatch)
 	{
 		ChkLanMatch->SetIsChecked(bDefaultLANMatch);
+	}
+
+	if (ChkAllowBots)
+	{
+		ChkAllowBots->SetIsChecked(bDefaultAllowBots);
 	}
 
 	UGameInstance* GameInstance = GetGameInstance();
@@ -438,7 +446,13 @@ void UMenu::HostButtonClicked()
 
 	BtnHost->SetIsEnabled(false);
 
-	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: HostButtonClicked - MaxNumPlayers=%d; MatchType=%s"), *GetName(), GetMaxNumberOfPlayers(), *GetPreferredMatchType());
+	const bool bAllowBots = ChkAllowBots ? ChkAllowBots->IsChecked() : false;
+
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: HostButtonClicked - MaxNumPlayers=%d; MatchType=%s; AllowBots=%s"),
+		*GetName(), GetMaxNumberOfPlayers(), *GetPreferredMatchType(),
+		bAllowBots ? TEXT("TRUE") : TEXT("FALSE"));
+
+	MultiplayerSessionsSubsystem->SetAllowBots(bAllowBots);
 
 	if(IsDirectIpLanMatch())
 	{

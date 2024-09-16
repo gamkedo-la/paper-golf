@@ -42,7 +42,10 @@ void UMultiplayerSessionsSubsystem::Initialize(FSubsystemCollectionBase& Collect
 
 void UMultiplayerSessionsSubsystem::Configure(const FSessionsConfiguration& InConfiguration)
 {
-	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: Configure: bIsLanMatch=%s"), *GetName(), InConfiguration.bIsLanMatch ? TEXT("TRUE") : TEXT("FALSE"));
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: Configure: bIsLanMatch=%s"),
+		*GetName(),
+		InConfiguration.bIsLanMatch ? TEXT("TRUE") : TEXT("FALSE")
+	);
 
 #if WITH_EDITOR
 	const FName& DesiredSubsystem = GIsEditor || InConfiguration.bIsLanMatch ? NULL_SUBSYSTEM : STEAM_SUBSYSTEM;

@@ -38,6 +38,7 @@ public:
 	void Configure(const FSessionsConfiguration& InConfiguration);
 
 	void SetBuildId(int32 InBuildId);
+	void SetAllowBots(bool bInAllowBots);
 	void CreateSession(int32 NumPublicConnections, const FString& MatchType);
 	void CreateLocalSession(int32 NumPublicConnections, const FString& MatchType);
 
@@ -65,6 +66,9 @@ public:
 
 	UFUNCTION(BlueprintPure)
 	bool IsLanMatch() const;
+
+	UFUNCTION(BlueprintPure)
+	bool AllowBots() const;
 
 	UFUNCTION(BlueprintPure)
 	bool GetOnlineUserName(AController* Controller, FString& UserName) const;
@@ -110,6 +114,8 @@ private:
 	FDelegateHandle DestroySessionCompleteDelegateHandle{};
 
 	bool bCreateSessionOnDestroy{};
+	bool bAllowBots{};
+
 	int32 LastNumPublicConnections{};
 	FString LastMatchType{};
 
@@ -143,4 +149,14 @@ FORCEINLINE void UMultiplayerSessionsSubsystem::SetBuildId(int32 InBuildId)
 FORCEINLINE bool UMultiplayerSessionsSubsystem::IsLanMatch() const
 {
 	return SessionsConfiguration.bIsLanMatch;
+}
+
+FORCEINLINE void UMultiplayerSessionsSubsystem::SetAllowBots(bool bInAllowBots)
+{
+	bAllowBots = bInAllowBots;
+}
+
+FORCEINLINE bool UMultiplayerSessionsSubsystem::AllowBots() const
+{
+	return bAllowBots;
 }

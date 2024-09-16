@@ -27,7 +27,8 @@ class MULTIPLAYERSESSIONS_API UMenu : public UUserWidget
 public:
 
 	UFUNCTION(BlueprintCallable, Category = "Menu")
-	void MenuSetup(const TMap<FString,FString>& MatchTypesToDisplayMap, const FString& LobbyPath, int32 MinPlayers = 2, int32 MaxPlayers = 4, int32 DefaultNumPlayers = 2, bool bDefaultLANMatch = true);
+	void MenuSetup(const TMap<FString,FString>& MatchTypesToDisplayMap, const FString& LobbyPath,
+		int32 MinPlayers = 2, int32 MaxPlayers = 4, int32 DefaultNumPlayers = 2, bool bDefaultLANMatch = true, bool bDefaultAllowBots = false);
 
 protected:
 
@@ -95,6 +96,9 @@ private:
 
 	UPROPERTY(Category = "Menu", BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
 	TObjectPtr<UCheckBox> ChkLanMatch{};
+
+	UPROPERTY(Category = "Menu", BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
+	TObjectPtr<UCheckBox> ChkAllowBots{};
 
 	UPROPERTY(Category = "Menu", BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
 	TObjectPtr<UEditableText> TxtLanIpAddress{};

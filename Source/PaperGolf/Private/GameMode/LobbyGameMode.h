@@ -54,6 +54,8 @@ private:
 
 	class UMultiplayerSessionsSubsystem* GetMultiplayerSessionsSubsystem() const;
 
+	int32 GetNumBots() const;
+
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Modes", meta = (TitleProperty = "GameMode"))
 	TMap<FString, FGameModeInfo> MatchTypesToModes;

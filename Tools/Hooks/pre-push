@@ -1,5 +1,11 @@
 #!/bin/bash
 
-echo "Zipping Editor Binaries"
+# Get the current branch name
+current_branch=$(git rev-parse --abbrev-ref HEAD)
 
-./package_binaries
+# Check if the current branch is 'main'
+if [ "$current_branch" == "main" ]; then
+	echo "Zipping Editor Binaries"
+
+	./package_binaries
+fi

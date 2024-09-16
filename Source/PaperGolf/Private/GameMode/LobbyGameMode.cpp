@@ -117,7 +117,8 @@ bool ALobbyGameMode::HostStartMatch()
 	const FString GameModeName = FoundMatchTypeInfo->GameMode.ToSoftObjectPath().ToString();
 	const FString MapPath = GetPathForMap(GetRandomMap());
 
-	const FString MatchUrl = FString::Printf(TEXT("%s?game=%s?%s%d"), *MapPath, *GameModeName, PG::GameModeOptions::NumPlayers, GetNumPlayers());
+	const FString MatchUrl = FString::Printf(TEXT("%s?game=%s?%s%d?%s%d"),
+		*MapPath, *GameModeName, PG::GameModeOptions::NumPlayers, GetNumPlayers(), PG::GameModeOptions::NumBots, GetNumBots());
 
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: ServerTravel to Map=%s with GameMode=%s - %s"),
 		*GetName(), *MapPath, *GameModeName, *MatchUrl);
@@ -128,6 +129,36 @@ bool ALobbyGameMode::HostStartMatch()
 	World->ServerTravel(MatchUrl);
 
 	return true;
+}
+
+int32 ALobbyGameMode::GetNumBots() const
+{
+	auto Subsystem = GetMultiplayerSessionsSubsystem();
+	if (!Subsystem)
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: GetNumBots - 0 - Subsystem is null"), *GetName());
+		return 0;
+	}
+
+	if (!Subsystem->AllowBots())
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: GetNumBots - 0 - Bots are not allowed"), *GetName());
+		return 0;
+	}
+
+	// Number of bots is max players - current players
+	// GetNumPlayers() does not follow const-correctness
+	const auto CurrentNumberOfPlayers = const_cast<ALobbyGameMode*>(this)->GetNumPlayers();
+
+	const auto LobbyGameState = GetGameState<APaperGolfLobbyGameState>();
+	if (!LobbyGameState)
+	{
+		// Already logged this as error elsewhere
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: GGetNumBots - 0 - GameState=%s is not APaperGolfLobbyGameState"), *GetName(), *LoggingUtils::GetName(GameState));
+		return 0;
+	}
+
+	return FMath::Max(0, LobbyGameState->GetMaxPlayers() - CurrentNumberOfPlayers);
 }
 
 void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
