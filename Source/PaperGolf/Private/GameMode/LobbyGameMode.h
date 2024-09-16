@@ -43,6 +43,9 @@ public:
 	UFUNCTION(BlueprintPure)
 	bool CanStartMatch() const;
 
+protected:
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
 private:
 	FString GetPathForMap(const TSoftObjectPtr<UWorld>& World) const;
 	FString GetPathForGameMode(const TSoftClassPtr<APaperGolfGameModeBase>& GameMode) const;

@@ -9,6 +9,7 @@
 #include "VisualLogger/VisualLogger.h"
 #include "Logging/LoggingUtils.h"
 #include "PaperGolfLogging.h"
+#include "Utils/VisualLoggerUtils.h"
 
 #include "Utils/ObjectUtils.h"
 
@@ -23,6 +24,8 @@
 
 void ALobbyGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
+	PG::VisualLoggerUtils::StartAutomaticRecording(this);
+
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: InitGame - %s"), *GetName(), *MapName);
 
 	Super::InitGame(MapName, Options, ErrorMessage);
@@ -34,6 +37,15 @@ void ALobbyGameMode::InitGame(const FString& MapName, const FString& Options, FS
 	ValidateGameModes();
 #endif
 
+}
+
+void ALobbyGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: EndPlay - EndPlayReason=%s"), *GetName(), *UEnum::GetValueAsString(EndPlayReason));
+
+	Super::EndPlay(EndPlayReason);
+
+	PG::VisualLoggerUtils::StopAutomaticRecording(this);
 }
 
 void ALobbyGameMode::InitGameState()
