@@ -27,6 +27,14 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void Hide();
 
+	virtual FVector2D ModifyProjectedLocalPosition(const FGeometry& ViewportGeometry, const FVector2D& LocalPosition) override;
+
 protected:
+
+	virtual void BeginPlay() override;
+
 	virtual void InitializeComponent() override;
+
+private:
+	FString GetPlayerIndicatorString(const AGolfPlayerState& Player) const;
 };

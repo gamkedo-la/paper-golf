@@ -41,7 +41,7 @@ void UPlayerIndicatorComponent::SetVisibleForPlayer(AGolfPlayerState* Player)
 
 	if (auto TextWidget = GetUserWidgetObject(); TextWidget)
 	{
-		const auto Text = FText::FromString(Player->GetPlayerName());
+		const auto Text = FText::FromString(GetPlayerIndicatorString(*Player));
 
 		ITextDisplayingWidget::Execute_SetText(TextWidget, Text);
 	}
@@ -51,6 +51,18 @@ void UPlayerIndicatorComponent::SetVisibleForPlayer(AGolfPlayerState* Player)
 	}
 
 	SetVisibility(true);
+}
+
+FString UPlayerIndicatorComponent::GetPlayerIndicatorString(const AGolfPlayerState& Player) const
+{
+	const auto CurrentHoleShots = Player.GetShots();
+
+	if (CurrentHoleShots > 1)
+	{
+		return FString::Printf(TEXT("%s - Stroke %d"), *Player.GetPlayerName(), CurrentHoleShots);
+	}
+
+	return Player.GetPlayerName();
 }
 
 void UPlayerIndicatorComponent::Hide()
@@ -65,6 +77,17 @@ void UPlayerIndicatorComponent::Hide()
 	SetVisibility(false);
 }
 
+void UPlayerIndicatorComponent::BeginPlay()
+{
+	UE_VLOG_UELOG(GetOwner(), LogPGUI, Log, TEXT("%s-%s: BeginPlay"), *LoggingUtils::GetName(GetOwner()), *GetName());
+
+	Super::BeginPlay();
+
+	// Always render on top
+	SetRenderCustomDepth(true);
+	SetCustomDepthStencilValue(1);
+}
+
 void UPlayerIndicatorComponent::InitializeComponent()
 {
 	UE_VLOG_UELOG(GetOwner(), LogPGUI, Log, TEXT("%s-%s: InitializeComponent"), *LoggingUtils::GetName(GetOwner()), *GetName());
@@ -73,4 +96,11 @@ void UPlayerIndicatorComponent::InitializeComponent()
 
 	SetVisibility(false);
 	SetIsReplicated(true);
+}
+
+FVector2D UPlayerIndicatorComponent::ModifyProjectedLocalPosition(const FGeometry& ViewportGeometry, const FVector2D& LocalPosition)
+{
+	// TODO: Make sure the position is always on screen
+	// Cannot actually do that with this function as it is only called if the screen projection would render the position - see SWorldWidgetScreenLayer::Tick
+	return Super::ModifyProjectedLocalPosition(ViewportGeometry, LocalPosition);
 }
