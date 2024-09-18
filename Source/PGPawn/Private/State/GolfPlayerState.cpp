@@ -42,6 +42,15 @@ int32 AGolfPlayerState::GetTotalShots() const
 	return Total;
 }
 
+void AGolfPlayerState::AddShot()
+{
+	++Shots;
+	// Broadcast immediately on the server
+	OnHoleShotsUpdated.Broadcast(*this);
+
+	ForceNetUpdate();
+}
+
 void AGolfPlayerState::FinishHole()
 {
 	ScoreByHole.Add(Shots);
@@ -56,6 +65,10 @@ void AGolfPlayerState::StartHole()
 {
 	Shots = 0;
 	bScored = false;
+
+	// Broadcast immediately on the server
+	OnHoleShotsUpdated.Broadcast(*this);
+
 	ForceNetUpdate();
 }
 
@@ -83,10 +96,23 @@ bool AGolfPlayerState::CompareByScore(const AGolfPlayerState& Other) const
 		   std::make_tuple(Other.GetTotalShots(), Other.IsABot(), Other.GetPlayerName());
 }
 
+bool AGolfPlayerState::CompareByCurrentHoleShots(const AGolfPlayerState& Other) const
+{
+	// Sort bots last
+	return std::make_tuple(GetShots(), IsABot(), GetPlayerName()) <
+		std::make_tuple(Other.GetShots(), Other.IsABot(), Other.GetPlayerName());
+}
+
 void AGolfPlayerState::OnRep_ScoreByHole()
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_ScoreByHole - ScoreByHole=%s"), *GetName(), *PG::ToString(ScoreByHole));
 	OnTotalShotsUpdated.Broadcast(*this);
+}
+
+void AGolfPlayerState::OnRep_Shots()
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_Shots - Shots=%d"), *GetName(), Shots);
+	OnHoleShotsUpdated.Broadcast(*this);
 }
 
 #pragma region Visual Logger

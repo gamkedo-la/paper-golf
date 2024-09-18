@@ -55,6 +55,9 @@ void UPlayerIndicatorComponent::SetVisibleForPlayer(AGolfPlayerState* Player)
 
 FString UPlayerIndicatorComponent::GetPlayerIndicatorString(const AGolfPlayerState& Player) const
 {
+	// TODO: It's possible taht the updated shots haven't replicated yet and this could be a stale value
+	// Fix for this is to add a listener for the Player stat shots updated event and then update the text if we are visible and if not visible, remove the listener
+	// AGolfPlayerState::OnHoleShotsUpdated.AddUObject(this, &UPlayerIndicatorComponent::OnHoleShotsUpdated);
 	const auto CurrentHoleShots = Player.GetShots();
 
 	if (CurrentHoleShots > 1)

@@ -57,6 +57,11 @@ void APaperGolfGameStateBase::AddPlayerState(APlayerState* PlayerState)
 		{
 			GolfPlayerState->OnTotalShotsUpdated.AddUObject(this, &APaperGolfGameStateBase::OnTotalShotsUpdated);
 		}
+
+		if (!GolfPlayerState->OnHoleShotsUpdated.IsBoundToObject(this))
+		{
+			GolfPlayerState->OnHoleShotsUpdated.AddUObject(this, &APaperGolfGameStateBase::OnCurrentHoleShotsUpdated);
+		}
 	}
 }
 
@@ -66,14 +71,15 @@ void APaperGolfGameStateBase::RemovePlayerState(APlayerState* PlayerState)
 
 	if (auto GolfPlayerState = Cast<AGolfPlayerState>(PlayerState); GolfPlayerState)
 	{
-		// Remove sync listener
+		// Remove sync listeners
 		GolfPlayerState->OnTotalShotsUpdated.RemoveAll(this);
+		GolfPlayerState->OnHoleShotsUpdated.RemoveAll(this);
 	}
 
 	Super::RemovePlayerState(PlayerState);
 }
 
-TArray<AGolfPlayerState*> APaperGolfGameStateBase::GetSortedPlayerStatesByScore() const
+TArray<AGolfPlayerState*> APaperGolfGameStateBase::GetActiveGolfPlayerStates() const
 {
 	TArray<AGolfPlayerState*> GolfPlayerStates;
 	GolfPlayerStates.Reserve(PlayerArray.Num());
@@ -86,9 +92,28 @@ TArray<AGolfPlayerState*> APaperGolfGameStateBase::GetSortedPlayerStatesByScore(
 		}
 	}
 
+	return GolfPlayerStates;
+}
+
+TArray<AGolfPlayerState*> APaperGolfGameStateBase::GetSortedPlayerStatesByScore() const
+{
+	TArray<AGolfPlayerState*> GolfPlayerStates = GetActiveGolfPlayerStates();
+
 	GolfPlayerStates.StableSort([](const AGolfPlayerState& A, const AGolfPlayerState& B)
 	{
 		return A.CompareByScore(B);
+	});
+
+	return GolfPlayerStates;
+}
+
+TArray<AGolfPlayerState*> APaperGolfGameStateBase::GetSortedPlayerStatesByCurrentHoleScore() const
+{
+	TArray<AGolfPlayerState*> GolfPlayerStates = GetActiveGolfPlayerStates();
+
+	GolfPlayerStates.StableSort([](const AGolfPlayerState& A, const AGolfPlayerState& B)
+	{
+		return A.CompareByCurrentHoleShots(B);
 	});
 
 	return GolfPlayerStates;
@@ -147,6 +172,13 @@ void APaperGolfGameStateBase::OnTotalShotsUpdated(AGolfPlayerState& PlayerState)
 	UpdatedPlayerStates.AddUnique(&PlayerState);
 
 	CheckScoreSyncState();
+}
+
+void APaperGolfGameStateBase::OnCurrentHoleShotsUpdated(AGolfPlayerState& PlayerState)
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnCurrentHoleShotsUpdated - PlayerState=%s"), *GetName(), *PlayerState.GetName());
+
+	OnPlayerShotsUpdated.Broadcast(*this, PlayerState);
 }
 
 void APaperGolfGameStateBase::CheckScoreSyncState()

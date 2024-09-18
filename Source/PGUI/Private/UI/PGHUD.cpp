@@ -90,6 +90,8 @@ void APGHUD::SpectatePlayer_Implementation(APaperGolfPawn* PlayerPawn, AGolfPlay
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log,
 		TEXT("%s: SpectatePlayer: PlayerPawn=%s; InPlayerState=%s"), *GetName(), *LoggingUtils::GetName(PlayerPawn), *LoggingUtils::GetName<APlayerState>(InPlayerState));
 
+	ActivePlayer = InPlayerState;
+
 	if (ShouldShowActiveTurnWidgets())
 	{
 		if (!InPlayerState)
@@ -106,6 +108,11 @@ void APGHUD::SpectatePlayer_Implementation(APaperGolfPawn* PlayerPawn, AGolfPlay
 void APGHUD::BeginTurn_Implementation()
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: BeginTurn"), *GetName());
+
+	if (auto PC = GetOwningPlayerController(); PC)
+	{
+		ActivePlayer = PC->GetPlayerState<AGolfPlayerState>();
+	}
 
 	if (ShouldShowActiveTurnWidgets())
 	{
@@ -412,6 +419,7 @@ void APGHUD::Init()
 		if (auto GolfGameState = World->GetGameState<APaperGolfGameStateBase>(); ensure(GolfGameState))
 		{
 			GolfGameState->OnScoresSynced.AddUObject(this, &ThisClass::OnScoresSynced);
+			GolfGameState->OnPlayerShotsUpdated.AddUObject(this, &ThisClass::OnCurrentHoleScoreUpdate);
 		}
 
 		if (auto GolfEventsSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventsSubsystem))
@@ -444,6 +452,35 @@ void APGHUD::OnScoresSynced(APaperGolfGameStateBase& GameState)
 	PlayWinSoundIfApplicable();
 }
 
+void APGHUD::OnCurrentHoleScoreUpdate(APaperGolfGameStateBase& GameState, const AGolfPlayerState& PlayerState)
+{
+	// Don't update the scores if a 0 comes in as this would mean that the next hole is starting but we haven't received the event yet
+	// We dismiss the current scores HUD on next hole event
+	// We actually will not show the shots until the first second shot comes in
+	if (PlayerState.GetShots() == 0)
+	{
+		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnCurrentHoleScoreUpdate: PlayerState=%s - FALSE - Player has 0 shots"),
+			*GetName(), *LoggingUtils::GetName<APlayerState>(PlayerState));
+		return;
+	}
+
+	auto GolfPlayerScores = GameState.GetSortedPlayerStatesByCurrentHoleScore();
+
+	const bool bAllPlayersOneShot = !GolfPlayerScores.ContainsByPredicate([](const AGolfPlayerState* Player) { return !Player || Player->GetShots() == 0; }) &&
+		GolfPlayerScores.ContainsByPredicate([](const AGolfPlayerState* Player) { return Player->GetShots() > 1; });
+
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnCurrentHoleScoreUpdate: PlayerState=%s - %s - Based on all player conditions"),
+		*GetName(), *LoggingUtils::GetName<APlayerState>(PlayerState), LoggingUtils::GetBoolString(bAllPlayersOneShot));
+
+	if (bAllPlayersOneShot)
+	{
+		// remove active turn player since it shows the stroke on the HUD
+		GolfPlayerScores.Remove(ActivePlayer);
+
+		ShowCurrentHoleScoresHUD(GolfPlayerScores);
+	}
+}
+
 void APGHUD::OnPlayerScored(APaperGolfPawn* PaperGolfPawn)
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnPaperGolfPawnScored: %s"),
@@ -464,13 +501,19 @@ void APGHUD::OnCourseComplete()
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnCourseComplete"), *GetName());
 
 	bCourseComplete = true;
+	ActivePlayer = nullptr;
 
+	HideCurrentHoleScoresHUD();
 	PlayWinSoundIfApplicable();
 }
 
 void APGHUD::OnHoleComplete()
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnHoleComplete"), *GetName());
+
+	ActivePlayer = nullptr;
+
+	HideCurrentHoleScoresHUD();
 }
 
 #pragma endregion Event Handlers for HUD State

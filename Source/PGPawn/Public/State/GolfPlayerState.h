@@ -19,10 +19,12 @@ class PGPAWN_API AGolfPlayerState : public APlayerState, public IVisualLoggerDeb
 public:
 
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnTotalShotsUpdated, AGolfPlayerState& /*PlayerState*/);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnHoleShotsUpdated, AGolfPlayerState& /*PlayerState*/);
 
 	AGolfPlayerState();
 
 	FOnTotalShotsUpdated OnTotalShotsUpdated{};
+	FOnHoleShotsUpdated OnHoleShotsUpdated{};
 	
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
 
@@ -30,12 +32,8 @@ public:
 	virtual void GrabDebugSnapshot(FVisualLogEntry* Snapshot) const override;
 #endif
 
-	UFUNCTION(BlueprintCallable)
-	void AddShot() 
-	{
-		++Shots;
-		ForceNetUpdate();
-	}
+	UFUNCTION(BlueprintCallable, meta = (BlueprintAuthorityOnly) )
+	void AddShot();
 
 	UFUNCTION(BlueprintPure)
 	int32 GetShots() const { return Shots; }
@@ -57,7 +55,7 @@ public:
 	UFUNCTION(BlueprintPure)
 	virtual int32 GetDisplayScore() const;
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, meta = (BlueprintAuthorityOnly))
 	void SetReadyForShot(bool bReady)
 	{ 
 		bReadyForShot = bReady;
@@ -67,10 +65,10 @@ public:
 	UFUNCTION(BlueprintPure)
 	bool IsReadyForShot() const { return bReadyForShot; }
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, meta = (BlueprintAuthorityOnly))
 	virtual void FinishHole();
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, meta = (BlueprintAuthorityOnly))
 	void StartHole();
 
 	virtual void CopyProperties(APlayerState* PlayerState) override;
@@ -93,6 +91,8 @@ public:
 
 	virtual bool CompareByScore(const AGolfPlayerState& Other) const;
 
+	bool CompareByCurrentHoleShots(const AGolfPlayerState& Other) const;
+
 	UFUNCTION(BlueprintPure)
 	FLinearColor GetPlayerColor() const;
 
@@ -106,6 +106,9 @@ private:
 	UFUNCTION()
 	void OnRep_ScoreByHole();
 
+	UFUNCTION()
+	void OnRep_Shots();
+
 protected:
 
 	// TODO: Cannot implement GetScoreByHole since this is assuming always start at hole 1 at index 0 and that might not be case
@@ -115,7 +118,7 @@ protected:
 
 private:
 
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing = OnRep_Shots)
 	uint8 Shots{};
 
 	UPROPERTY(Replicated)

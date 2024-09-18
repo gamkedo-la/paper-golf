@@ -23,11 +23,13 @@ public:
 
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnHoleChanged, int32 /*Current Hole Number*/);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnScoresSynced, APaperGolfGameStateBase& /*GameState*/);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPlayerShotsUpdated, APaperGolfGameStateBase& /*GameState*/, const AGolfPlayerState& /*PlayerState*/);
 
 	FOnHoleChanged OnHoleChanged{};
 	FOnScoresSynced OnScoresSynced{};
+	FOnPlayerShotsUpdated OnPlayerShotsUpdated{};
 
-	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 #if ENABLE_VISUAL_LOG
 	virtual void GrabDebugSnapshot(FVisualLogEntry* Snapshot) const override;
@@ -50,7 +52,13 @@ public:
 	virtual void RemovePlayerState(APlayerState* PlayerState) override;
 
 	UFUNCTION(BlueprintPure)
+	TArray<AGolfPlayerState*> GetActiveGolfPlayerStates() const;
+
+	UFUNCTION(BlueprintPure)
 	TArray<AGolfPlayerState*> GetSortedPlayerStatesByScore() const;
+
+	UFUNCTION(BlueprintPure)
+	TArray<AGolfPlayerState*> GetSortedPlayerStatesByCurrentHoleScore() const;
 	
 	virtual bool IsHoleComplete() const;
 
@@ -77,6 +85,7 @@ private:
 	void OnRep_CurrentHoleNumber();
 
 	void OnTotalShotsUpdated(AGolfPlayerState& PlayerState);
+	void OnCurrentHoleShotsUpdated(AGolfPlayerState& PlayerState);
 
 	void SubscribeToGolfEvents();
 
@@ -94,7 +103,7 @@ private:
 
 private:
 
-	UPROPERTY(ReplicatedUsing = OnRep_CurrentHoleNumber)
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_CurrentHoleNumber)
 	int32 CurrentHoleNumber{};
 
 	UPROPERTY(Transient, Replicated)

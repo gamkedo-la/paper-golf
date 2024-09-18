@@ -70,12 +70,19 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent)
 	void ShowScoresHUD(const TArray<AGolfPlayerState*>& PlayerStates);
 
+	UFUNCTION(BlueprintImplementableEvent)
+	void ShowCurrentHoleScoresHUD(const TArray<AGolfPlayerState*>& PlayerStates);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void HideCurrentHoleScoresHUD();
+
 private:
 	void DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& WidgetClass);
 
 	void Init();
 
 	void OnScoresSynced(APaperGolfGameStateBase& GameState);
+	void OnCurrentHoleScoreUpdate(APaperGolfGameStateBase& GameState, const AGolfPlayerState& PlayerState);
 
 	UFUNCTION()
 	void OnPlayerScored(APaperGolfPawn* PaperGolfPawn);
@@ -102,6 +109,11 @@ protected:
 
 	UPROPERTY(Transient, BlueprintReadWrite, Category = "UI")
 	TObjectPtr<UGolfUserWidget> GolfWidget{};
+
+	// Use this instead of the game state since there may be a replication delay
+	UPROPERTY(Transient, BlueprintReadOnly)
+	TObjectPtr<AGolfPlayerState> ActivePlayer{};
+
 
 private:
 	void LoadWidgetAsync(const TSoftClassPtr<UUserWidget>& WidgetClass, TFunction<void(UUserWidget&)> OnWidgetReady);
