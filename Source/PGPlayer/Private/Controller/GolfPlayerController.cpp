@@ -721,6 +721,8 @@ void AGolfPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: EndPlay - %s"), *GetName(), *LoggingUtils::GetName(EndPlayReason));
 
 	Super::EndPlay(EndPlayReason);
+
+	UnregisterHoleFlybyComplete();
 }
 
 void AGolfPlayerController::Init()
@@ -729,7 +731,11 @@ void AGolfPlayerController::Init()
 	bCanFlick = false;
 
 	InitFromConsoleVariables();
+	RegisterEvents();
+}
 
+void AGolfPlayerController::RegisterEvents()
+{
 	if (auto World = GetWorld(); ensure(World))
 	{
 		if (auto GolfEventsSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventsSubsystem))
@@ -945,7 +951,8 @@ void AGolfPlayerController::TriggerHoleFlyby(const AGolfHole& GolfHole)
 		// TODO: Currently the logic for playing the sequence is in the HUD but need a way of receiving an event when the sequence is done. Only way to do this is is through an interface acting as a callback
 		if (auto HUD = GetHUD<APGHUD>(); ensure(HUD))
 		{
-			HUD->PlayHoleFlybySequence(HoleFlybyObject, this);
+			RegisterHoleFlybyComplete();
+			HUD->PlayHoleFlybySequence(HoleFlybyObject);
 		}
 		else
 		{
@@ -1162,15 +1169,9 @@ bool AGolfPlayerController::ShouldEnableInputForActivateTurn() const
 
 bool AGolfPlayerController::IsHoleFlybySeen() const
 {
-	auto GameInstance = GetGameInstance();
-	if (!ensure(GameInstance))
-	{
-		return false;
-	}
+	auto TutorialTrackingSubsystem = GetTutorialTrackingSubsystem();
 
-	auto TutorialTrackingSubsystem = GameInstance->GetSubsystem<UTutorialTrackingSubsystem>();
-
-	if (!ensure(TutorialTrackingSubsystem))
+	if (!TutorialTrackingSubsystem)
 	{
 		return true;
 	}
@@ -1192,15 +1193,9 @@ bool AGolfPlayerController::IsHoleFlybySeen() const
 
 void AGolfPlayerController::MarkHoleFlybySeen()
 {
-	auto GameInstance = GetGameInstance();
-	if (!ensure(GameInstance))
-	{
-		return;
-	}
+	auto TutorialTrackingSubsystem = GetTutorialTrackingSubsystem();
 
-	auto TutorialTrackingSubsystem = GameInstance->GetSubsystem<UTutorialTrackingSubsystem>();
-
-	if (!ensure(TutorialTrackingSubsystem))
+	if (!TutorialTrackingSubsystem)
 	{
 		return;
 	}
@@ -1466,9 +1461,44 @@ void AGolfPlayerController::SnapCameraBackToPlayer()
 	SetViewTarget(PlayerPawn);
 }
 
-void AGolfPlayerController::ExecuteCallback()
+void AGolfPlayerController::RegisterHoleFlybyComplete()
 {
-	OnHoleFlybySequenceComplete();
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: RegisterHoleFlybyComplete"), *GetName());
+
+	auto TutorialTrackingSubsystem = GetTutorialTrackingSubsystem();
+	if (!TutorialTrackingSubsystem)
+	{
+		return;
+	}
+
+	TutorialTrackingSubsystem->OnHoleFlybyComplete.AddUniqueDynamic(this, &ThisClass::OnHoleFlybySequenceComplete);
+}
+
+void AGolfPlayerController::UnregisterHoleFlybyComplete()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: UnregisterHoleFlybyComplete"), *GetName());
+
+	auto TutorialTrackingSubsystem = GetTutorialTrackingSubsystem();
+	if (!TutorialTrackingSubsystem)
+	{
+		return;
+	}
+
+	TutorialTrackingSubsystem->OnHoleFlybyComplete.RemoveAll(this);
+}
+
+UTutorialTrackingSubsystem* AGolfPlayerController::GetTutorialTrackingSubsystem() const
+{
+	auto GameInstance = GetGameInstance();
+	if (!ensure(GameInstance))
+	{
+		return nullptr;
+	}
+
+	auto TutorialTrackingSubsystem = GameInstance->GetSubsystem<UTutorialTrackingSubsystem>();
+	ensure(TutorialTrackingSubsystem);
+
+	return TutorialTrackingSubsystem;
 }
 
 void AGolfPlayerController::SetSpectatorPawn(ASpectatorPawn* NewSpectatorPawn)

@@ -6,6 +6,10 @@
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "TutorialTrackingSubsystem.generated.h"
 
+/* Callback for when the hole fly by is complete or canceled.
+   Should be bound to the triggering code and then executed from blueprints where the flyby is executed */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnHoleFlybyComplete);
+
 /**
  * 
  */
@@ -18,6 +22,13 @@ class PGUI_API UTutorialTrackingSubsystem : public UGameInstanceSubsystem
 	
 
 public:
+	
+	UPROPERTY(BlueprintAssignable, BlueprintCallable)
+	FOnHoleFlybyComplete OnHoleFlybyComplete{};
+
+	UFUNCTION(BlueprintPure)
+	bool IsOnHoleFlybyCompleteBound() const;
+
 	UFUNCTION(BlueprintPure)
 	bool IsHoleFlybySeen(int32 HoleNumber) const;
 
@@ -72,6 +83,11 @@ FORCEINLINE void UTutorialTrackingSubsystem::MarkHoleFlybySeen(int32 HoleNumber,
 	}
 
 	HoleFlybySeen[HoleNumber - 1] = bSeen;
+}
+
+FORCEINLINE bool UTutorialTrackingSubsystem::IsOnHoleFlybyCompleteBound() const
+{
+	return OnHoleFlybyComplete.IsBound();
 }
 
 #pragma endregion Inline Definitions

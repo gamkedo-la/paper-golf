@@ -14,7 +14,6 @@ class APaperGolfPawn;
 class AGolfPlayerState;
 class ITextDisplayingWidget;
 class USoundBase;
-class INativeCallback;
 class ULevelSequence;
 
 UENUM(BlueprintType)
@@ -64,8 +63,9 @@ public:
 	UFUNCTION(BlueprintNativeEvent, Category = UI)
 	void BeginSpectatorShot(APaperGolfPawn* PlayerPawn, AGolfPlayerState* InPlayerState);
 
+	/* Plays the hole flyby. To be notified when it is completed or canceled bind to the UTutorialTrackingSystem::OnHoleFlybyComplete delegate */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category = "Cinematics")
-	void PlayHoleFlybySequence(ULevelSequence* LevelSequence, const TScriptInterface<INativeCallback>& NativeCallback);
+	void PlayHoleFlybySequence(ULevelSequence* LevelSequence);
 
 protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "UI")

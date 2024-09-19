@@ -10,8 +10,6 @@
 
 #include "Interfaces/GolfController.h"
 
-#include "Interfaces/NativeCallback.h"
-
 #include "VisualLogger/VisualLoggerDebugSnapshotInterface.h"
 
 #include "GolfPlayerController.generated.h"
@@ -23,12 +21,13 @@ class UShotArcPreviewComponent;
 class UGolfControllerCommonComponent;
 class APaperGolfGameStateBase;
 class IPawnCameraLook;
+class UTutorialTrackingSubsystem;
 
 /**
  * 
  */
 UCLASS()
-class PGPLAYER_API AGolfPlayerController : public ABasePlayerController, public IGolfController, public INativeCallback
+class PGPLAYER_API AGolfPlayerController : public ABasePlayerController, public IGolfController
 {
 	GENERATED_BODY()
 
@@ -167,7 +166,7 @@ private:
 	void ResetFlickZ();
 
 	void Init();
-
+	void RegisterEvents();
 	void InitFromConsoleVariables();
 
 	void ResetShotAfterOutOfBounds();
@@ -260,6 +259,11 @@ private:
 
 	void SnapCameraBackToPlayer();
 
+	void RegisterHoleFlybyComplete();
+	void UnregisterHoleFlybyComplete();
+
+	UTutorialTrackingSubsystem* GetTutorialTrackingSubsystem() const;
+
 private:
 
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
@@ -346,11 +350,6 @@ private:
 	bool bOutOfBounds{};
 
 	bool bSpectatorFlicked{};
-
-
-	// Inherited via INativeCallback
-	void ExecuteCallback() override;
-
 };
 
 #pragma region Inline Definitions
