@@ -442,8 +442,7 @@ bool AGolfPlayerController::IsSpectatingShotSetup() const
 
 bool AGolfPlayerController::IsInCinematicSequence() const
 {
-	// TODO: Add hole fly by to this once that is implemented
-	return CameraIntroductionInProgress();
+	return CameraIntroductionInProgress() || HoleflyInProgress();
 }
 
 void AGolfPlayerController::ResetCameraRotation()
@@ -948,10 +947,10 @@ void AGolfPlayerController::TriggerHoleFlyby(const AGolfHole& GolfHole)
 			return;
 		}
 
-		// TODO: Currently the logic for playing the sequence is in the HUD but need a way of receiving an event when the sequence is done. Only way to do this is is through an interface acting as a callback
 		if (auto HUD = GetHUD<APGHUD>(); ensure(HUD))
 		{
 			RegisterHoleFlybyComplete();
+			PreTurnState = EPlayerPreTurnState::HoleFlybyPlaying;
 			HUD->PlayHoleFlybySequence(HoleFlybyObject);
 		}
 		else
@@ -968,6 +967,8 @@ void AGolfPlayerController::OnHoleFlybySequenceComplete()
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnHoleFlybySequenceComplete"), *GetName());
 
 	MarkHoleFlybySeen();
+
+	// This will transition PreTurnState out of HoleFlybyPlaying
 	TriggerPlayerCameraIntroduction();
 }
 

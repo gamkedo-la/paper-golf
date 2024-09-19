@@ -148,6 +148,7 @@ private:
 	enum class EPlayerPreTurnState : uint8
 	{
 		None,
+		HoleFlybyPlaying,
 		CameraIntroductionRequested,
 		CameraIntroductionPlaying
 	};
@@ -244,6 +245,7 @@ private:
 	void MarkFirstPlayerTurnReady();
 
 	bool CameraIntroductionInProgress() const;
+	bool HoleflyInProgress() const;
 
 	void OnHandleSpectatorShot(AGolfPlayerState* InPlayerState, APaperGolfPawn* InPawn);
 
@@ -357,6 +359,11 @@ private:
 FORCEINLINE bool AGolfPlayerController::CameraIntroductionInProgress() const
 {
 	return PreTurnState == EPlayerPreTurnState::CameraIntroductionRequested || PreTurnState == EPlayerPreTurnState::CameraIntroductionPlaying;
+}
+
+FORCEINLINE bool AGolfPlayerController::HoleflyInProgress() const
+{
+	return PreTurnState == EPlayerPreTurnState::HoleFlybyPlaying;
 }
 
 FORCEINLINE bool AGolfPlayerController::IsReadyForShot() const
