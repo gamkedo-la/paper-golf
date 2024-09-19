@@ -15,6 +15,7 @@ public class PGPlayer : ModuleRules
 		var modulePublicDependencyModuleNames = new string[]
 		{
 			"PGPawn",
+            "PGCore",
         };
 
 		var enginePublicDependencyModuleNames = new string[] 
@@ -32,7 +33,6 @@ public class PGPlayer : ModuleRules
 		// Private dependencies do not create transitive header dependencies.
 		var modulePrivateDependencyModuleNames = new string[]
 		{
-			"PGCore",
 			"PGGameplay",
 			"PGUI",
 		};
@@ -40,6 +40,7 @@ public class PGPlayer : ModuleRules
 		var enginePrivateDependencyModuleNames = new string[] 
 		{
             "UMG",
+            "LevelSequence",
         };
 
 		PrivateDependencyModuleNames.AddRange(enginePrivateDependencyModuleNames);

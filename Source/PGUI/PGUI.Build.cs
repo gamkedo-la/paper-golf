@@ -7,7 +7,7 @@ public class PGUI : ModuleRules
 	public PGUI(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
-	
+
 		///////////////////////// Public dependency modules //////////////////////////////////////////////
 		// These are modules that have at least one header included in a header file in our public folder.
 		// This creates a transitive dependency for header includes, but users of this module still need to specify
@@ -15,15 +15,15 @@ public class PGUI : ModuleRules
 		var modulePublicDependencyModuleNames = new string[]
 		{
 			"PGPawn",
-        };
+		};
 
-		var enginePublicDependencyModuleNames = new string[] 
-		{ 
+		var enginePublicDependencyModuleNames = new string[]
+		{
 			"Core",
 			"CoreUObject",
 			"Engine",
-            "UMG",
-        };
+			"UMG",
+		};
 
 		PublicDependencyModuleNames.AddRange(enginePublicDependencyModuleNames);
 		PublicDependencyModuleNames.AddRange(modulePublicDependencyModuleNames);
@@ -34,14 +34,15 @@ public class PGUI : ModuleRules
 		var modulePrivateDependencyModuleNames = new string[]
 		{
 			"PGCore",
-		};
+        };
 
 		var enginePrivateDependencyModuleNames = new string[] 
 		{
 			"Slate",
 			"SlateCore",
             "InputCore",
-		};
+            "LevelSequence"
+        };
 
 		PrivateDependencyModuleNames.AddRange(enginePrivateDependencyModuleNames);
 		PrivateDependencyModuleNames.AddRange(modulePrivateDependencyModuleNames);

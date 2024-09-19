@@ -33,7 +33,6 @@ void APGHUD::ShowHUD()
 	OnToggleHUDVisibility(bShowHUD);
 }
 
-
 void APGHUD::BeginPlay()
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: BeginPlay"), *GetName());

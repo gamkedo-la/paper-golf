@@ -10,6 +10,8 @@
 
 #include "Interfaces/GolfController.h"
 
+#include "Interfaces/NativeCallback.h"
+
 #include "VisualLogger/VisualLoggerDebugSnapshotInterface.h"
 
 #include "GolfPlayerController.generated.h"
@@ -26,7 +28,7 @@ class IPawnCameraLook;
  * 
  */
 UCLASS()
-class PGPLAYER_API AGolfPlayerController : public ABasePlayerController, public IGolfController
+class PGPLAYER_API AGolfPlayerController : public ABasePlayerController, public IGolfController, public INativeCallback
 {
 	GENERATED_BODY()
 
@@ -236,6 +238,7 @@ private:
 
 	bool IsHoleFlybySeen() const;
 	void MarkHoleFlybySeen();
+	void TriggerHoleFlyby(const AGolfHole& GolfHole);
 	void TriggerPlayerCameraIntroduction();
 	void DoPlayerCameraIntroduction();
 	void SpectateCurrentGolfHole();
@@ -250,6 +253,8 @@ private:
 
 	UFUNCTION()
 	void OnSpectatedPawnDestroyed(AActor* InPawn);
+
+	void OnHoleFlybySequenceComplete();
 
 	IPawnCameraLook* GetPawnCameraLook() const;
 
@@ -341,6 +346,10 @@ private:
 	bool bOutOfBounds{};
 
 	bool bSpectatorFlicked{};
+
+
+	// Inherited via INativeCallback
+	void ExecuteCallback() override;
 
 };
 

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
+
 #include "PGHUD.generated.h"
 
 class UUserWidget;
@@ -13,6 +14,8 @@ class APaperGolfPawn;
 class AGolfPlayerState;
 class ITextDisplayingWidget;
 class USoundBase;
+class INativeCallback;
+class ULevelSequence;
 
 UENUM(BlueprintType)
 enum class EMessageWidgetType : uint8
@@ -60,6 +63,9 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent, Category = UI)
 	void BeginSpectatorShot(APaperGolfPawn* PlayerPawn, AGolfPlayerState* InPlayerState);
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category = "Cinematics")
+	void PlayHoleFlybySequence(ULevelSequence* LevelSequence, const TScriptInterface<INativeCallback>& NativeCallback);
 
 protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "UI")

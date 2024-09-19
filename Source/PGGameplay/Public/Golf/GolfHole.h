@@ -13,6 +13,7 @@
 class APaperGolfPawn;
 class APaperGolfGameStateBase;
 class UOverlapConditionComponent;
+class ULevelSequence;
 
 UENUM(BlueprintType)
 enum class EGolfHoleState : uint8
@@ -46,6 +47,9 @@ public:
 	virtual void PostInitializeComponents() override;
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
+
+	UFUNCTION(BlueprintPure, Category = "Cinematics")
+	const TSoftObjectPtr<ULevelSequence>& GetHoleFlybySequence() const;
 
 protected:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
@@ -98,7 +102,8 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRep_GolfHoleState)
 	EGolfHoleState GolfHoleState{};
 
-	// TODO: Will hold reference to cinematic sequence to play for the hole when player starts the hole
+	UPROPERTY(EditAnywhere, Category = "Cinematics")
+	TSoftObjectPtr<ULevelSequence> HoleFlybySequence{};
 };
 
 #pragma region Inline Definitions
@@ -108,6 +113,11 @@ FORCEINLINE int32 AGolfHole::GetHoleNumber_Implementation() const
 	ensureAlwaysMsgf(HoleNumber > 0, TEXT("%s: HoleNumber is not set"), *GetName());
 
 	return HoleNumber;
+}
+
+FORCEINLINE const TSoftObjectPtr<ULevelSequence>& AGolfHole::GetHoleFlybySequence() const
+{
+	return HoleFlybySequence;
 }
 
 #pragma endregion Inline Definitions

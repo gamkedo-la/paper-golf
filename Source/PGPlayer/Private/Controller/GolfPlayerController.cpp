@@ -20,6 +20,7 @@
 #include "VisualLogger/VisualLogger.h"
 
 #include "Utils/StringUtils.h"
+#include "Utils/ObjectUtils.h"
 
 #include "UI/PGHUD.h"
 #include "UI/Widget/GolfUserWidget.h"
@@ -41,6 +42,9 @@
 #include "Debug/PGConsoleVars.h"
 
 #include "Net/UnrealNetwork.h"
+
+#include "LevelSequence.h"
+
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GolfPlayerController)
 
@@ -893,10 +897,7 @@ void AGolfPlayerController::TriggerHoleFlybyAndPlayerCameraIntroduction()
 		const auto GolfHole = AGolfHole::GetCurrentHole(this);
 		if (ensure(GolfHole))
 		{
-			// TODO: Trigger the hole flyby sequence on the GolfHole and then 
-			// have a callback for when it completes to trigger the player introduction
-			MarkHoleFlybySeen();
-			TriggerPlayerCameraIntroduction();
+			TriggerHoleFlyby(*GolfHole);
 		}
 		else
 		{
@@ -910,6 +911,57 @@ void AGolfPlayerController::TriggerHoleFlybyAndPlayerCameraIntroduction()
 	{
 		TriggerPlayerCameraIntroduction();
 	}
+}
+
+void AGolfPlayerController::TriggerHoleFlyby(const AGolfHole& GolfHole)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: TriggerHoleFlyby: GolfHole=%s"), *GetName(), *GolfHole.GetName());
+
+	check(IsLocalController());
+
+	const auto& HoleFlybySoftReference = GolfHole.GetHoleFlybySequence();
+	if (HoleFlybySoftReference.IsNull())
+	{
+		// TODO: Upgrade to warning once we have this fully implemented
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: TriggerHoleFlyby - HoleFlybySequence isn't set for GolfHole=%s - skipping"), *GetName(), *GolfHole.GetName());
+		OnHoleFlybySequenceComplete();
+		return;
+	}
+
+	PG::ObjectUtils::LoadObjectAsync<ULevelSequence>(HoleFlybySoftReference, [this, WeakSelf = TWeakObjectPtr<AGolfPlayerController>(this)](ULevelSequence* HoleFlybyObject)
+	{
+		if (!WeakSelf.IsValid())
+		{
+			return;
+		}
+
+		if (!HoleFlybyObject)
+		{
+			UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s: TriggerHoleFlyby - HoleFlybyObject is NULL"), *GetName());
+			OnHoleFlybySequenceComplete();
+			return;
+		}
+
+		// TODO: Currently the logic for playing the sequence is in the HUD but need a way of receiving an event when the sequence is done. Only way to do this is is through an interface acting as a callback
+		if (auto HUD = GetHUD<APGHUD>(); ensure(HUD))
+		{
+			HUD->PlayHoleFlybySequence(HoleFlybyObject, this);
+		}
+		else
+		{
+			UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s: TriggerHoleFlyby - HUD is NULL"), *GetName());
+			OnHoleFlybySequenceComplete();
+		}
+	});
+}
+
+
+void AGolfPlayerController::OnHoleFlybySequenceComplete()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnHoleFlybySequenceComplete"), *GetName());
+
+	MarkHoleFlybySeen();
+	TriggerPlayerCameraIntroduction();
 }
 
 void AGolfPlayerController::OnHoleComplete()
@@ -1412,6 +1464,11 @@ void AGolfPlayerController::SnapCameraBackToPlayer()
 	// Need to toggle off and back on in order to force transition if in camera introduction since it will only cancel the blend if the target switches
 	SetViewTarget(nullptr);
 	SetViewTarget(PlayerPawn);
+}
+
+void AGolfPlayerController::ExecuteCallback()
+{
+	OnHoleFlybySequenceComplete();
 }
 
 void AGolfPlayerController::SetSpectatorPawn(ASpectatorPawn* NewSpectatorPawn)

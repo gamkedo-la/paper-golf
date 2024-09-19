@@ -37,7 +37,8 @@ public class PGGameplay : ModuleRules
 
 		var enginePrivateDependencyModuleNames = new string[] 
 		{
-		};
+			"LevelSequence",
+        };
 
 		PrivateDependencyModuleNames.AddRange(enginePrivateDependencyModuleNames);
 		PrivateDependencyModuleNames.AddRange(modulePrivateDependencyModuleNames);
