@@ -114,6 +114,10 @@ protected:
 	UPROPERTY(Transient, BlueprintReadOnly)
 	TObjectPtr<AGolfPlayerState> ActivePlayer{};
 
+	/* Hide the score of the active player in the top-left scores HUD at the start of the turn. */
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	bool bHideActivePlayerHoleScore{};
+
 
 private:
 	void LoadWidgetAsync(const TSoftClassPtr<UUserWidget>& WidgetClass, TFunction<void(UUserWidget&)> OnWidgetReady);

@@ -508,8 +508,11 @@ void APGHUD::CheckNotifyHoleShotsUpdate(const APaperGolfGameStateBase& GameState
 
 	if (bAllPlayersOneShot)
 	{
-		// remove active turn player since it shows the stroke on the HUD
-		GolfPlayerScores.Remove(ActivePlayer);
+		if (bHideActivePlayerHoleScore)
+		{
+			// remove active turn player since it shows the stroke on the HUD
+			GolfPlayerScores.Remove(ActivePlayer);
+		}
 
 		ShowCurrentHoleScoresHUD(GolfPlayerScores);
 	}
