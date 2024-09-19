@@ -499,6 +499,14 @@ void APGHUD::CheckNotifyHoleShotsUpdate(const APaperGolfGameStateBase& GameState
 
 	auto GolfPlayerScores = GameState.GetSortedPlayerStatesByCurrentHoleScore();
 
+	// Don't show if only 1 player
+	if (GolfPlayerScores.Num() < 2)
+	{
+		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: CheckNotifyHoleShotsUpdate - %s - Not enough players to show scores"),
+			*GetName(), *LoggingUtils::GetName<APlayerState>(GolfPlayerScores[0]));
+		return;
+	}
+
 	const bool bAllPlayersOneShot = !GolfPlayerScores.ContainsByPredicate([](const AGolfPlayerState* Player) { return !Player || Player->GetShots() == 0; }) &&
 		GolfPlayerScores.ContainsByPredicate([](const AGolfPlayerState* Player) { return Player->GetShots() > 1; });
 

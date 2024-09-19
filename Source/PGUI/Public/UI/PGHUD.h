@@ -106,6 +106,20 @@ private:
 
 	bool ShouldShowActiveTurnWidgets() const;
 
+	void LoadWidgetAsync(const TSoftClassPtr<UUserWidget>& WidgetClass, TFunction<void(UUserWidget&)> OnWidgetReady);
+
+	using WidgetMemberPtr = TObjectPtr<UUserWidget> ThisClass::*;
+
+	void DisplayTurnWidget(const TSoftClassPtr<UUserWidget>& WidgetClass, WidgetMemberPtr WidgetToDisplay, const FText& Message);
+
+	void PlaySound2D(const TSoftObjectPtr<USoundBase>& Sound);
+
+	void PlayWinSoundIfApplicable();
+
+	void CheckNotifyHoleShotsUpdate(const APaperGolfGameStateBase& GameState);
+
+	APaperGolfGameStateBase* GetGameState() const;
+
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config")
 	TSubclassOf<UGolfUserWidget> GolfWidgetClass{};
@@ -124,21 +138,6 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	bool bHideActivePlayerHoleScore{};
 
-
-private:
-	void LoadWidgetAsync(const TSoftClassPtr<UUserWidget>& WidgetClass, TFunction<void(UUserWidget&)> OnWidgetReady);
-
-	using WidgetMemberPtr = TObjectPtr<UUserWidget> ThisClass::*;
-
-	void DisplayTurnWidget(const TSoftClassPtr<UUserWidget>& WidgetClass, WidgetMemberPtr WidgetToDisplay, const FText& Message);
-
-	void PlaySound2D(const TSoftObjectPtr<USoundBase>& Sound);
-
-	void PlayWinSoundIfApplicable();
-
-	void CheckNotifyHoleShotsUpdate(const APaperGolfGameStateBase& GameState);
-
-	APaperGolfGameStateBase* GetGameState() const;
 
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
