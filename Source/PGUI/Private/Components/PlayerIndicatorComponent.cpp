@@ -31,41 +31,58 @@ UPlayerIndicatorComponent::UPlayerIndicatorComponent()
 
 void UPlayerIndicatorComponent::SetVisibleForPlayer(AGolfPlayerState* Player)
 {
+	VisiblePlayer = Player;
+
 	if (!ensureMsgf(Player, TEXT("%s-%s: SetVisibleForPlayer: Player is NULL"), *LoggingUtils::GetName(GetOwner()), *GetName()))
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPGUI, Error, TEXT("%s-%s: SetVisibleForPlayer: Player is NULL"), *LoggingUtils::GetName(GetOwner()), *GetName());
 		return;
 	}
 
+	// Add listener for when strokes are updated
+	if (bShowStrokeCounts)
+	{
+		Player->OnHoleShotsUpdated.AddUObject(this, &UPlayerIndicatorComponent::OnHoleShotsUpdated);
+	}
+
 	UE_VLOG_UELOG(GetOwner(), LogPGUI, Log, TEXT("%s-%s: SetVisibleForPlayer - Player=%s"), *LoggingUtils::GetName(GetOwner()), *GetName(), *Player->GetPlayerName());
 
+	UpdatePlayerIndicatorText(*Player);
+
+	SetVisibility(true);
+}
+
+void UPlayerIndicatorComponent::UpdatePlayerIndicatorText(const AGolfPlayerState& Player)
+{
 	if (auto TextWidget = GetUserWidgetObject(); TextWidget)
 	{
-		const auto Text = FText::FromString(GetPlayerIndicatorString(*Player));
+		const auto Text = FText::FromString(GetPlayerIndicatorString(Player));
 
 		ITextDisplayingWidget::Execute_SetText(TextWidget, Text);
 	}
 	else
 	{
-		UE_VLOG_UELOG(GetOwner(), LogPGUI, Error, TEXT("%s-%s: SetVisibleForPlayer: Player=%s Widget is NULL"), *LoggingUtils::GetName(GetOwner()), *GetName(), *Player->GetPlayerName());
+		UE_VLOG_UELOG(GetOwner(), LogPGUI, Error, TEXT("%s-%s: UpdatePlayerIndicatorText: Player=%s Widget is NULL"), *LoggingUtils::GetName(GetOwner()), *GetName(), *Player.GetPlayerName());
 	}
-
-	SetVisibility(true);
 }
 
 FString UPlayerIndicatorComponent::GetPlayerIndicatorString(const AGolfPlayerState& Player) const
 {
-	// TODO: It's possible taht the updated shots haven't replicated yet and this could be a stale value
-	// Fix for this is to add a listener for the Player stat shots updated event and then update the text if we are visible and if not visible, remove the listener
-	// AGolfPlayerState::OnHoleShotsUpdated.AddUObject(this, &UPlayerIndicatorComponent::OnHoleShotsUpdated);
 	const auto CurrentHoleShots = Player.GetShots();
 
-	if (CurrentHoleShots > 1)
+	if (bShowStrokeCounts && CurrentHoleShots >= MinStrokesToShow)
 	{
 		return FString::Printf(TEXT("%s - Stroke %d"), *Player.GetPlayerName(), CurrentHoleShots);
 	}
 
 	return Player.GetPlayerName();
+}
+
+void UPlayerIndicatorComponent::OnHoleShotsUpdated(AGolfPlayerState& Player)
+{
+	UE_VLOG_UELOG(GetOwner(), LogPGUI, Log, TEXT("%s-%s: OnHoleShotsUpdated - Player=%s"), *LoggingUtils::GetName(GetOwner()), *GetName(), *Player.GetPlayerName());
+
+	UpdatePlayerIndicatorText(Player);
 }
 
 void UPlayerIndicatorComponent::Hide()
@@ -77,12 +94,20 @@ void UPlayerIndicatorComponent::Hide()
 		ITextDisplayingWidget::Execute_SetText(TextWidget, {});
 	}
 
+	if (auto Player = VisiblePlayer.Get(); bShowStrokeCounts && Player)
+	{
+		Player->OnHoleShotsUpdated.RemoveAll(this);
+	}
+
+	VisiblePlayer.Reset();
+
 	SetVisibility(false);
 }
 
 void UPlayerIndicatorComponent::BeginPlay()
 {
-	UE_VLOG_UELOG(GetOwner(), LogPGUI, Log, TEXT("%s-%s: BeginPlay"), *LoggingUtils::GetName(GetOwner()), *GetName());
+	UE_VLOG_UELOG(GetOwner(), LogPGUI, Log, TEXT("%s-%s: BeginPlay - bShowStrokeCounts=%s; MinStrokesToShow=%d"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), LoggingUtils::GetBoolString(bShowStrokeCounts), MinStrokesToShow);
 
 	Super::BeginPlay();
 
@@ -99,11 +124,4 @@ void UPlayerIndicatorComponent::InitializeComponent()
 
 	SetVisibility(false);
 	SetIsReplicated(true);
-}
-
-FVector2D UPlayerIndicatorComponent::ModifyProjectedLocalPosition(const FGeometry& ViewportGeometry, const FVector2D& LocalPosition)
-{
-	// TODO: Make sure the position is always on screen
-	// Cannot actually do that with this function as it is only called if the screen projection would render the position - see SWorldWidgetScreenLayer::Tick
-	return Super::ModifyProjectedLocalPosition(ViewportGeometry, LocalPosition);
 }

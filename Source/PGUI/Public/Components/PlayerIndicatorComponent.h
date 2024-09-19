@@ -27,8 +27,6 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void Hide();
 
-	virtual FVector2D ModifyProjectedLocalPosition(const FGeometry& ViewportGeometry, const FVector2D& LocalPosition) override;
-
 protected:
 
 	virtual void BeginPlay() override;
@@ -36,5 +34,19 @@ protected:
 	virtual void InitializeComponent() override;
 
 private:
+
+	void UpdatePlayerIndicatorText(const AGolfPlayerState& Player);
+
 	FString GetPlayerIndicatorString(const AGolfPlayerState& Player) const;
+
+	void OnHoleShotsUpdated(AGolfPlayerState& Player);
+
+private:
+	TWeakObjectPtr<AGolfPlayerState> VisiblePlayer{};
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	bool bShowStrokeCounts{};
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	int32 MinStrokesToShow{ 2 };
 };

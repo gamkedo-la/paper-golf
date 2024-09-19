@@ -92,6 +92,11 @@ void APGHUD::SpectatePlayer_Implementation(APaperGolfPawn* PlayerPawn, AGolfPlay
 
 	ActivePlayer = InPlayerState;
 
+	if (auto GolfGameState = GetGameState(); GolfGameState)
+	{
+		CheckNotifyHoleShotsUpdate(*GolfGameState);
+	}
+
 	if (ShouldShowActiveTurnWidgets())
 	{
 		if (!InPlayerState)
@@ -112,6 +117,10 @@ void APGHUD::BeginTurn_Implementation()
 	if (auto PC = GetOwningPlayerController(); PC)
 	{
 		ActivePlayer = PC->GetPlayerState<AGolfPlayerState>();
+		if (auto GolfGameState = GetGameState(); GolfGameState)
+		{
+			CheckNotifyHoleShotsUpdate(*GolfGameState);
+		}
 	}
 
 	if (ShouldShowActiveTurnWidgets())
@@ -147,20 +156,28 @@ void APGHUD::BeginSpectatorShot_Implementation(APaperGolfPawn* PlayerPawn, AGolf
 
 bool APGHUD::ShouldShowActiveTurnWidgets() const
 {
+	// Don't show for single player
+
+	if (auto GolfGameState = GetGameState(); GolfGameState)
+	{
+		return GolfGameState->PlayerArray.Num() > 1;
+	}
+
+	return false;
+}
+
+APaperGolfGameStateBase* APGHUD::GetGameState() const
+{
 	auto World = GetWorld();
 	if (!ensure(World))
 	{
-		return false;
+		return nullptr;
 	}
 
 	auto GolfGameState = World->GetGameState<APaperGolfGameStateBase>();
-	if (!ensure(GolfGameState))
-	{
-		return false;
-	}
+	ensure(GolfGameState);
 
-	// Don't show for single player
-	return GolfGameState->PlayerArray.Num() > 1;
+	return GolfGameState;
 }
 
 void APGHUD::DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& WidgetClass)
@@ -459,8 +476,25 @@ void APGHUD::OnCurrentHoleScoreUpdate(APaperGolfGameStateBase& GameState, const 
 	// We actually will not show the shots until the first second shot comes in
 	if (PlayerState.GetShots() == 0)
 	{
-		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnCurrentHoleScoreUpdate: PlayerState=%s - FALSE - Player has 0 shots"),
+		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnCurrentHoleScoreUpdate: PlayerState=%s - Player has 0 shots"),
 			*GetName(), *LoggingUtils::GetName<APlayerState>(PlayerState));
+		return;
+	}
+
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnCurrentHoleScoreUpdate: PlayerState=%s - Shots=%d"),
+		*GetName(), *LoggingUtils::GetName<APlayerState>(PlayerState), PlayerState.GetShots());
+
+	bShotUpdatesReceived = true;
+
+	CheckNotifyHoleShotsUpdate(GameState);
+}
+
+void APGHUD::CheckNotifyHoleShotsUpdate(const APaperGolfGameStateBase& GameState)
+{
+	if (!bShotUpdatesReceived)
+	{
+		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: CheckNotifyHoleShotsUpdate: bShotUpdatesReceived=%s - FALSE - No shots received yet"),
+			*GetName(), LoggingUtils::GetBoolString(bShotUpdatesReceived));
 		return;
 	}
 
@@ -469,8 +503,8 @@ void APGHUD::OnCurrentHoleScoreUpdate(APaperGolfGameStateBase& GameState, const 
 	const bool bAllPlayersOneShot = !GolfPlayerScores.ContainsByPredicate([](const AGolfPlayerState* Player) { return !Player || Player->GetShots() == 0; }) &&
 		GolfPlayerScores.ContainsByPredicate([](const AGolfPlayerState* Player) { return Player->GetShots() > 1; });
 
-	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnCurrentHoleScoreUpdate: PlayerState=%s - %s - Based on all player conditions"),
-		*GetName(), *LoggingUtils::GetName<APlayerState>(PlayerState), LoggingUtils::GetBoolString(bAllPlayersOneShot));
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: CheckNotifyHoleShotsUpdate - %s - Based on all player conditions"),
+		*GetName(), LoggingUtils::GetBoolString(bAllPlayersOneShot));
 
 	if (bAllPlayersOneShot)
 	{
@@ -502,6 +536,7 @@ void APGHUD::OnCourseComplete()
 
 	bCourseComplete = true;
 	ActivePlayer = nullptr;
+	bShotUpdatesReceived = false;
 
 	HideCurrentHoleScoresHUD();
 	PlayWinSoundIfApplicable();
@@ -512,6 +547,7 @@ void APGHUD::OnHoleComplete()
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnHoleComplete"), *GetName());
 
 	ActivePlayer = nullptr;
+	bShotUpdatesReceived = false;
 
 	HideCurrentHoleScoresHUD();
 }

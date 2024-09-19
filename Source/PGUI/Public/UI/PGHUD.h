@@ -126,6 +126,10 @@ private:
 
 	void PlayWinSoundIfApplicable();
 
+	void CheckNotifyHoleShotsUpdate(const APaperGolfGameStateBase& GameState);
+
+	APaperGolfGameStateBase* GetGameState() const;
+
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	TSoftClassPtr<UUserWidget> OutOfBoundsWidgetClass{};
@@ -168,6 +172,7 @@ private:
 
 	bool bScoresSynced{};
 	bool bCourseComplete{};
+	bool bShotUpdatesReceived{};
 };
 
 #pragma region Inline Definitions
