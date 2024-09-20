@@ -951,7 +951,7 @@ void AGolfPlayerController::TriggerHoleFlyby(const AGolfHole& GolfHole)
 		{
 			RegisterHoleFlybyComplete();
 			PreTurnState = EPlayerPreTurnState::HoleFlybyPlaying;
-			HUD->PlayHoleFlybySequence(HoleFlybyObject);
+			HUD->PlayHoleFlybySequence(HoleFlybyObject, false);
 		}
 		else
 		{
@@ -964,6 +964,12 @@ void AGolfPlayerController::TriggerHoleFlyby(const AGolfHole& GolfHole)
 
 void AGolfPlayerController::OnHoleFlybySequenceComplete()
 {
+	// This can get called multiple times if the sequence is skipped
+	if (PreTurnState != EPlayerPreTurnState::HoleFlybyPlaying)
+	{
+		return;
+	}
+
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnHoleFlybySequenceComplete"), *GetName());
 
 	MarkHoleFlybySeen();

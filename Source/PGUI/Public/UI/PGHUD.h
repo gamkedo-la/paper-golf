@@ -65,7 +65,7 @@ public:
 
 	/* Plays the hole flyby. To be notified when it is completed or canceled bind to the UTutorialTrackingSystem::OnHoleFlybyComplete delegate */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category = "Cinematics")
-	void PlayHoleFlybySequence(ULevelSequence* LevelSequence);
+	void PlayHoleFlybySequence(ULevelSequence* LevelSequence, bool bFadeCamera = false);
 
 protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "UI")

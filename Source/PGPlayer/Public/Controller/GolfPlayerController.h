@@ -255,6 +255,7 @@ private:
 	UFUNCTION()
 	void OnSpectatedPawnDestroyed(AActor* InPawn);
 
+	UFUNCTION()
 	void OnHoleFlybySequenceComplete();
 
 	IPawnCameraLook* GetPawnCameraLook() const;
