@@ -1459,7 +1459,6 @@ void AGolfPlayerController::SkipHoleFlybyAndCameraIntroduction()
 
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SkipHoleFlybyAndCameraIntroduction"), *GetName());
 
-
 	MarkHoleFlybySeen();
 	GetWorldTimerManager().ClearTimer(CameraIntroductionStartTimerHandle);
 
