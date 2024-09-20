@@ -138,7 +138,7 @@ protected:
 	virtual void ClientReset_Implementation() override;
 
 	void TriggerHoleFlybyAndPlayerCameraIntroduction();
-
+    void OnCameraIntroductionComplete();
 
 	UFUNCTION(BlueprintCallable)
 	void SkipHoleFlybyAndCameraIntroduction();

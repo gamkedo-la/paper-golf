@@ -1014,7 +1014,7 @@ void AGolfPlayerController::TriggerPlayerCameraIntroduction()
 	if (!GolfPlayerStart)
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: TriggerPlayerCameraIntroduction - GolfPlayerStart is NULL - skipping"), *GetName());
-		MarkFirstPlayerTurnReady();
+        OnCameraIntroductionComplete();
 	}
 	else if(PlayerPawn)
 	{
@@ -1026,6 +1026,15 @@ void AGolfPlayerController::TriggerPlayerCameraIntroduction()
 		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: TriggerPlayerCameraIntroduction - PlayerPawn is NULL - waiting for SetPawn"), *GetName());
 		PreTurnState = EPlayerPreTurnState::CameraIntroductionRequested;
 	}
+}
+
+void AGolfPlayerController::OnCameraIntroductionComplete()
+{
+    UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnCameraIntroductionComplete"), *GetName());
+    
+    // TODO: Trigger hole fly by logic if re-ordering
+    // May refactor to a simple state machine
+    MarkFirstPlayerTurnReady();
 }
 
 void AGolfPlayerController::DoPlayerCameraIntroduction()
@@ -1047,7 +1056,7 @@ void AGolfPlayerController::DoPlayerCameraIntroduction()
 	SetViewTarget(GolfPlayerStart);
 	SetViewTargetWithBlend(PlayerPawn, PlayerCameraIntroductionTime, EViewTargetBlendFunction::VTBlend_EaseInOut, PlayerCameraIntroductionBlendExp, false);
 
-	GetWorldTimerManager().SetTimer(CameraIntroductionStartTimerHandle, this, &ThisClass::MarkFirstPlayerTurnReady, PlayerCameraIntroductionTime);
+	GetWorldTimerManager().SetTimer(CameraIntroductionStartTimerHandle, this, &ThisClass::OnCameraIntroductionComplete, PlayerCameraIntroductionTime);
 }
 
 void AGolfPlayerController::MarkFirstPlayerTurnReady()
