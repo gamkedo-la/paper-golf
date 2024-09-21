@@ -77,6 +77,12 @@ protected:
 	void ShowScoresHUD(const TArray<AGolfPlayerState*>& PlayerStates);
 
 	UFUNCTION(BlueprintImplementableEvent)
+	void HideScoresHUD();
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void ShowFinalResultsHUD(const TArray<AGolfPlayerState*>& PlayerStates);
+
+	UFUNCTION(BlueprintImplementableEvent)
 	void ShowCurrentHoleScoresHUD(const TArray<AGolfPlayerState*>& PlayerStates);
 
 	UFUNCTION(BlueprintImplementableEvent)
@@ -117,8 +123,11 @@ private:
 	void PlayWinSoundIfApplicable();
 
 	void CheckNotifyHoleShotsUpdate(const APaperGolfGameStateBase& GameState);
+	bool CheckShowFinalResults(const APaperGolfGameStateBase* GameState);
 
 	APaperGolfGameStateBase* GetGameState() const;
+
+	bool FinalResultsAreDetermined() const;
 
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config")

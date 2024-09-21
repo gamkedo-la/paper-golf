@@ -349,9 +349,14 @@ void APGHUD::PlaySound2D(const TSoftObjectPtr<USoundBase>& Sound)
 	});
 }
 
+bool APGHUD::FinalResultsAreDetermined() const
+{
+	return bScoresSynced && bCourseComplete;
+}
+
 void APGHUD::PlayWinSoundIfApplicable()
 {
-	const auto bShouldCheckPlaySound = bScoresSynced && bCourseComplete;
+	const auto bShouldCheckPlaySound = FinalResultsAreDetermined();
 
 	auto PC = GetOwningPlayerController();
 	if (!ensure(PC))
@@ -463,8 +468,12 @@ void APGHUD::OnScoresSynced(APaperGolfGameStateBase& GameState)
 	// We may just want to use the combo of scores synced and then course complete, next hole (previous hole finished) to determine how to display the results
 	// Start Hole could be used to trigger the hole flyby and maybe show the updated player rankings from last hole
 
-	const auto& GolfPlayerScores = GameState.GetSortedPlayerStatesByScore();
-	ShowScoresHUD(GolfPlayerScores);
+	if(!CheckShowFinalResults(&GameState))
+	{
+		const auto& GolfPlayerScores = GameState.GetSortedPlayerStatesByScore();
+		ShowScoresHUD(GolfPlayerScores);
+	}
+
 	PlayWinSoundIfApplicable();
 }
 
@@ -525,6 +534,32 @@ void APGHUD::CheckNotifyHoleShotsUpdate(const APaperGolfGameStateBase& GameState
 	}
 }
 
+bool APGHUD::CheckShowFinalResults(const APaperGolfGameStateBase* GameState)
+{
+	if (!ensure(GameState))
+	{
+		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Error, TEXT("%s: CheckShowFinalResults - FALSE - GameState is NULL"), *GetName());
+		return false;
+	}
+
+	const bool bShowFinalResults = FinalResultsAreDetermined();
+
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: CheckShowFinalResults - %s"),
+		*GetName(), LoggingUtils::GetBoolString(bShowFinalResults));
+
+	if (!bShowFinalResults)
+	{
+		return false;
+	}
+
+	RemoveActiveMessageWidget();
+	HideCurrentHoleScoresHUD();
+	HideScoresHUD();
+	ShowFinalResultsHUD(GameState->GetSortedPlayerStatesByScore());
+
+	return true;
+}
+
 void APGHUD::OnPlayerScored(APaperGolfPawn* PaperGolfPawn)
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnPaperGolfPawnScored: %s"),
@@ -548,7 +583,11 @@ void APGHUD::OnCourseComplete()
 	ActivePlayer = nullptr;
 	bShotUpdatesReceived = false;
 
-	HideCurrentHoleScoresHUD();
+	if (!CheckShowFinalResults(GetGameState()))
+	{
+		HideCurrentHoleScoresHUD();
+	}
+
 	PlayWinSoundIfApplicable();
 }
 
