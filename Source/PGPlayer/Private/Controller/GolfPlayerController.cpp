@@ -813,6 +813,11 @@ void AGolfPlayerController::SetPawn(APawn* InPawn)
 		{
 			DoPlayerCameraIntroduction();
 		}
+		else if (!PlayerStart || PreTurnState == EPlayerPreTurnState::HoleFlybyPlaying)
+		{
+			// Hide until flyby complete on client
+			PaperGolfPawn->SetActorHiddenInGameNoRep(true);
+		}
 
 		// Need to do this on clients as pawn will come in potentially aftert he client RPC for activate turn
 		if (!HasAuthority() && bTurnActivationRequested)
@@ -875,6 +880,12 @@ void AGolfPlayerController::StartHole()
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: StartHole"), *GetName());
 
+	// Hide until after the hole fly by has been played or skipped on the server
+	if (IsLocalController() && PlayerPawn)
+	{
+		PlayerPawn->SetActorHiddenInGameNoRep(true);
+	}
+
 	ClientStartHole(PlayerStart);
 }
 
@@ -924,6 +935,10 @@ void AGolfPlayerController::TriggerHoleFlyby(const AGolfHole& GolfHole)
 
 	check(IsLocalController());
 
+	// Set for state change detection
+	// it will be set to next state  in OnHoleFlybySequenceComplete
+	PreTurnState = EPlayerPreTurnState::HoleFlybyPlaying;
+
 	const auto& HoleFlybySoftReference = GolfHole.GetHoleFlybySequence();
 	if (HoleFlybySoftReference.IsNull())
 	{
@@ -950,7 +965,6 @@ void AGolfPlayerController::TriggerHoleFlyby(const AGolfHole& GolfHole)
 		if (auto HUD = GetHUD<APGHUD>(); ensure(HUD))
 		{
 			RegisterHoleFlybyComplete();
-			PreTurnState = EPlayerPreTurnState::HoleFlybyPlaying;
 			HUD->PlayHoleFlybySequence(HoleFlybyObject, false);
 		}
 		else
@@ -964,18 +978,22 @@ void AGolfPlayerController::TriggerHoleFlyby(const AGolfHole& GolfHole)
 
 void AGolfPlayerController::OnHoleFlybySequenceComplete()
 {
-	// This can get called multiple times if the sequence is skipped
-	if (PreTurnState != EPlayerPreTurnState::HoleFlybyPlaying)
-	{
-		return;
-	}
-
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnHoleFlybySequenceComplete"), *GetName());
+
+	// Make player pawn visible
+	if (PlayerPawn)
+	{
+		PlayerPawn->SetActorHiddenInGameNoRep(false);
+	}
 
 	MarkHoleFlybySeen();
 
 	// This will transition PreTurnState out of HoleFlybyPlaying
-	TriggerPlayerCameraIntroduction();
+	// This can get called multiple times if the sequence is skipped
+	if (PreTurnState == EPlayerPreTurnState::HoleFlybyPlaying)
+	{
+		TriggerPlayerCameraIntroduction();
+	}
 }
 
 void AGolfPlayerController::OnHoleComplete()

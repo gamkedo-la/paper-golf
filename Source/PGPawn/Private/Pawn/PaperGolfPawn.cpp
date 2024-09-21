@@ -293,6 +293,17 @@ void APaperGolfPawn::ResetRotation()
 	ResetCameraForShotSetup();
 }
 
+void APaperGolfPawn::SetActorHiddenInGameNoRep(bool bInHidden)
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: SetActorHiddenInGameNoRep - bInHidden=%s"), *GetName(), LoggingUtils::GetBoolString(bInHidden));
+
+	if (_PaperGolfMesh)
+	{
+		//SceneComponent SetHiddenInGame does not replicate
+		_PaperGolfMesh->SetHiddenInGame(bInHidden);
+	}
+}
+
 FVector APaperGolfPawn::GetFlickDirection() const
 {
 	return GetActorRotation().Vector();

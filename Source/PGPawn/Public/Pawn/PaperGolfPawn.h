@@ -73,6 +73,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ResetRotation();
 
+	UFUNCTION(BlueprintCallable)
+	void SetActorHiddenInGameNoRep(bool bInHidden);
+
 	UFUNCTION(BlueprintPure)
 	FVector GetFlickDirection() const;
 
