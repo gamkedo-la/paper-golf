@@ -1552,6 +1552,11 @@ void AGolfPlayerController::SetSpectatorPawn(ASpectatorPawn* NewSpectatorPawn)
 
 #if ENABLE_VISUAL_LOG
 
+bool AGolfPlayerController::ShouldCaptureDebugSnapshot() const
+{
+	return bTurnActivated;
+}
+
 void AGolfPlayerController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 {
 	Super::GrabDebugSnapshot(Snapshot);

@@ -144,6 +144,10 @@ protected:
 	void SkipHoleFlybyAndCameraIntroduction();
 
 	virtual void SetSpectatorPawn(class ASpectatorPawn* NewSpectatorPawn) override;
+
+#if ENABLE_VISUAL_LOG
+	virtual bool ShouldCaptureDebugSnapshot() const override;
+#endif
 private:
 	enum class EPlayerPreTurnState : uint8
 	{

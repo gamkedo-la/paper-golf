@@ -611,6 +611,12 @@ void AGolfAIController::ReceivePlayerStart(AActor* PlayerStart)
 
 #pragma region Visual Logger
 #if ENABLE_VISUAL_LOG
+
+bool AGolfAIController::ShouldCaptureDebugSnapshot() const
+{
+	return bTurnActivated;
+}
+
 void AGolfAIController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 {
 	Super::GrabDebugSnapshot(Snapshot);
@@ -636,7 +642,10 @@ void AGolfAIController::InitDebugDraw()
 
 	FTimerDelegate DebugDrawDelegate = FTimerDelegate::CreateWeakLambda(this, [this]()
 	{
-		UE_VLOG(this, LogPGAI, Log, TEXT("Get Player State"));
+		if (ShouldCaptureDebugSnapshot())
+		{
+			UE_VLOG(this, LogPGAI, Log, TEXT("Get Player State"));
+		}
 	});
 
 	GetWorldTimerManager().SetTimer(VisualLoggerTimer, DebugDrawDelegate, 0.05f, true);

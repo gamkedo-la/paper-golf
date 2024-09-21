@@ -94,7 +94,10 @@ void ABasePlayerController::InitDebugDraw()
 
 	FTimerDelegate DebugDrawDelegate = FTimerDelegate::CreateWeakLambda(this, [this]()
 	{
-		UE_VLOG(this, LogPGPlayer, Log, TEXT("Get Player State"));
+		if (ShouldCaptureDebugSnapshot())
+		{
+			UE_VLOG(this, LogPGPlayer, Log, TEXT("Get Player State"));
+		}
 	});
 
 	GetWorldTimerManager().SetTimer(VisualLoggerTimer, DebugDrawDelegate, 0.05f, true);

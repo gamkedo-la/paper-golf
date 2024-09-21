@@ -115,6 +115,10 @@ private:
 	void InterpolateYawAnimation();
 	void InterpolatePitchAnimation();
 
+#if ENABLE_VISUAL_LOG
+	bool ShouldCaptureDebugSnapshot() const;
+#endif
+
 private:
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly)
 	TObjectPtr<UGolfControllerCommonComponent> GolfControllerCommonComponent{};
