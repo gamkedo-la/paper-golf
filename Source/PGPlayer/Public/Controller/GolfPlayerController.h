@@ -247,6 +247,7 @@ private:
 	void DoPlayerCameraIntroduction();
 	void SpectateCurrentGolfHole();
 	void MarkFirstPlayerTurnReady();
+	void ResetCoursePreviewTrackingState();
 
 	bool CameraIntroductionInProgress() const;
 	bool HoleflyInProgress() const;

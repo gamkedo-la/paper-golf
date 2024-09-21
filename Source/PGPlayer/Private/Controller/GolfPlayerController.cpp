@@ -84,6 +84,8 @@ void AGolfPlayerController::DoReset()
 
 	if (IsLocalController())
 	{
+		ResetCoursePreviewTrackingState();
+
 		if (auto HUD = GetHUD<APGHUD>(); ensure(HUD))
 		{
 			HUD->RemoveActiveMessageWidget();
@@ -702,6 +704,8 @@ void AGolfPlayerController::BeginPlay()
 
 	Super::BeginPlay();
 
+	ResetCoursePreviewTrackingState();
+
 	DoBeginPlay([this](auto& GolfSubsystem)
 	{
 		GolfSubsystem.OnPaperGolfPawnClippedThroughWorld.AddDynamic(this, &ThisClass::OnFellThroughFloor);
@@ -1087,6 +1091,21 @@ void AGolfPlayerController::MarkFirstPlayerTurnReady()
 		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: MarkFirstPlayerTurnReady - Setting input enabled"), *GetName());
 
 		SetInputEnabled(true);
+	}
+}
+
+void AGolfPlayerController::ResetCoursePreviewTrackingState()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ResetCoursePreviewTrackingState"), *GetName());
+
+	if (auto TutorialTrackingSubsystem = GetTutorialTrackingSubsystem(); TutorialTrackingSubsystem)
+	{
+		TutorialTrackingSubsystem->MarkAllHoleFlybysSeen(false);
 	}
 }
 
