@@ -117,6 +117,11 @@ private:
 	using WidgetMemberPtr = TObjectPtr<UUserWidget> ThisClass::*;
 
 	void DisplayTurnWidget(const TSoftClassPtr<UUserWidget>& WidgetClass, WidgetMemberPtr WidgetToDisplay, const FText& Message);
+	
+	void DisplayHoleFinishedMessage();
+	void RegisterHoleFinishedMessageRemoval();
+	void RemoveHoleFinishedMessage();
+	void UnregisterHoleFinishedMessageRemoval();
 
 	void PlaySound2D(const TSoftObjectPtr<USoundBase>& Sound);
 
@@ -156,6 +161,9 @@ private:
 	TSoftClassPtr<UUserWidget> HoleFinishedWidgetClass{};
 
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	float HoleFinishedMessageDuration{ 2.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	TSoftClassPtr<UUserWidget> TutorialWidgetClass{};
 
 	UPROPERTY(EditDefaultsOnly, Category = "Config", meta= (MustImplement = "/Script/PGUI.TextDisplayingWidget"))
@@ -187,6 +195,8 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Audio")
 	TSoftObjectPtr<USoundBase> WinSfx{};
+
+	FTimerHandle HoleFinishedMessageTimerHandle{};
 
 	bool bScoresSynced{};
 	bool bCourseComplete{};

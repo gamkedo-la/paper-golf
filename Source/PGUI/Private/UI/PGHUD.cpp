@@ -61,7 +61,7 @@ void APGHUD::DisplayMessageWidget(EMessageWidgetType MessageType)
 		DisplayMessageWidgetByClass(OutOfBoundsWidgetClass);
 		break;
 	case EMessageWidgetType::HoleFinished:
-		DisplayMessageWidgetByClass(HoleFinishedWidgetClass);
+		DisplayHoleFinishedMessage();
 		break;
 	case EMessageWidgetType::Tutorial:
 		DisplayMessageWidgetByClass(TutorialWidgetClass);
@@ -69,6 +69,48 @@ void APGHUD::DisplayMessageWidget(EMessageWidgetType MessageType)
 	default:
 		checkNoEntry();
 	}
+}
+
+void APGHUD::DisplayHoleFinishedMessage()
+{
+	DisplayMessageWidgetByClass(HoleFinishedWidgetClass);
+	RegisterHoleFinishedMessageRemoval();
+}
+
+void APGHUD::RegisterHoleFinishedMessageRemoval()
+{
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return;
+	}
+
+	World->GetTimerManager().SetTimer(HoleFinishedMessageTimerHandle, this, &ThisClass::RemoveHoleFinishedMessage, HoleFinishedMessageDuration);
+}
+
+void APGHUD::RemoveHoleFinishedMessage()
+{
+	// Make sure the active message widget is still the hole finished widget
+	// HoleFinishedWidgetClass will already be loaded and active if the hole finished message is displayed
+	if (!IsValid(ActiveMessageWidget) || ActiveMessageWidget->GetClass() != HoleFinishedWidgetClass.Get())
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: RemoveHoleFinishedMessage"), *GetName());
+
+	RemoveActiveMessageWidget();
+}
+
+void APGHUD::UnregisterHoleFinishedMessageRemoval()
+{
+	auto World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	World->GetTimerManager().ClearTimer(HoleFinishedMessageTimerHandle);
 }
 
 void APGHUD::RemoveActiveMessageWidget()
@@ -82,6 +124,8 @@ void APGHUD::RemoveActiveMessageWidget()
 
 	ActiveMessageWidget->RemoveFromParent();
 	ActiveMessageWidget = nullptr;
+
+	UnregisterHoleFinishedMessageRemoval();
 }
 
 void APGHUD::SpectatePlayer_Implementation(APaperGolfPawn* PlayerPawn, AGolfPlayerState* InPlayerState)
