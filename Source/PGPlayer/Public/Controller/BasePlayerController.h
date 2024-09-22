@@ -53,7 +53,7 @@ protected:
 	void BlueprintResumeGame();
 
 #if ENABLE_VISUAL_LOG
-	virtual bool ShouldCaptureDebugSnapshot() const { return true; }
+	virtual bool ShouldCaptureDebugSnapshot() const { return false; }
 #endif
 
 private:
