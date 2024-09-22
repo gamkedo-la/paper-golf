@@ -1443,7 +1443,8 @@ void AGolfPlayerController::OnHandleSpectatorShot(AGolfPlayerState* InPlayerStat
 	}
 	else
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnHandleSpectatorShot - SpectatorPawn=%s is not a AGolfShotSpectatorPawn"), *GetName(), *LoggingUtils::GetName(GetSpectatorPawn()));
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnHandleSpectatorShot - SpectatorPawn=%s is not a AGolfShotSpectatorPawn"), *GetName(),
+			*([this]() -> FString { return IsValid(GetSpectatorPawn()) ? LoggingUtils::GetName(GetSpectatorPawn()) : GetSpectatorPawn() ? TEXT("INVALID") : TEXT("NULL"); }()));
 	}
 
 	OnFlickSpectateShotHandle = InPawn->OnFlick.AddWeakLambda(this,
@@ -1493,6 +1494,14 @@ void AGolfPlayerController::SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState
 	}
 
 	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: Changing state to spectator"), *GetName());
+
+	const auto CurrentSpectatorPawn = GetSpectatorPawn();
+	if (CurrentSpectatorPawn && !IsValid(CurrentSpectatorPawn))
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SpectatePawn - SpectatorPawn is Invalid - recreating"), *GetName());
+		ChangeState(TEXT("Temp"));
+		ClientGotoState(TEXT("Temp"));
+	}
 
 	ChangeState(NAME_Spectating);
 	ClientGotoState(NAME_Spectating);
