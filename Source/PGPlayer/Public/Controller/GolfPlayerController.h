@@ -204,6 +204,7 @@ private:
 	void ClientSpectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState);
 
 	void DoActivateTurn();
+	void ShowActivateTurnHUD();
 
 	UFUNCTION(Server, Unreliable)
 	void ServerSetPaperGolfPawnRotation(const FRotator& InTotalRotation);

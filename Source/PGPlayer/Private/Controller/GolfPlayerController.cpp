@@ -1091,6 +1091,8 @@ void AGolfPlayerController::MarkFirstPlayerTurnReady()
 		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: MarkFirstPlayerTurnReady - Setting input enabled"), *GetName());
 
 		SetInputEnabled(true);
+
+		ShowActivateTurnHUD();
 	}
 }
 
@@ -1206,12 +1208,22 @@ void AGolfPlayerController::DoActivateTurn()
 
 	BlueprintActivateTurn();
 
-	if (IsLocalController())
+	if (!IsInCinematicSequence())
 	{
-		if (auto HUD = GetHUD<APGHUD>(); ensure(HUD))
-		{
-			HUD->BeginTurn();
-		}
+		ShowActivateTurnHUD();
+	}
+}
+
+void AGolfPlayerController::ShowActivateTurnHUD()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	if (auto HUD = GetHUD<APGHUD>(); ensure(HUD))
+	{
+		HUD->BeginTurn();
 	}
 }
 
