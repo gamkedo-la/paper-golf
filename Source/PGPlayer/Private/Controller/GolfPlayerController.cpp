@@ -1464,7 +1464,7 @@ void AGolfPlayerController::OnHandleSpectatorShot(AGolfPlayerState* InPlayerStat
 			OnFlickSpectateShotHandle.Reset();
 			if (InPawn.IsValid())
 			{
-				InPawn->OnFlick.Remove(OnFlickSpectateShotHandle);
+				InPawn->OnFlick.Remove(HandleToRemove);
 			}
 		});
 }
