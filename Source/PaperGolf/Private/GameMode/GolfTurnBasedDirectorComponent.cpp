@@ -94,6 +94,8 @@ void UGolfTurnBasedDirectorComponent::AddPlayer(AController* Player)
 		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Display, TEXT("%s: AddPlayer - Player=%s set to spectator only as game mode set to skip human players"), *GetName(), *LoggingUtils::GetName(Player));
 	}
 
+	// TODO: Need to mark player if they join in middle of hole since need to then join as a spectator until the next hole
+	// This will be handled in 114-account-for-late-joining
 	Players.AddUnique(GolfPlayer);
 }
 
@@ -120,17 +122,27 @@ void UGolfTurnBasedDirectorComponent::RemovePlayer(AController* Player)
 	
 	Players.Remove(GolfPlayer);
 
+	if (Players.IsEmpty())
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Display, TEXT("%s: RemovePlayer - No more players - exiting game"), *GetName());
+		// TODO: Exit game - maybe not necessary in listen server
+		return;
+	}
+
 	if (CurrentActivePlayer == GolfPlayer.GetInterface())
 	{
-		ActivePlayerIndex = INDEX_NONE;
+		// if the active player dropped then must select the next player that would have gone
+		DoNextTurn();
 	}
-	// Get new index after removal
+	// If there is an active player, then we need to update the index after removal of the other player
 	else if (CurrentActivePlayer)
 	{
 		ActivePlayerIndex = Players.IndexOfByKey(CurrentActivePlayer);
 	}
 	else
 	{
+		// If current active player is not defined then ActivePlayerIndex should always be INDEX_NONE
+		// as these should always be in sync
 		check(ActivePlayerIndex == INDEX_NONE);
 	}
 }
