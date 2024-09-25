@@ -50,7 +50,13 @@ float valueToAdd = 1;
 void AMovingObstacle::SetDistance()
 {
 	if (distance >= movementPath->GetSplineLength())
-		valueToAdd = -1;
+	{
+		if(!movementPath->IsClosedLoop())
+			valueToAdd = -1;
+		else
+			distance = 0;
+	}
+
 	if (distance <= 0)
 		valueToAdd = 1;
 
