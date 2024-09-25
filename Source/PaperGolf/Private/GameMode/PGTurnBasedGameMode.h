@@ -19,19 +19,21 @@ class APGTurnBasedGameMode : public APaperGolfGameModeBase
 public:
 	APGTurnBasedGameMode();
 
-	virtual void Logout(AController* Exiting) override;
 
 protected:
 
 	virtual void StartHole(int32 HoleNumber) override;
 
 	virtual void OnPlayerJoined(AController* NewPlayer) override;
+	virtual void OnPlayerLeft(AController* Exiting) override;
 
 	virtual void OnGameStart() override;
 
 	virtual void OnBotSpawnedIntoGame(AGolfAIController& AIController, int32 BotNumber) override;
 
 	virtual bool DelayStartWithTimer() const override;
+
+	virtual int32 GetNumberOfActivePlayers() const override;
 
 private:
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly)

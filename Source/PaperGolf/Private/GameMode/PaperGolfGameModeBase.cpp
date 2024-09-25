@@ -96,17 +96,34 @@ void APaperGolfGameModeBase::InitNumberOfPlayers(const FString& Options)
 	// fallback to defaults
 	if (DesiredNumberOfPlayers <= 0)
 	{
-		UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitNumberOfPlayers - Falling back to default number of players - DefaultDesiredNumberOfPlayers=%d"), *GetName(), DefaultDesiredNumberOfPlayers);
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitNumberOfPlayers - Falling back to default number of players - DefaultDesiredNumberOfPlayers=%d"),
+			*GetName(), DefaultDesiredNumberOfPlayers);
 		DesiredNumberOfPlayers = DefaultDesiredNumberOfPlayers;
 	}
 
 	if (DesiredNumberOfBotPlayers <= 0)
 	{
-		UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitNumberOfPlayers - Falling back to default number of bot players - DefaultMinDesiredNumberOfBotPlayers=%d"), *GetName(), DefaultMinDesiredNumberOfBotPlayers);
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitNumberOfPlayers - Falling back to default number of bot players - DefaultMinDesiredNumberOfBotPlayers=%d"),
+			*GetName(), DefaultMinDesiredNumberOfBotPlayers);
 		DesiredNumberOfBotPlayers = DefaultMinDesiredNumberOfBotPlayers;
 	}
 
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitNumberOfPlayers - DesiredNumberOfPlayers=%d; DesiredNumberOfBotPlayers=%d"), *GetName(), DesiredNumberOfPlayers, DesiredNumberOfBotPlayers);
+	const auto DesiredTotalPlayers = DesiredNumberOfPlayers + DesiredNumberOfBotPlayers;
+	
+	if (!ensureAlwaysMsgf(DesiredTotalPlayers >= MinNumberOfPlayers,
+		TEXT("%s: InitNumberOfPlayers - DesiredNumberOfPlayers=%d + DesiredNumberOfBotPlayers=%d < MinNumberOfPlayers=%d"),
+		*GetName(), DesiredNumberOfPlayers, DesiredNumberOfBotPlayers, MinNumberOfPlayers))
+	{
+		const auto AdditionalBotPlayers = MinNumberOfPlayers - DesiredTotalPlayers;
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Error,
+			TEXT("%s: InitNumberOfPlayers - DesiredNumberOfPlayers=%d + DesiredNumberOfBotPlayers=%d < MinNumberOfPlayers=%d - Adding %d additional bot player%s to hit the minimum"),
+			*GetName(), DesiredNumberOfPlayers, DesiredNumberOfBotPlayers, MinNumberOfPlayers, AdditionalBotPlayers, LoggingUtils::Pluralize(AdditionalBotPlayers)
+		);
+		DesiredNumberOfBotPlayers += AdditionalBotPlayers;
+	}
+
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitNumberOfPlayers - DesiredNumberOfPlayers=%d; DesiredNumberOfBotPlayers=%d; MinNumberOfPlayers=%d"),
+		*GetName(), DesiredNumberOfPlayers, DesiredNumberOfBotPlayers, MinNumberOfPlayers);
 }
 
 void APaperGolfGameModeBase::SetNumberOfPlayersFromOptions(const FString& Options)
@@ -193,6 +210,7 @@ void APaperGolfGameModeBase::OnPlayerJoined(AController* NewPlayer)
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnPlayerJoined - NewPlayer=%s"), *GetName(), *LoggingUtils::GetName(NewPlayer));
 
+	// TODO: 114-account-for-late-joining -> Any human player should replace a bot if at capacity
 	if (NewPlayer)
 	{
 		ConfigureJoinedPlayerState(*NewPlayer);
@@ -525,6 +543,21 @@ void APaperGolfGameModeBase::Logout(AController* Exiting)
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: Logout - Exiting=%s"), *GetName(), *LoggingUtils::GetName(Exiting));
 
 	Super::Logout(Exiting);
+
+	OnPlayerLeft(Exiting);
+
+	// TODO: 236-ai-bots-fill-in-players-that-drop-out-of-game-in-between-turns -> if bots are allowed, replace dropped player with a bot via ReplaceLeavingPlayerWithBot
+	// Bots are allowed will be a bool that will be read from the game mode options and true by default
+
+	// If fall below minum number of players, return to the main menu
+	if (GetNumberOfActivePlayers() < MinNumberOfPlayers)
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Log,
+			TEXT("%s: Logout - Returning to main menu as number of players=%d is less than minimum=%d"),
+			*GetName(), GetNumberOfActivePlayers(), MinNumberOfPlayers
+		);
+		ReturnToMainMenuHost();
+	}
 }
 
 void APaperGolfGameModeBase::HandleMatchIsWaitingToStart()
@@ -568,6 +601,43 @@ void APaperGolfGameModeBase::AbortMatch()
 	Super::AbortMatch();
 }
 
+AGolfAIController* APaperGolfGameModeBase::AddBot()
+{
+	if (GetNumberOfActivePlayers() >= DesiredNumberOfPlayers)
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Warning,
+			TEXT("%s: AddBot - NULL - NumberOfActivePlayers=%d already at desired number of players - DesiredNumberOfPlayers=%d"),
+			*GetName(), GetNumberOfActivePlayers(), DesiredNumberOfPlayers);
+		return nullptr;
+	}
+
+	// TODO: This needs to be revisited with player names
+	const auto CreatedBot = CreateBot(NumBots + 1);
+
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, 
+		TEXT("%s: AddBot - %s - NumPlayers=%d; DesiredNumberOfPlayers=%d"),
+		*GetName(), *LoggingUtils::GetName(CreatedBot), GetNumberOfActivePlayers() + (CreatedBot ? 1 : 0), DesiredNumberOfPlayers
+	);
+
+	return CreatedBot;
+}
+
+AGolfAIController* APaperGolfGameModeBase::ReplaceLeavingPlayerWithBot(AController* Player)
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: ReplaceLeavingPlayerWithBot - Player=%s"), *GetName(), *LoggingUtils::GetName(Player));
+
+	const auto CreatedBot = AddBot();
+	if (!CreatedBot)
+	{
+		return nullptr;
+	}
+
+	// TODO: 236-ai-bots-fill-in-players-that-drop-out-of-game-in-between-turns -> Copy player state and position data to the bot
+	// Bot should take over where the player left off in the game
+
+	return CreatedBot;
+}
+
 bool APaperGolfGameModeBase::SetDesiredNumberOfPlayersFromPIESettings()
 {
 #if WITH_EDITOR
@@ -604,13 +674,15 @@ void APaperGolfGameModeBase::CreateBots()
 	}
 }
 
-void APaperGolfGameModeBase::CreateBot(int32 BotNumber)
+// TODO: Replace generic "Bot 1", "Bot 2" with popular 90s names
+
+AGolfAIController* APaperGolfGameModeBase::CreateBot(int32 BotNumber)
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: CreateBot - BotNumber=%d"), *GetName(), BotNumber);
 
 	if(!ensureMsgf(AIControllerClass, TEXT("AIControllerClass is not set!")))
 	{
-		return;
+		return nullptr;
 	}
 
 	FActorSpawnParameters SpawnInfo;
@@ -624,12 +696,14 @@ void APaperGolfGameModeBase::CreateBot(int32 BotNumber)
 	if (!AIC)
 	{
 		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: CreateBot - BotNumber=%d - Failed to spawn AIController"), *GetName(), BotNumber);
-		return;
+		return nullptr;
 	}
 
 	InitBot(*AIC, BotNumber);
 
 	OnBotSpawnedIntoGame(*AIC, BotNumber);
+
+	return AIC;
 }
 
 void APaperGolfGameModeBase::InitBot(AGolfAIController& AIController, int32 BotNumber)

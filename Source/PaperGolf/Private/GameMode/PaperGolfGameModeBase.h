@@ -34,7 +34,7 @@ public:
 
 	virtual void GenericPlayerInitialization(AController* NewPlayer) override;
 
-	virtual void Logout(AController* Exiting) override;
+	virtual void Logout(AController* Exiting) override final;
 
 	virtual void StartMatch() override;
 	virtual void EndMatch() override;
@@ -59,6 +59,8 @@ public:
 	int32 GetTotalNumberOfPlayers() const;
 
 	virtual void Reset() override;
+
+	int32 GetMinimumNumberOfPlayers() const;
 
 protected:
 
@@ -112,12 +114,20 @@ protected:
 	virtual float DoAdditionalCourseComplete() { return CourseCompleteActionDelayTimeSeconds; }
 
 	virtual void OnPlayerJoined(AController* NewPlayer);
+	virtual void OnPlayerLeft(AController* LeavingPlayer) {}
+
+	virtual int32 GetNumberOfActivePlayers() const { return NumPlayers;  }
 
 private:
 	bool SetDesiredNumberOfPlayersFromPIESettings();
 
 	void CreateBots();
-	void CreateBot(int32 BotNumber);
+	/*
+	* Adds another bot player to the match up to max number of players.
+	*/
+	AGolfAIController* AddBot();
+	AGolfAIController* CreateBot(int32 BotNumber);
+	AGolfAIController* ReplaceLeavingPlayerWithBot(AController* Player);
 	void InitBot(AGolfAIController& AIController, int32 BotNumber);
 
 	void ConfigureJoinedPlayerState(AController& Player);
@@ -162,6 +172,12 @@ private:
 
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	int32 DefaultDesiredNumberOfPlayers{ 1 };
+
+	/*
+	* Sets the minimum number of players for the mode.
+	*/
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	int32 MinNumberOfPlayers{ 1 };
 
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	TSubclassOf<AGolfAIController> AIControllerClass{};
@@ -213,6 +229,11 @@ FORCEINLINE void APaperGolfGameModeBase::SetDesiredNumberOfBotPlayers(int32 InDe
 FORCEINLINE int32 APaperGolfGameModeBase::GetTotalNumberOfPlayers() const
 {
 	return NumPlayers + NumBots;
+}
+
+FORCEINLINE int32 APaperGolfGameModeBase::GetMinimumNumberOfPlayers() const
+{
+	return MinNumberOfPlayers;
 }
 
 #pragma endregion Inline Definitions

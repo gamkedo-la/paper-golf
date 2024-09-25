@@ -21,11 +21,11 @@ APGTurnBasedGameMode::APGTurnBasedGameMode()
 	TurnBasedDirectorComponent = CreateDefaultSubobject<UGolfTurnBasedDirectorComponent>(TEXT("TurnBasedDirector"));
 }
 
-void APGTurnBasedGameMode::Logout(AController* Exiting)
+void APGTurnBasedGameMode::OnPlayerLeft(AController* Exiting)
 {
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: Logout - Exiting=%s"), *GetName(), *LoggingUtils::GetName(Exiting));
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnPlayerLeft - Exiting=%s"), *GetName(), *LoggingUtils::GetName(Exiting));
 
-	Super::Logout(Exiting);
+	Super::OnPlayerLeft(Exiting);
 
 	// Only remove players that implement GolfController - this is mostly for PIE simulated players but could be any spectators that join as well
 	if (auto GolfController = Cast<IGolfController>(Exiting); GolfController)
@@ -82,4 +82,11 @@ bool APGTurnBasedGameMode::DelayStartWithTimer() const
 	check(TurnBasedDirectorComponent);
 
 	return Super::DelayStartWithTimer() || TurnBasedDirectorComponent->IsSkippingHumanPlayers();
+}
+
+int32 APGTurnBasedGameMode::GetNumberOfActivePlayers() const
+{
+	check(TurnBasedDirectorComponent);
+
+	return TurnBasedDirectorComponent->GetNumberOfActivePlayers();
 }

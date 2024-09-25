@@ -62,6 +62,8 @@ void APaperGolfGameStateBase::AddPlayerState(APlayerState* PlayerState)
 		{
 			GolfPlayerState->OnHoleShotsUpdated.AddUObject(this, &APaperGolfGameStateBase::OnCurrentHoleShotsUpdated);
 		}
+
+		OnPlayersChanged.Broadcast(*this, *GolfPlayerState, true);
 	}
 }
 
@@ -69,14 +71,22 @@ void APaperGolfGameStateBase::RemovePlayerState(APlayerState* PlayerState)
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: RemovePlayerState - PlayerState=%s"), *GetName(), *LoggingUtils::GetName<APlayerState>(PlayerState));
 
-	if (auto GolfPlayerState = Cast<AGolfPlayerState>(PlayerState); GolfPlayerState)
+	const auto GolfPlayerState = Cast<AGolfPlayerState>(PlayerState); GolfPlayerState;
+
+	if (GolfPlayerState)
 	{
 		// Remove sync listeners
 		GolfPlayerState->OnTotalShotsUpdated.RemoveAll(this);
 		GolfPlayerState->OnHoleShotsUpdated.RemoveAll(this);
+
 	}
 
 	Super::RemovePlayerState(PlayerState);
+
+	if (GolfPlayerState)
+	{
+		OnPlayersChanged.Broadcast(*this, *GolfPlayerState, false);
+	}
 }
 
 TArray<AGolfPlayerState*> APaperGolfGameStateBase::GetActiveGolfPlayerStates() const

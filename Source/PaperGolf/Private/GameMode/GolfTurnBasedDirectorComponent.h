@@ -34,6 +34,12 @@ public:
 
 	bool IsSkippingHumanPlayers() const;
 
+	/*
+	* Gets current number of active, non-spectator only players.
+	*/
+	UFUNCTION(BlueprintPure)
+	int32 GetNumberOfActivePlayers() const;
+
 protected:
 	virtual void BeginPlay() override;
 

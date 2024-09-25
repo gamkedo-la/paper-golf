@@ -157,6 +157,20 @@ void UGolfTurnBasedDirectorComponent::InitializeComponent()
 	// or we could just do it on start hole
 }
 
+int32 UGolfTurnBasedDirectorComponent::GetNumberOfActivePlayers() const
+{
+	int32 NumActivePlayers{};
+	for (const auto& Player : Players)
+	{
+		if (Player && !Player->IsSpectatorOnly())
+		{
+			++NumActivePlayers;
+		}
+	}
+
+	return NumActivePlayers;
+}
+
 void UGolfTurnBasedDirectorComponent::BeginPlay()
 {
 	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: BeginPlay"), *GetName());

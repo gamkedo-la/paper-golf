@@ -24,10 +24,12 @@ public:
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnHoleChanged, int32 /*Current Hole Number*/);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnScoresSynced, APaperGolfGameStateBase& /*GameState*/);
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPlayerShotsUpdated, APaperGolfGameStateBase& /*GameState*/, const AGolfPlayerState& /*PlayerState*/);
+	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnPlayersChanged, APaperGolfGameStateBase& /*GameState*/, const AGolfPlayerState& /*PlayerState*/, bool /*bAdded*/);
 
 	FOnHoleChanged OnHoleChanged{};
 	FOnScoresSynced OnScoresSynced{};
 	FOnPlayerShotsUpdated OnPlayerShotsUpdated{};
+	FOnPlayersChanged OnPlayersChanged{};
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 

@@ -485,6 +485,7 @@ void APGHUD::Init()
 		{
 			GolfGameState->OnScoresSynced.AddUObject(this, &ThisClass::OnScoresSynced);
 			GolfGameState->OnPlayerShotsUpdated.AddUObject(this, &ThisClass::OnCurrentHoleScoreUpdate);
+			GolfGameState->OnPlayersChanged.AddUObject(this, &ThisClass::OnPlayersChanged);
 		}
 
 		if (auto GolfEventsSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventsSubsystem))
@@ -503,7 +504,7 @@ void APGHUD::OnScoresSynced(APaperGolfGameStateBase& GameState)
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnScoresSynced"), *GetName());
 
-	bScoresSynced = true;
+	bScoresSynced = bScoresEverSynced = true;
 
 	// 
 	// TODO: OnStartHole for HoleNumber 1 doesn't get called because the event happens before we can subscribe
@@ -512,13 +513,18 @@ void APGHUD::OnScoresSynced(APaperGolfGameStateBase& GameState)
 	// We may just want to use the combo of scores synced and then course complete, next hole (previous hole finished) to determine how to display the results
 	// Start Hole could be used to trigger the hole flyby and maybe show the updated player rankings from last hole
 
-	if(!CheckShowFinalResults(&GameState))
+	CheckShowScoresOrFinalResults(GameState);
+
+	PlayWinSoundIfApplicable();
+}
+
+void APGHUD::CheckShowScoresOrFinalResults(const APaperGolfGameStateBase& GameState)
+{
+	if (!CheckShowFinalResults(&GameState))
 	{
 		const auto& GolfPlayerScores = GameState.GetSortedPlayerStatesByScore();
 		ShowScoresHUD(GolfPlayerScores);
 	}
-
-	PlayWinSoundIfApplicable();
 }
 
 void APGHUD::OnCurrentHoleScoreUpdate(APaperGolfGameStateBase& GameState, const AGolfPlayerState& PlayerState)
@@ -539,6 +545,22 @@ void APGHUD::OnCurrentHoleScoreUpdate(APaperGolfGameStateBase& GameState, const 
 	bShotUpdatesReceived = true;
 
 	CheckNotifyHoleShotsUpdate(GameState);
+}
+
+void APGHUD::OnPlayersChanged(APaperGolfGameStateBase& GameState, const AGolfPlayerState& PlayerState, bool bPlayerAdded)
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnPlayersChanged: PlayerState=%s; bPlayerAdded=%s"),
+		*GetName(), *LoggingUtils::GetName<APlayerState>(PlayerState), LoggingUtils::GetBoolString(bPlayerAdded));
+
+	// hide player scores by default and then invoke logic to check if we should show it
+	HideCurrentHoleScoresHUD();
+	CheckNotifyHoleShotsUpdate(GameState);
+
+	// Update standings
+	if (bScoresEverSynced)
+	{
+		CheckShowScoresOrFinalResults(GameState);
+	}
 }
 
 void APGHUD::CheckNotifyHoleShotsUpdate(const APaperGolfGameStateBase& GameState)

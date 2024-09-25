@@ -95,6 +95,7 @@ private:
 
 	void OnScoresSynced(APaperGolfGameStateBase& GameState);
 	void OnCurrentHoleScoreUpdate(APaperGolfGameStateBase& GameState, const AGolfPlayerState& PlayerState);
+	void OnPlayersChanged(APaperGolfGameStateBase& GameState, const AGolfPlayerState& PlayerState, bool bPlayerAdded);
 
 	UFUNCTION()
 	void OnPlayerScored(APaperGolfPawn* PaperGolfPawn);
@@ -128,6 +129,8 @@ private:
 	void PlayWinSoundIfApplicable();
 
 	void CheckNotifyHoleShotsUpdate(const APaperGolfGameStateBase& GameState);
+
+	void CheckShowScoresOrFinalResults(const APaperGolfGameStateBase& GameState);
 	bool CheckShowFinalResults(const APaperGolfGameStateBase* GameState);
 
 	APaperGolfGameStateBase* GetGameState() const;
@@ -199,6 +202,7 @@ private:
 	FTimerHandle HoleFinishedMessageTimerHandle{};
 
 	bool bScoresSynced{};
+	bool bScoresEverSynced{};
 	bool bCourseComplete{};
 	bool bShotUpdatesReceived{};
 };
