@@ -430,10 +430,11 @@ void APaperGolfGameModeBase::OnCourseComplete()
 
 void APaperGolfGameModeBase::DoCourseComplete()
 {
+	EndMatch();
+
 	if (bRestartGameOnCourseComplete)
 	{
 		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: DoCourseComplete - bRestartGameOnCourseComplete = TRUE - Restarting the map"), *GetName());
-
 		RestartGame();
 	}
 	else
@@ -583,7 +584,7 @@ void APaperGolfGameModeBase::Logout(AController* Exiting)
 	HandlePlayerLeaving(Exiting);
 
 	// If fall below minum number of players, return to the main menu
-	if (GetNumberOfActivePlayers() < MinNumberOfPlayers)
+	if (IsMatchInProgress() && GetNumberOfActivePlayers() < MinNumberOfPlayers)
 	{
 		UE_VLOG_UELOG(this, LogPaperGolfGame, Log,
 			TEXT("%s: Logout - Returning to main menu as number of players=%d is less than minimum=%d"),
