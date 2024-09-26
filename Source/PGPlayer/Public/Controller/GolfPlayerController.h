@@ -54,6 +54,7 @@ public:
 
 	using IGolfController::GetPaperGolfPawn;
 	virtual APaperGolfPawn* GetPaperGolfPawn() override;
+	virtual bool HasPaperGolfPawn() const override;
 
 	virtual void ReceivePlayerStart(AActor* PlayerStart) override;
 	virtual void StartHole() override;
@@ -431,6 +432,11 @@ FORCEINLINE bool AGolfPlayerController::IsLocalServer() const
 FORCEINLINE bool AGolfPlayerController::IsRemoteServer() const
 {
 	return HasAuthority() && !IsLocalController();
+}
+
+FORCEINLINE bool AGolfPlayerController::HasPaperGolfPawn() const
+{
+	return PlayerPawn != nullptr;
 }
 
 #pragma endregion Inline Definitions

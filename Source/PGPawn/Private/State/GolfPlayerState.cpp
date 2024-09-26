@@ -65,6 +65,7 @@ void AGolfPlayerState::StartHole()
 {
 	Shots = 0;
 	bScored = false;
+	bPositionAndRotationSet = false;
 
 	// Broadcast immediately on the server
 	OnHoleShotsUpdated.Broadcast(*this);
@@ -94,6 +95,24 @@ void AGolfPlayerState::CopyGameStateProperties(const AGolfPlayerState* InPlayerS
 	ForceNetUpdate();
 }
 
+void AGolfPlayerState::SetActorLocationAndRotation(AActor& Actor) const
+{
+	if (!bPositionAndRotationSet)
+	{
+		return;
+	}
+
+	Actor.SetActorLocation(Position);
+	Actor.SetActorRotation(Rotation);
+}
+
+void AGolfPlayerState::SetLocationAndRotation(const AActor& Actor)
+{
+	bPositionAndRotationSet = true;
+	Position = Actor.GetActorLocation();
+	Rotation = Actor.GetActorRotation();
+}
+
 void AGolfPlayerState::DoCopyProperties(const AGolfPlayerState* InPlayerState)
 {
 	ScoreByHole = InPlayerState->ScoreByHole;
@@ -101,6 +120,11 @@ void AGolfPlayerState::DoCopyProperties(const AGolfPlayerState* InPlayerState)
 	bReadyForShot = InPlayerState->bReadyForShot;
 	bSpectatorOnly = InPlayerState->bSpectatorOnly;
 	bScored = InPlayerState->bScored;
+	PlayerColor = InPlayerState->PlayerColor;
+
+	bPositionAndRotationSet = InPlayerState->bPositionAndRotationSet;
+	Position = InPlayerState->Position;
+	Rotation = InPlayerState->Rotation;
 }
 
 bool AGolfPlayerState::CompareByScore(const AGolfPlayerState& Other) const

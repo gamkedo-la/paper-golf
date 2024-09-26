@@ -187,8 +187,6 @@ void AGolfAIController::ActivateTurn()
 
 	const auto PaperGolfPawn = Cast<APaperGolfPawn>(GetPawn());
 
-	// Activate the turn if switching from spectator to player
-	// Doing this here as this function is called when replication of the pawn possession completes
 	if (!PaperGolfPawn)
 	{
 		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ActivateTurn - Skipping turn activation as Pawn=%s is not APaperGolfPawn"),

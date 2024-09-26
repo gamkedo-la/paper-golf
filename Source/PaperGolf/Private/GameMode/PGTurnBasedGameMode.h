@@ -26,10 +26,9 @@ protected:
 
 	virtual void OnPlayerJoined(AController* NewPlayer) override;
 	virtual void OnPlayerLeft(AController* Exiting) override;
+	virtual void OnPlayerReplaced(AController* LeavingPlayer, AController* NewPlayer) override;
 
 	virtual void OnGameStart() override;
-
-	virtual void OnBotSpawnedIntoGame(AGolfAIController& AIController, int32 BotNumber) override;
 
 	virtual bool DelayStartWithTimer() const override;
 

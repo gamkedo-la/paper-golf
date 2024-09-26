@@ -56,6 +56,8 @@ public:
 
 	virtual bool HandleOutOfBounds() = 0;
 
+	virtual bool HasPaperGolfPawn() const = 0;
+
 	virtual APaperGolfPawn* GetPaperGolfPawn() = 0;
 	const APaperGolfPawn* GetPaperGolfPawn() const;
 

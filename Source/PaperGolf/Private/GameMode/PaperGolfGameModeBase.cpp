@@ -582,9 +582,6 @@ void APaperGolfGameModeBase::Logout(AController* Exiting)
 
 	HandlePlayerLeaving(Exiting);
 
-	// TODO: 236-ai-bots-fill-in-players-that-drop-out-of-game-in-between-turns -> if bots are allowed, replace dropped player with a bot via ReplaceLeavingPlayerWithBot
-	// Bots are allowed will be a bool that will be read from the game mode options and true by default
-
 	// If fall below minum number of players, return to the main menu
 	if (GetNumberOfActivePlayers() < MinNumberOfPlayers)
 	{
@@ -720,7 +717,26 @@ void APaperGolfGameModeBase::HandlePlayerJoining(AController* NewPlayer)
 
 void APaperGolfGameModeBase::ReplacePlayer(AController* LeavingPlayer, AController* NewPlayer)
 {
-	// TODO: Copy player state data from leaving player to new player and then call OnPlayerReplaced
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: ReplacePlayer - LeavingPlayer=%s; NewPlayer=%s"), *GetName(), *LoggingUtils::GetName(LeavingPlayer), *LoggingUtils::GetName(NewPlayer));
+
+	if (NewPlayer && LeavingPlayer)
+	{
+		// Copy player state data from leaving player to new player
+		const auto NewPlayerState = NewPlayer->GetPlayerState<AGolfPlayerState>();
+		const auto LeavingPlayerState = LeavingPlayer->GetPlayerState<const AGolfPlayerState>();
+		if (NewPlayerState && LeavingPlayerState)
+		{
+			NewPlayerState->CopyGameStateProperties(LeavingPlayerState);
+		}
+		else
+		{
+			UE_VLOG_UELOG(this, LogPaperGolfGame, Warning, TEXT("%s:  LeavingPlayer=%s; NewPlayer=%s - Cannot copy player state from %s to %s"),
+				*GetName(),
+				*LeavingPlayer->GetName(), *NewPlayer->GetName(),
+				*LoggingUtils::GetName(LeavingPlayer->PlayerState), *LoggingUtils::GetName(NewPlayer->PlayerState)
+			);
+		}
+	}
 
 	OnPlayerReplaced(LeavingPlayer, NewPlayer);
 }
@@ -766,7 +782,10 @@ void APaperGolfGameModeBase::CreateBots()
 
 	for (int32 i = 0; i < DesiredNumberOfBotPlayers; ++i)
 	{
-		CreateBot(i + 1);
+		if (auto Controller = CreateBot(i + 1); Controller)
+		{
+			HandlePlayerJoining(Controller);
+		}
 	}
 }
 
@@ -796,8 +815,6 @@ AGolfAIController* APaperGolfGameModeBase::CreateBot(int32 BotNumber)
 	}
 
 	InitBot(*AIC, BotNumber);
-
-	OnBotSpawnedIntoGame(*AIC, BotNumber);
 
 	return AIC;
 }

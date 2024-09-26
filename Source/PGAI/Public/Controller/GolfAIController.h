@@ -42,6 +42,8 @@ public:
 	using IGolfController::GetPaperGolfPawn;
 	virtual APaperGolfPawn* GetPaperGolfPawn() override;
 
+	virtual bool HasPaperGolfPawn() const override;
+
 	virtual void MarkScored() override;
 
 	virtual bool HasScored() const override;
@@ -194,6 +196,11 @@ FORCEINLINE bool AGolfAIController::IsActivePlayer() const
 FORCEINLINE UGolfControllerCommonComponent* AGolfAIController::GetGolfControllerCommonComponent()
 {
 	return GolfControllerCommonComponent;
+}
+
+FORCEINLINE bool AGolfAIController::HasPaperGolfPawn() const
+{
+	return PlayerPawn != nullptr;
 }
 
 #pragma endregion Inline Definitions

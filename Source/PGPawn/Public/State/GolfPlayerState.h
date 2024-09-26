@@ -109,6 +109,9 @@ public:
 		ForceNetUpdate();
 	}
 
+	void SetActorLocationAndRotation(AActor& Actor) const;
+	void SetLocationAndRotation(const AActor& Actor);
+
 protected:
 	virtual void DoCopyProperties(const AGolfPlayerState* InPlayerState);
 		
@@ -140,8 +143,14 @@ private:
 	UPROPERTY(Replicated)
 	bool bScored{};
 
+	bool bPositionAndRotationSet{};
+
 	UPROPERTY(Replicated)
 	FLinearColor PlayerColor{FLinearColor::White};
+
+	// Not Replicated - used by server to set initial position during late join
+	FVector Position{ EForceInit::ForceInitToZero };
+	FRotator Rotation{ EForceInit::ForceInitToZero };
 };
 
 #pragma region Inline Definitions

@@ -78,8 +78,6 @@ protected:
 	// TODO: See MustSpectate_Implementation in AGameMode for an idea of how to start players as spectators - possibly default implementation is fine as we can
 	// Set spectating on player state as it expects
 
-	virtual void OnBotSpawnedIntoGame(AGolfAIController& AIController, int32 BotNumber) {}
-
 	virtual bool DelayStartWithTimer() const;
 
 	virtual void OnPostLogin(AController* NewPlayer) override final;

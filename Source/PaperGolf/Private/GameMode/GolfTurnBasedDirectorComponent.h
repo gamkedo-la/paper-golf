@@ -30,6 +30,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void RemovePlayer(AController* Player);
 
+	UFUNCTION(BlueprintCallable)
+	void ReplacePlayer(AController* ExistingPlayer, AController* NewPlayer);
+
 	virtual void InitializeComponent() override;
 
 	bool IsSkippingHumanPlayers() const;
@@ -67,6 +70,8 @@ private:
 	void NextHole();
 
 	void InitializePlayersForHole();
+	void InitializePlayerForHole(IGolfController* Player);
+
 	void MarkPlayersFinishedHole();
 
 	void SortPlayersForNextHole();
@@ -87,7 +92,7 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<AGolfHole> CurrentHole{};
 
-	int32 ActivePlayerIndex{};
+	int32 ActivePlayerIndex{ INDEX_NONE };
 
 	// Need to keep this mapping in order to make sure we can mark scored if turn ends before it is detected
 	// TODO: This is a workaround as we should be checking for shot finished and scored in same place to avoid these timing issues

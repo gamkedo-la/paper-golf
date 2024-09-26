@@ -36,6 +36,25 @@ void APGTurnBasedGameMode::OnPlayerLeft(AController* Exiting)
 	}
 }
 
+void APGTurnBasedGameMode::OnPlayerReplaced(AController* LeavingPlayer, AController* NewPlayer)
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnPlayerReplaced - LeavingPlayer=%s, NewPlayer=%s"), *GetName(), *LoggingUtils::GetName(LeavingPlayer), *LoggingUtils::GetName(NewPlayer));
+
+	auto LeavingGolfController = Cast<IGolfController>(LeavingPlayer);
+	auto NewGolfController = Cast<IGolfController>(NewPlayer);
+
+	if (LeavingGolfController && NewGolfController)
+	{
+		check(TurnBasedDirectorComponent);
+		TurnBasedDirectorComponent->ReplacePlayer(LeavingPlayer, NewPlayer);
+	}
+	else
+	{
+		// This will call OnPlayerLeft and OnPlayerJoined for applicable players
+		Super::OnPlayerReplaced(LeavingPlayer, NewPlayer);
+	}
+}
+
 void APGTurnBasedGameMode::OnPlayerJoined(AController* NewPlayer)
 {
 	Super::OnPlayerJoined(NewPlayer);
@@ -65,16 +84,6 @@ void APGTurnBasedGameMode::StartHole(int32 HoleNumber)
 		GolfState->SetCurrentHoleNumber(HoleNumber);
 		TurnBasedDirectorComponent->StartHole();
 	}
-}
-
-void APGTurnBasedGameMode::OnBotSpawnedIntoGame(AGolfAIController& AIController, int32 BotNumber)
-{
-	// Note that the Login functions are not called when AI controllers are spawned. These are only for player controllers joining the session, so add to the turn component manually here
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnBotSpawnedIntoGame - AIController=%s, BotNumber=%d"), *GetName(), *AIController.GetName(), BotNumber);
-
-	check(TurnBasedDirectorComponent);
-
-	TurnBasedDirectorComponent->AddPlayer(&AIController);
 }
 
 bool APGTurnBasedGameMode::DelayStartWithTimer() const
