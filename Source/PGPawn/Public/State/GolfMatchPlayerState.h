@@ -26,11 +26,13 @@ public:
 	virtual bool CompareByScore(const AGolfPlayerState& Other) const override;
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
-	virtual void CopyProperties(APlayerState* PlayerState) override;
 
 #if ENABLE_VISUAL_LOG
 	virtual void GrabDebugSnapshot(FVisualLogEntry* Snapshot) const override;
 #endif
+
+protected:
+	virtual void DoCopyProperties(const AGolfPlayerState* InPlayerState) override;
 
 private:
 	UFUNCTION() 

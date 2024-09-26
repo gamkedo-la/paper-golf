@@ -9,6 +9,8 @@
 
 #include "Debug/PGConsoleVars.h"
 
+#include "PGConstants.h"
+
 #include "Interfaces/GolfController.h"
 #include "Controller/GolfAIController.h"
 
@@ -122,8 +124,10 @@ void APaperGolfGameModeBase::InitNumberOfPlayers(const FString& Options)
 		DesiredNumberOfBotPlayers += AdditionalBotPlayers;
 	}
 
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitNumberOfPlayers - DesiredNumberOfPlayers=%d; DesiredNumberOfBotPlayers=%d; MinNumberOfPlayers=%d"),
-		*GetName(), DesiredNumberOfPlayers, DesiredNumberOfBotPlayers, MinNumberOfPlayers);
+	DetermineAllowBots(Options);
+
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitNumberOfPlayers - DesiredNumberOfPlayers=%d; DesiredNumberOfBotPlayers=%d; MinNumberOfPlayers=%d; bAllowBots=%s"),
+		*GetName(), DesiredNumberOfPlayers, DesiredNumberOfBotPlayers, MinNumberOfPlayers, LoggingUtils::GetBoolString(bAllowBots));
 }
 
 void APaperGolfGameModeBase::SetNumberOfPlayersFromOptions(const FString& Options)
@@ -138,6 +142,38 @@ void APaperGolfGameModeBase::SetNumberOfPlayersFromOptions(const FString& Option
 	if(FParse::Value(*Options, PG::GameModeOptions::NumBots, DesiredNumberOfBotPlayers))
 	{
 		UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: SetNumberOfPlayersFromOptions - DesiredNumberOfBotPlayers=%d"), *GetName(), DesiredNumberOfBotPlayers);
+	}
+}
+
+void APaperGolfGameModeBase::DetermineAllowBots(const FString& Options)
+{
+	if (NumBots > 0)
+	{
+		bAllowBots = true;
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: DetermineAllowBots - TRUE - NumBots=%d > 0"), *GetName(), NumBots);
+
+		// Make sure not inconsistent with options
+#if !UE_BUILD_SHIPPING
+		bool bAllowBotsFromOptions{};
+		if (FParse::Bool(*Options, PG::GameModeOptions::AllowBots, bAllowBotsFromOptions))
+		{
+			if (!ensureAlwaysMsgf(bAllowBotsFromOptions == bAllowBots, TEXT("%s: DetermineAllowBots - NumBots=%d > 0 but bAllowBots=%s != bAllowBots from Options=%s"),
+				*GetName(), NumBots, LoggingUtils::GetBoolString(bAllowBots), LoggingUtils::GetBoolString(bAllowBotsFromOptions)))
+			{
+				UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: DetermineAllowBots - NumBots=%d > 0 but bAllowBots=%s != bAllowBots from Options=%s"),
+					*GetName(), NumBots, LoggingUtils::GetBoolString(bAllowBots), LoggingUtils::GetBoolString(bAllowBotsFromOptions));
+			}
+		}
+
+#endif
+	}
+	else if (FParse::Bool(*Options, PG::GameModeOptions::AllowBots, bAllowBots))
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: DetermineAllowBots - %s - Determined from Options"), *GetName(), LoggingUtils::GetBoolString(bAllowBots));
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: DetermineAllowBots - %s - Defaulting to game mode default value"), *GetName(), LoggingUtils::GetBoolString(bAllowBots));
 	}
 }
 
@@ -192,7 +228,7 @@ void APaperGolfGameModeBase::OnPostLogin(AController* NewPlayer)
 
 	Super::OnPostLogin(NewPlayer);
 
-	OnPlayerJoined(NewPlayer);
+	HandlePlayerJoining(NewPlayer);
 }
 
 void APaperGolfGameModeBase::InitSeamlessTravelPlayer(AController* NewController)
@@ -203,7 +239,7 @@ void APaperGolfGameModeBase::InitSeamlessTravelPlayer(AController* NewController
 
 	Super::InitSeamlessTravelPlayer(NewController);
 
-	OnPlayerJoined(NewController);
+	HandlePlayerJoining(NewController);
 }
 
 void APaperGolfGameModeBase::OnPlayerJoined(AController* NewPlayer)
@@ -544,7 +580,7 @@ void APaperGolfGameModeBase::Logout(AController* Exiting)
 
 	Super::Logout(Exiting);
 
-	OnPlayerLeft(Exiting);
+	HandlePlayerLeaving(Exiting);
 
 	// TODO: 236-ai-bots-fill-in-players-that-drop-out-of-game-in-between-turns -> if bots are allowed, replace dropped player with a bot via ReplaceLeavingPlayerWithBot
 	// Bots are allowed will be a bool that will be read from the game mode options and true by default
@@ -591,7 +627,6 @@ void APaperGolfGameModeBase::RestartGame()
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: RestartGame"), *GetName());
 
 	Super::RestartGame();
-
 }
 
 void APaperGolfGameModeBase::AbortMatch()
@@ -632,10 +667,71 @@ AGolfAIController* APaperGolfGameModeBase::ReplaceLeavingPlayerWithBot(AControll
 		return nullptr;
 	}
 
-	// TODO: 236-ai-bots-fill-in-players-that-drop-out-of-game-in-between-turns -> Copy player state and position data to the bot
-	// Bot should take over where the player left off in the game
+	if (Player && Player->PlayerState)
+	{
+		auto BotPlayerState = CreatedBot->PlayerState;
+		if (BotPlayerState)
+		{
+			// Bot takes over player name
+			BotPlayerState->SetPlayerName(Player->PlayerState->GetPlayerName());
+		}
+	}
 
+	// Rest of state properties will be copied later
+	
 	return CreatedBot;
+}
+
+void APaperGolfGameModeBase::HandlePlayerLeaving(AController* LeavingPlayer)
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: HandlePlayerLeaving - LeavingPlayer=%s"), *GetName(), *LoggingUtils::GetName(LeavingPlayer));
+
+	// TODO: Verify IsMatchInProgress is the right thing to check to see if the players aren't leaving because the match is ending
+	if (!bAllowBots || !IsMatchInProgress())
+	{
+		OnPlayerLeft(LeavingPlayer);
+	}
+	else
+	{
+#if PG_ALLOW_BOT_REPLACE_PLAYER
+		if (AController* NewPlayer = ReplaceLeavingPlayerWithBot(LeavingPlayer); NewPlayer)
+		{
+			OnPlayerReplaced(LeavingPlayer, NewPlayer);
+		}
+		else
+		{
+			OnPlayerLeft(LeavingPlayer);
+		}
+
+#else
+		OnPlayerLeft(LeavingPlayer);
+#endif
+
+	}
+}
+
+void APaperGolfGameModeBase::HandlePlayerJoining(AController* NewPlayer)
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: HandlePlayerJoining - NewPlayer=%s"), *GetName(), *LoggingUtils::GetName(NewPlayer));
+
+	// TODO: 114-account-for-late-joining - If joining and at capacity but there is a bot in game, choose a victim bot and replace it with the new player
+	OnPlayerJoined(NewPlayer);
+}
+
+void APaperGolfGameModeBase::ReplacePlayer(AController* LeavingPlayer, AController* NewPlayer)
+{
+	// TODO: Copy player state data from leaving player to new player and then call OnPlayerReplaced
+
+	OnPlayerReplaced(LeavingPlayer, NewPlayer);
+}
+
+void APaperGolfGameModeBase::OnPlayerReplaced(AController* LeavingPlayer, AController* NewPlayer)
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnPlayerReplaced - LeavingPlayer=%s; NewPlayer=%s"),
+		*GetName(), *LoggingUtils::GetName(LeavingPlayer), *LoggingUtils::GetName(NewPlayer));
+
+	OnPlayerLeft(LeavingPlayer);
+	OnPlayerJoined(NewPlayer);
 }
 
 bool APaperGolfGameModeBase::SetDesiredNumberOfPlayersFromPIESettings()

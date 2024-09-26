@@ -116,9 +116,20 @@ protected:
 	virtual void OnPlayerJoined(AController* NewPlayer);
 	virtual void OnPlayerLeft(AController* LeavingPlayer) {}
 
+	/* Called when a player is leaving and another is immediately replacing.
+	* Use case is when a player leaves the game early and is replaced with a bot or a player late joins and replaces a bot.
+	* By default this just calls OnPlayerLeft followed by OnPlayerJoined. Override completely to customize.
+	*/
+	virtual void OnPlayerReplaced(AController* LeavingPlayer, AController* NewPlayer);
+
 	virtual int32 GetNumberOfActivePlayers() const { return NumPlayers;  }
 
 private:
+
+	void HandlePlayerLeaving(AController* LeavingPlayer);
+	void HandlePlayerJoining(AController* NewPlayer);
+	void ReplacePlayer(AController* LeavingPlayer, AController* NewPlayer);
+
 	bool SetDesiredNumberOfPlayersFromPIESettings();
 
 	void CreateBots();
@@ -154,9 +165,14 @@ private:
 
 	void SetNumberOfPlayersFromOptions(const FString& Options);
 
+	void DetermineAllowBots(const FString& Options);
+
 protected:
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	int32 StartHoleNumber{ 1 };
+
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	bool bAllowBots{ true };
 
 private:
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly)

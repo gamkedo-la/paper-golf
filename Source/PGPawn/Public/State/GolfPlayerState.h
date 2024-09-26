@@ -71,7 +71,14 @@ public:
 	UFUNCTION(BlueprintCallable, meta = (BlueprintAuthorityOnly))
 	void StartHole();
 
-	virtual void CopyProperties(APlayerState* PlayerState) override;
+	virtual void CopyProperties(APlayerState* PlayerState) override final;
+
+	/*
+	* Copies game state properties from the input player state.
+	* This is different from CopyProperties that is designed to copy everything, including network ids from the input player state.
+	* Does not copy the player name.
+	*/
+	void CopyGameStateProperties(const AGolfPlayerState* InPlayerState);
 
 	void SetSpectatorOnly() 
 	{ 
@@ -101,6 +108,9 @@ public:
 		PlayerColor = Color; 
 		ForceNetUpdate();
 	}
+
+protected:
+	virtual void DoCopyProperties(const AGolfPlayerState* InPlayerState);
 		
 private:
 	UFUNCTION()

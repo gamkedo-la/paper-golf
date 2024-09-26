@@ -74,17 +74,17 @@ void AGolfMatchPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 	DOREPLIFETIME(AGolfMatchPlayerState, DisplayScore);
 }
 
-void AGolfMatchPlayerState::CopyProperties(APlayerState* PlayerState)
+void AGolfMatchPlayerState::DoCopyProperties(const AGolfPlayerState* InPlayerState)
 {
-	Super::CopyProperties(PlayerState);
+	Super::DoCopyProperties(InPlayerState);
 
-	auto OtherPlayerState = Cast<AGolfMatchPlayerState>(PlayerState);
-	if (!IsValid(OtherPlayerState))
+	auto InMatchPlayerState = Cast<AGolfMatchPlayerState>(InPlayerState);
+	if (!IsValid(InMatchPlayerState))
 	{
 		return;
 	}
 
-	DisplayScore = OtherPlayerState->DisplayScore;
+	DisplayScore = InMatchPlayerState->DisplayScore;
 }
 
 void AGolfMatchPlayerState::OnRep_DisplayScore()

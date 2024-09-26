@@ -76,17 +76,31 @@ void AGolfPlayerState::CopyProperties(APlayerState* PlayerState)
 {
 	Super::CopyProperties(PlayerState);
 
-	auto OtherPlayerState = Cast<AGolfPlayerState>(PlayerState);
-	if (!IsValid(OtherPlayerState))
+	DoCopyProperties(Cast<AGolfPlayerState>(PlayerState));
+}
+
+void AGolfPlayerState::CopyGameStateProperties(const AGolfPlayerState* InPlayerState)
+{
+	if (!IsValid(InPlayerState))
 	{
 		return;
 	}
 
-	ScoreByHole = OtherPlayerState->ScoreByHole;
-	Shots = OtherPlayerState->Shots;
-	bReadyForShot = OtherPlayerState->bReadyForShot;
-	bSpectatorOnly = OtherPlayerState->bSpectatorOnly;
-	bScored = OtherPlayerState->bScored;
+	SetScore(InPlayerState->Score);
+	// Don't copy player name as may not want to inherit this from the other state
+
+	DoCopyProperties(InPlayerState);
+
+	ForceNetUpdate();
+}
+
+void AGolfPlayerState::DoCopyProperties(const AGolfPlayerState* InPlayerState)
+{
+	ScoreByHole = InPlayerState->ScoreByHole;
+	Shots = InPlayerState->Shots;
+	bReadyForShot = InPlayerState->bReadyForShot;
+	bSpectatorOnly = InPlayerState->bSpectatorOnly;
+	bScored = InPlayerState->bScored;
 }
 
 bool AGolfPlayerState::CompareByScore(const AGolfPlayerState& Other) const
