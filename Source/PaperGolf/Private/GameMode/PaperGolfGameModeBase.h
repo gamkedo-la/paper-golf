@@ -165,6 +165,10 @@ private:
 
 	void DetermineAllowBots(const FString& Options);
 
+	bool MatchIsJoinable() const;
+	bool MatchIsActive() const;
+	bool MatchShouldBeAbandoned() const;
+
 protected:
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	int32 StartHoleNumber{ 1 };

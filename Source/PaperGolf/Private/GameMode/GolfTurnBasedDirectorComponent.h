@@ -31,7 +31,7 @@ public:
 	void RemovePlayer(AController* Player);
 
 	UFUNCTION(BlueprintCallable)
-	void ReplacePlayer(AController* ExistingPlayer, AController* NewPlayer);
+	void ReplacePlayer(AController* LeavingPlayer, AController* NewPlayer);
 
 	virtual void InitializeComponent() override;
 
@@ -60,12 +60,11 @@ private:
 
 	void DoNextTurn();
 
-	void ActivateNextPlayer();
-
 	int32 DetermineNextPlayer() const;
-
+	void ActivateNextPlayer();
 	void ActivatePlayer(IGolfController* Player);
-	// TODO: Will need a variant that takes an AI controller or better yet use an interface implemented by both
+
+	void DoReplacePlayer(AController* PlayerToRemove, AController* PlayerToAdd);
 
 	void NextHole();
 

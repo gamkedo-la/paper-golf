@@ -62,6 +62,7 @@ void UGolfControllerCommonComponent::BeginPlay()
 		}
 
 		// If on server, game state is updated immediately during game mode start so can just invoke OnHoleChanged directly
+		// TODO: Even on server we are doing this on next tick - is this necessary?  Causes need to delay tick when replacing a player
 		World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this, [this, WeakGameState = MakeWeakObjectPtr(GameState)]()
 		{
 			if (auto GameState = WeakGameState.Get(); GameState)

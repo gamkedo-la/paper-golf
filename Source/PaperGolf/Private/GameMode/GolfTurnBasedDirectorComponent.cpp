@@ -103,10 +103,32 @@ void UGolfTurnBasedDirectorComponent::RemovePlayer(AController* Player)
 {
 	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: RemovePlayer - Player=%s"), *GetName(), *LoggingUtils::GetName(Player));
 
-	const TScriptInterface<IGolfController> GolfPlayer{ Player };
-	if(!ensureMsgf(GolfPlayer, TEXT("%s: RemovePlayer - Player=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(Player)))
+	if(!ensureMsgf(Player, TEXT("%s: RemovePlayer - Player=%s is NULL"), *GetName(), *LoggingUtils::GetName(Player)))
 	{
-		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: RemovePlayer - Player=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(Player));
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: RemovePlayer - Player=%s is NULL"), *GetName(), *LoggingUtils::GetName(Player))
+		return;
+	}
+
+	DoReplacePlayer(Player, nullptr);
+}
+
+void UGolfTurnBasedDirectorComponent::DoReplacePlayer(AController* PlayerToRemove, AController* PlayerToAdd)
+{
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: DoReplacePlayer - PlayerToRemove=%s; PlayerToAdd=%s"), *GetName(), *LoggingUtils::GetName(PlayerToRemove), *LoggingUtils::GetName(PlayerToAdd));
+
+	const TScriptInterface<IGolfController> GolfPlayerToRemove{ PlayerToRemove };
+	if (!ensureMsgf(GolfPlayerToRemove, TEXT("%s: RemovePlayer - PlayerToRemove=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(PlayerToRemove)))
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: DoReplacePlayer - PlayerToRemove=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(PlayerToRemove));
+		return;
+	}
+
+	// If a new player is provided make sure it implements the IGolfController interface
+	const TScriptInterface<IGolfController> GolfPlayerToAdd{ PlayerToAdd };
+
+	if (PlayerToAdd && !ensureMsgf(GolfPlayerToAdd, TEXT("%s: RemovePlayer - PlayerToAdd=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(PlayerToAdd)))
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: DoReplacePlayer - PlayerToAdd=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(PlayerToAdd));
 		return;
 	}
 
@@ -115,12 +137,30 @@ void UGolfTurnBasedDirectorComponent::RemovePlayer(AController* Player)
 
 	if (ActivePlayerIndex != INDEX_NONE)
 	{
-		checkf(ActivePlayerIndex >= 0 && ActivePlayerIndex < Players.Num(), 
+		checkf(ActivePlayerIndex >= 0 && ActivePlayerIndex < Players.Num(),
 			TEXT("%s: ActivePlayerIndex=%d >= Players.Num()=%d"), *GetName(), ActivePlayerIndex, Players.Num());
 		CurrentActivePlayer = Players[ActivePlayerIndex];
 	}
-	
-	Players.Remove(GolfPlayer);
+
+	if (GolfPlayerToAdd)
+	{
+		const auto IndexOfPlayerToRemove = Players.IndexOfByKey(GolfPlayerToRemove);
+		if (ensureAlwaysMsgf(IndexOfPlayerToRemove != INDEX_NONE, TEXT("%s: DoReplacePlayer - PlayerToRemove=%s not found in Players"), *GetName(), *LoggingUtils::GetName(PlayerToRemove)))
+		{
+			// Replace removed player with added player
+			// Will become the active player if it was this player's turn
+			Players[IndexOfPlayerToRemove] = GolfPlayerToAdd;
+		}
+		else
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: DoReplacePlayer - PlayerToRemove=%s not found in Players"), *GetName(), *LoggingUtils::GetName(PlayerToRemove));
+			InitializePlayerForHole(GolfPlayerToAdd.GetInterface());
+		}
+	}
+	else
+	{
+		Players.Remove(GolfPlayerToRemove);
+	}
 
 	if (Players.IsEmpty())
 	{
@@ -129,10 +169,22 @@ void UGolfTurnBasedDirectorComponent::RemovePlayer(AController* Player)
 		return;
 	}
 
-	if (CurrentActivePlayer == GolfPlayer.GetInterface())
+	if (CurrentActivePlayer == GolfPlayerToRemove.GetInterface())
 	{
 		// if the active player dropped then must select the next player that would have gone
-		DoNextTurn();
+		if (GolfPlayerToAdd)
+		{
+			// We are swapping out the removed active player with new one
+			// Due to timing issues with BeginPlay in GolfCommonComponent we need to wait for next tick
+			if (auto World = GetWorld(); ensure(World))
+			{
+				World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateUObject(this, &ThisClass::ActivateNextPlayer));
+			}
+		}
+		else
+		{
+			DoNextTurn();
+		}
 	}
 	// If there is an active player, then we need to update the index after removal of the other player
 	else if (CurrentActivePlayer)
@@ -147,19 +199,15 @@ void UGolfTurnBasedDirectorComponent::RemovePlayer(AController* Player)
 	}
 }
 
-void UGolfTurnBasedDirectorComponent::ReplacePlayer(AController* ExistingPlayer, AController* NewPlayer)
+void UGolfTurnBasedDirectorComponent::ReplacePlayer(AController* LeavingPlayer, AController* NewPlayer)
 {
-	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: ReplacePlayer - ExistingPlayer=%s; NewPlayer=%s"), *GetName(), *LoggingUtils::GetName(ExistingPlayer), *LoggingUtils::GetName(NewPlayer));
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: ReplacePlayer - LeavingPlayer=%s; NewPlayer=%s"), *GetName(), *LoggingUtils::GetName(LeavingPlayer), *LoggingUtils::GetName(NewPlayer));
 
-	// TODO: Need to rework this so that if we replace the active player, we become the active player. Need to extract out the above remove logic
-	AddPlayer(NewPlayer);
+	// If we were able to spawn the pawn before invoking this then doing AddPlayer followed by InitializePlayerForHole followed by RemovePlayer would work as it would "DoNextTurn" if the
+	// removed player was active which would select the added player that is having the state copied
+	// However, pawn spawning is not guaranteed until GameMode->RestartPlayer which happens during turn activation and need the pawn to determine the distance to the hole
 
-	if (ActivePlayerIndex != INDEX_NONE)
-	{
-		InitializePlayerForHole(Cast<IGolfController>(NewPlayer));
-	}
-
-	RemovePlayer(ExistingPlayer);
+	DoReplacePlayer(LeavingPlayer, NewPlayer);
 }
 
 void UGolfTurnBasedDirectorComponent::InitializeComponent()
@@ -247,7 +295,7 @@ void UGolfTurnBasedDirectorComponent::OnPaperGolfShotFinished(APaperGolfPawn* Pa
 			// Update player state position and rotation from pawn final position
 			if (auto PlayerState = GolfController->GetGolfPlayerState(); PlayerState)
 			{
-				PlayerState->SetLocationAndRotation(*PaperGolfPawn);
+				PlayerState->SetLocationAndRotationFromPawn(*PaperGolfPawn);
 			}
 		}
 	}
@@ -417,10 +465,10 @@ void UGolfTurnBasedDirectorComponent::ActivatePlayer(IGolfController* Player)
 
 		if (!bNewHole)
 		{
-			// Joining mid-game so need to update the pawn position
 			if (auto Pawn = Player->GetPaperGolfPawn(); ensure(Pawn))
 			{
-				PlayerState->SetLocationAndRotation(*Pawn);
+				UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Display, TEXT("%s: ActivatePlayer - Player=%s - Setting location and rotation from player state"), *GetName(), *PG::StringUtils::ToString(Player));
+				PlayerState->SetPawnLocationAndRotation(*Pawn);
 			}
 		}
 

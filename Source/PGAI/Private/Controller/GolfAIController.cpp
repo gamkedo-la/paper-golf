@@ -273,11 +273,6 @@ void AGolfAIController::SetPawn(APawn* InPawn)
 		UE_VLOG_UELOG(this, LogPGAI, Display, TEXT("%s: SetPawn - PlayerPawn=%s"), *GetName(), *LoggingUtils::GetName(InPawn));
 		PlayerPawn = PaperGolfPawn;
 	}
-
-	if (IsValid(PaperGolfPawn))
-	{
-		ActivateTurn();
-	}
 }
 
 void AGolfAIController::OnFellThroughFloor(APaperGolfPawn* InPaperGolfPawn)

@@ -32,6 +32,8 @@
 #include "Config/PlayerConfig.h"
 #include "Config/PlayerStateConfigurator.h"
 
+#include "GameFramework/GameSession.h"
+
 #if WITH_EDITOR
 	#include "Settings/LevelEditorPlaySettings.h"
 #endif
@@ -92,7 +94,10 @@ void APaperGolfGameModeBase::InitNumberOfPlayers(const FString& Options)
 		SetNumberOfPlayersFromOptions(Options);
 
 		// Use the editor values for number of human players if none passed from options
-		DesiredNumberOfPlayers = FMath::Max(DesiredNumberOfPlayers, EditorHumanPlayers);
+		if (DesiredNumberOfPlayers == 0)
+		{
+			DesiredNumberOfPlayers = EditorHumanPlayers;
+		}
 	}
 
 	// fallback to defaults
@@ -376,7 +381,8 @@ void APaperGolfGameModeBase::HandleMatchHasStarted()
 	}
 	else
 	{
-		StartGame();
+		// Must still add tick delay to avoid timing issues
+		GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateUObject(this, &ThisClass::StartGame));
 	}
 }
 
@@ -387,11 +393,8 @@ bool APaperGolfGameModeBase::DelayStartWithTimer() const
 
 void APaperGolfGameModeBase::StartGameWithDelay()
 {
-	auto World = GetWorld();
-	check(World);
-
 	FTimerHandle TimerHandle;
-	World->GetTimerManager().SetTimer(TimerHandle, this, &APaperGolfGameModeBase::StartGame, MatchStartDelayTime, false);
+	GetWorldTimerManager().SetTimer(TimerHandle, this, &APaperGolfGameModeBase::StartGame, MatchStartDelayTime, false);
 }
 
 void APaperGolfGameModeBase::OnStartHole(int32 HoleNumber)
@@ -579,12 +582,12 @@ void APaperGolfGameModeBase::Logout(AController* Exiting)
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: Logout - Exiting=%s"), *GetName(), *LoggingUtils::GetName(Exiting));
 
-	Super::Logout(Exiting);
-
 	HandlePlayerLeaving(Exiting);
 
-	// If fall below minum number of players, return to the main menu
-	if (IsMatchInProgress() && GetNumberOfActivePlayers() < MinNumberOfPlayers)
+	Super::Logout(Exiting);
+
+	// If fall below minimum number of players, return to the main menu
+	if (MatchShouldBeAbandoned())
 	{
 		UE_VLOG_UELOG(this, LogPaperGolfGame, Log,
 			TEXT("%s: Logout - Returning to main menu as number of players=%d is less than minimum=%d"),
@@ -592,6 +595,34 @@ void APaperGolfGameModeBase::Logout(AController* Exiting)
 		);
 		ReturnToMainMenuHost();
 	}
+}
+
+bool APaperGolfGameModeBase::MatchIsActive() const
+{
+	if (!IsMatchInProgress())
+	{
+		return false;
+	}
+
+	// make sure world is not shutting down
+	auto World = GetWorld();
+	if (!IsValid(World))
+	{
+		return false;
+	}
+	
+	return !World->bIsTearingDown;
+}
+
+bool APaperGolfGameModeBase::MatchShouldBeAbandoned() const
+{
+	return MatchIsActive() && GetNumberOfActivePlayers() < MinNumberOfPlayers;
+}
+
+bool APaperGolfGameModeBase::MatchIsJoinable() const
+{
+	// Can join the match and kick a bot if the number of active human players is less than number of total desired players (Players + Bots)
+	return MatchIsActive() && GetNumberOfActivePlayers() < DesiredNumberOfPlayers + DesiredNumberOfBotPlayers;
 }
 
 void APaperGolfGameModeBase::HandleMatchIsWaitingToStart()
@@ -624,7 +655,28 @@ void APaperGolfGameModeBase::RestartGame()
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: RestartGame"), *GetName());
 
-	Super::RestartGame();
+	// Copying from AGameMode::RestartGame
+	if (GameSession->CanRestartGame())
+	{
+		if (GetMatchState() == MatchState::LeavingMap)
+		{
+			return;
+		}
+
+		FString MapName = GetWorld()->GetMapName();
+		MapName.RemoveFromStart(GetWorld()->StreamingLevelsPrefix); // Remove any prefix if necessary
+
+		const FString& GameModeName = GetClass()->GetClassPathName().ToString();
+
+		// Pass along updated options from current game state
+		GetWorld()->ServerTravel(FString::Printf(TEXT("%s?game=%s?%s%d?%s%d?%s%d"),
+			*MapName,
+			*GameModeName,
+			PG::GameModeOptions::NumPlayers, NumPlayers,
+			PG::GameModeOptions::NumBots, NumBots,
+			PG::GameModeOptions::AllowBots, bAllowBots),
+		GetTravelType());
+	}
 }
 
 void APaperGolfGameModeBase::AbortMatch()
@@ -636,16 +688,15 @@ void APaperGolfGameModeBase::AbortMatch()
 
 AGolfAIController* APaperGolfGameModeBase::AddBot()
 {
-	if (GetNumberOfActivePlayers() >= DesiredNumberOfPlayers)
-	{
-		UE_VLOG_UELOG(this, LogPaperGolfGame, Warning,
-			TEXT("%s: AddBot - NULL - NumberOfActivePlayers=%d already at desired number of players - DesiredNumberOfPlayers=%d"),
-			*GetName(), GetNumberOfActivePlayers(), DesiredNumberOfPlayers);
-		return nullptr;
-	}
-
 	// TODO: This needs to be revisited with player names
 	const auto CreatedBot = CreateBot(NumBots + 1);
+
+	//if (CreatedBot)
+	//{
+	//	// Increment so that on restart the game mode knows to create another bot
+	//	++DesiredNumberOfBotPlayers;
+	//	--DesiredNumberOfPlayers;
+	//}
 
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, 
 		TEXT("%s: AddBot - %s - NumPlayers=%d; DesiredNumberOfPlayers=%d"),
@@ -684,8 +735,7 @@ void APaperGolfGameModeBase::HandlePlayerLeaving(AController* LeavingPlayer)
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: HandlePlayerLeaving - LeavingPlayer=%s"), *GetName(), *LoggingUtils::GetName(LeavingPlayer));
 
-	// TODO: Verify IsMatchInProgress is the right thing to check to see if the players aren't leaving because the match is ending
-	if (!bAllowBots || !IsMatchInProgress())
+	if (!bAllowBots || !MatchIsActive())
 	{
 		OnPlayerLeft(LeavingPlayer);
 	}
@@ -694,7 +744,7 @@ void APaperGolfGameModeBase::HandlePlayerLeaving(AController* LeavingPlayer)
 #if PG_ALLOW_BOT_REPLACE_PLAYER
 		if (AController* NewPlayer = ReplaceLeavingPlayerWithBot(LeavingPlayer); NewPlayer)
 		{
-			OnPlayerReplaced(LeavingPlayer, NewPlayer);
+			ReplacePlayer(LeavingPlayer, NewPlayer);
 		}
 		else
 		{
@@ -713,6 +763,7 @@ void APaperGolfGameModeBase::HandlePlayerJoining(AController* NewPlayer)
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: HandlePlayerJoining - NewPlayer=%s"), *GetName(), *LoggingUtils::GetName(NewPlayer));
 
 	// TODO: 114-account-for-late-joining - If joining and at capacity but there is a bot in game, choose a victim bot and replace it with the new player
+	// Should add a "RemoveBot" that will also do "--DesiredNumberOfBotPlayers" so that the restart will spawn the appropriate number of bots
 	OnPlayerJoined(NewPlayer);
 }
 

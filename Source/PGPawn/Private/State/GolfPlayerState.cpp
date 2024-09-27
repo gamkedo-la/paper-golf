@@ -10,6 +10,8 @@
 #include "PGPawnLogging.h"
 #include "Utils/ArrayUtils.h"
 
+#include "Pawn/PaperGolfPawn.h"
+
 #include <tuple>
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GolfPlayerState)
@@ -87,7 +89,7 @@ void AGolfPlayerState::CopyGameStateProperties(const AGolfPlayerState* InPlayerS
 		return;
 	}
 
-	SetScore(InPlayerState->Score);
+	SetScore(InPlayerState->GetScore());
 	// Don't copy player name as may not want to inherit this from the other state
 
 	DoCopyProperties(InPlayerState);
@@ -95,22 +97,25 @@ void AGolfPlayerState::CopyGameStateProperties(const AGolfPlayerState* InPlayerS
 	ForceNetUpdate();
 }
 
-void AGolfPlayerState::SetActorLocationAndRotation(AActor& Actor) const
+void AGolfPlayerState::SetPawnLocationAndRotation(APaperGolfPawn& PlayerPawn) const
 {
 	if (!bPositionAndRotationSet)
 	{
 		return;
 	}
 
-	Actor.SetActorLocation(Position);
-	Actor.SetActorRotation(Rotation);
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: SetPawnLocationAndRotation - Position=%s, Rotation=%s"), *GetName(), *Position.ToString(), *Rotation.ToString());
+
+	PlayerPawn.SetTransform(Position, Rotation);
 }
 
-void AGolfPlayerState::SetLocationAndRotation(const AActor& Actor)
+void AGolfPlayerState::SetLocationAndRotationFromPawn(const APaperGolfPawn& PlayerPawn)
 {
 	bPositionAndRotationSet = true;
-	Position = Actor.GetActorLocation();
-	Rotation = Actor.GetActorRotation();
+	Position = PlayerPawn.GetPaperGolfPosition();
+	Rotation = PlayerPawn.GetPaperGolfRotation();
+
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: SetLocationAndRotationFromPawn - Position=%s, Rotation=%s"), *GetName(), *Position.ToString(), *Rotation.ToString());
 }
 
 void AGolfPlayerState::DoCopyProperties(const AGolfPlayerState* InPlayerState)
@@ -166,14 +171,21 @@ void AGolfPlayerState::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 	PlayerStateCategory.Add(TEXT("Shots"), FString::Printf(TEXT("%d"), GetShots()));
 	PlayerStateCategory.Add(TEXT("TotalShots"), FString::Printf(TEXT("%d"), GetTotalShots()));
 	PlayerStateCategory.Add(TEXT("IsReadyForShot"), LoggingUtils::GetBoolString(IsReadyForShot()));
+	PlayerStateCategory.Add(TEXT("IsSpectatorOnly"), LoggingUtils::GetBoolString(IsSpectatorOnly()));
+	PlayerStateCategory.Add(TEXT("IsScored"), LoggingUtils::GetBoolString(HasScored()));
+	PlayerStateCategory.Add(TEXT("PlayerColor"), PlayerColor.ToString());
 
-	// Decide if going to add as a top level category or child
-	if (Snapshot->Status.IsEmpty())
+	if (HasAuthority())
 	{
-		Snapshot->Status.Add(PlayerStateCategory);
+		PlayerStateCategory.Add(TEXT("PositionAndRotationSet"), LoggingUtils::GetBoolString(bPositionAndRotationSet));
+		if (bPositionAndRotationSet)
+		{
+			PlayerStateCategory.Add(TEXT("Position"), Position.ToString());
+			PlayerStateCategory.Add(TEXT("Rotation"), Rotation.ToString());
+		}
 	}
 
-	Snapshot->Status.Last().AddChild(PlayerStateCategory);
+	Snapshot->Status.Add(PlayerStateCategory);
 }
 
 #endif

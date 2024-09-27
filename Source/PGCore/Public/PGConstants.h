@@ -10,7 +10,7 @@
 
 #ifndef PG_ALLOW_BOT_REPLACE_PLAYER
 // TODO: Toggle once implemented
-	#define PG_ALLOW_BOT_REPLACE_PLAYER 0
+	#define PG_ALLOW_BOT_REPLACE_PLAYER 1
 #endif
 
 #ifndef PG_ALLOW_PLAYER_REPLACE_BOT

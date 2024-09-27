@@ -8,6 +8,8 @@
 
 #include "GolfPlayerState.generated.h"
 
+class APaperGolfPawn;
+
 /**
  * 
  */
@@ -109,8 +111,8 @@ public:
 		ForceNetUpdate();
 	}
 
-	void SetActorLocationAndRotation(AActor& Actor) const;
-	void SetLocationAndRotation(const AActor& Actor);
+	void SetPawnLocationAndRotation(APaperGolfPawn& PlayerPawn) const;
+	void SetLocationAndRotationFromPawn(const APaperGolfPawn& PlayerPawn);
 
 protected:
 	virtual void DoCopyProperties(const AGolfPlayerState* InPlayerState);
