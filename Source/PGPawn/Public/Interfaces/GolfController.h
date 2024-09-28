@@ -50,7 +50,7 @@ public:
 	* Called when it is this player's turn for the first time on a hole.
 	* Called right before ActivateTurn on the server.
 	*/
-	virtual void StartHole() = 0;
+	virtual void StartHole(EHoleStartType HoleStartType) = 0;
 	virtual void ActivateTurn() = 0;
 	virtual void Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* PlayerState) = 0;
 

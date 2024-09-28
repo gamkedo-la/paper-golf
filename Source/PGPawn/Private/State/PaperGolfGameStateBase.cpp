@@ -15,6 +15,8 @@
 
 #include "Subsystems/GolfEventsSubsystem.h"
 
+#include <limits>
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PaperGolfGameStateBase)
 
 void APaperGolfGameStateBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -144,6 +146,35 @@ bool APaperGolfGameStateBase::IsHoleComplete() const
 	}
 
 	return true;
+}
+
+bool APaperGolfGameStateBase::HasCourseStarted() const
+{
+	const auto& GolfPlayerStates = GetActiveGolfPlayerStates();
+
+	return GolfPlayerStates.ContainsByPredicate([](const AGolfPlayerState* PlayerState)
+	{
+		return PlayerState->GetTotalShots() > 0;
+	});
+}
+
+int32 APaperGolfGameStateBase::GetNumCompletedHoles() const
+{
+	const auto& GolfPlayerStates = GetActiveGolfPlayerStates();
+
+	if (GolfPlayerStates.IsEmpty())
+	{
+		return 0;
+	}
+
+	int32 MinCompletedHoles = std::numeric_limits<int32>::max();
+
+	for (const auto& PlayerState : GolfPlayerStates)
+	{
+		MinCompletedHoles = FMath::Min(MinCompletedHoles, PlayerState->GetNumCompletedHoles());
+	}
+
+	return MinCompletedHoles;
 }
 
 void APaperGolfGameStateBase::BeginPlay()

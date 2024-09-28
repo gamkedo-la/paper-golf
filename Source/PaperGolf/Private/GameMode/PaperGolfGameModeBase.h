@@ -32,8 +32,6 @@ public:
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual void InitGameState() override;
 
-	virtual void GenericPlayerInitialization(AController* NewPlayer) override;
-
 	virtual void Logout(AController* Exiting) override final;
 
 	virtual void StartMatch() override;
@@ -80,8 +78,12 @@ protected:
 
 	virtual bool DelayStartWithTimer() const;
 
-	virtual void OnPostLogin(AController* NewPlayer) override final;
-	virtual void InitSeamlessTravelPlayer(AController* NewController) override final;
+	// Called for both seamless and non-seamless travel cases for generic initialization
+	virtual void GenericPlayerInitialization(AController* NewPlayer) override final;
+
+	// Override these to kick players that join when the server is full
+	virtual void HandleSeamlessTravelPlayer(AController*& C) override final;
+	virtual void PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override final;
 
 	virtual bool ReadyToStartMatch_Implementation() override;
 	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
@@ -122,6 +124,12 @@ protected:
 
 	virtual int32 GetNumberOfActivePlayers() const { return NumPlayers;  }
 
+	/*
+	* Chooses a bot to evict when a player joins but the game is full.
+	* By default chooses the bot with the best score.
+	*/
+	virtual AController* ChooseBotToEvict() const;
+
 private:
 
 	void HandlePlayerLeaving(AController* LeavingPlayer);
@@ -131,6 +139,8 @@ private:
 	bool SetDesiredNumberOfPlayersFromPIESettings();
 
 	void CreateBots();
+
+	void DestroyBot(AController* BotToEvict);
 	/*
 	* Adds another bot player to the match up to max number of players.
 	*/
@@ -165,9 +175,18 @@ private:
 
 	void DetermineAllowBots(const FString& Options);
 
+	bool ValidateJoinMatch(AController* Controller);
+
 	bool MatchIsJoinable() const;
 	bool MatchIsActive() const;
 	bool MatchShouldBeAbandoned() const;
+	bool IsWorldBeingDestroyed() const;
+
+	int32 GetTotalNumberOfDesiredPlayers() const;
+
+	void KickPlayer(AController* Player, const TCHAR* Reason);
+
+	virtual bool CanCourseBeStarted() const;
 
 protected:
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
@@ -252,6 +271,11 @@ FORCEINLINE int32 APaperGolfGameModeBase::GetTotalNumberOfPlayers() const
 FORCEINLINE int32 APaperGolfGameModeBase::GetMinimumNumberOfPlayers() const
 {
 	return MinNumberOfPlayers;
+}
+
+FORCEINLINE int32 APaperGolfGameModeBase::GetTotalNumberOfDesiredPlayers() const
+{
+	return DesiredNumberOfPlayers + DesiredNumberOfBotPlayers;
 }
 
 #pragma endregion Inline Definitions

@@ -117,7 +117,7 @@ void UGolfTurnBasedDirectorComponent::DoReplacePlayer(AController* PlayerToRemov
 	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: DoReplacePlayer - PlayerToRemove=%s; PlayerToAdd=%s"), *GetName(), *LoggingUtils::GetName(PlayerToRemove), *LoggingUtils::GetName(PlayerToAdd));
 
 	const TScriptInterface<IGolfController> GolfPlayerToRemove{ PlayerToRemove };
-	if (!ensureMsgf(GolfPlayerToRemove, TEXT("%s: RemovePlayer - PlayerToRemove=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(PlayerToRemove)))
+	if (!ensureMsgf(GolfPlayerToRemove, TEXT("%s: DoReplacePlayer - PlayerToRemove=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(PlayerToRemove)))
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: DoReplacePlayer - PlayerToRemove=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(PlayerToRemove));
 		return;
@@ -126,7 +126,7 @@ void UGolfTurnBasedDirectorComponent::DoReplacePlayer(AController* PlayerToRemov
 	// If a new player is provided make sure it implements the IGolfController interface
 	const TScriptInterface<IGolfController> GolfPlayerToAdd{ PlayerToAdd };
 
-	if (PlayerToAdd && !ensureMsgf(GolfPlayerToAdd, TEXT("%s: RemovePlayer - PlayerToAdd=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(PlayerToAdd)))
+	if (PlayerToAdd && !ensureMsgf(GolfPlayerToAdd, TEXT("%s: DoReplacePlayer - PlayerToAdd=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(PlayerToAdd)))
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: DoReplacePlayer - PlayerToAdd=%s is not a IGolfController"), *GetName(), *LoggingUtils::GetName(PlayerToAdd));
 		return;
@@ -164,7 +164,7 @@ void UGolfTurnBasedDirectorComponent::DoReplacePlayer(AController* PlayerToRemov
 
 	if (Players.IsEmpty())
 	{
-		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Display, TEXT("%s: RemovePlayer - No more players - exiting game"), *GetName());
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Display, TEXT("%s: DoReplacePlayer - No more players - exiting game"), *GetName());
 		// TODO: Exit game - maybe not necessary in listen server
 		return;
 	}
@@ -181,15 +181,26 @@ void UGolfTurnBasedDirectorComponent::DoReplacePlayer(AController* PlayerToRemov
 				World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateUObject(this, &ThisClass::ActivateNextPlayer));
 			}
 		}
-		else
+		// Called from RemovePlayer during logout when server is ending the match so make sure we aren't trying to go to the next player in that case
+		else if(!IsWorldShuttingDown())
 		{
 			DoNextTurn();
+		}
+		else
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: DoReplacePlayer - World is tearing down - skipping next turn"), *GetName())
 		}
 	}
 	// If there is an active player, then we need to update the index after removal of the other player
 	else if (CurrentActivePlayer)
 	{
 		ActivePlayerIndex = Players.IndexOfByKey(CurrentActivePlayer);
+
+		// FIXME: This causes an assertion because the golf player state hasn't replicated yet
+		if (GolfPlayerToAdd)
+		{
+			GolfPlayerToAdd->Spectate(CurrentActivePlayer->GetPaperGolfPawn(), CurrentActivePlayer->GetGolfPlayerState());
+		}
 	}
 	else
 	{
@@ -370,6 +381,12 @@ bool UGolfTurnBasedDirectorComponent::IsActivePlayer(const IGolfController* Play
 	return GameState->GetActivePlayer() == Player->GetGolfPlayerState();
 }
 
+bool UGolfTurnBasedDirectorComponent::IsWorldShuttingDown() const
+{
+	auto World = GetWorld();
+	return !IsValid(World) || World->bIsTearingDown;
+}
+
 void UGolfTurnBasedDirectorComponent::OnPaperGolfEnteredHazard(APaperGolfPawn* PaperGolfPawn, EHazardType HazardType)
 {
 	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: OnPaperGolfEnteredHazard: PaperGolfPawn=%s; HazardType=%s"),
@@ -418,8 +435,6 @@ void UGolfTurnBasedDirectorComponent::ActivateNextPlayer()
 	{
 		if (i != ActivePlayerIndex)
 		{
-			// TODO: It's possible that the pawn won't be set yet
-			// This is actually happening because the pawn is not set yet
 			Players[i]->Spectate(NextPlayer->GetPaperGolfPawn(), NextPlayer->GetGolfPlayerState());
 		}
 	}
@@ -472,10 +487,11 @@ void UGolfTurnBasedDirectorComponent::ActivatePlayer(IGolfController* Player)
 			}
 		}
 
-		Player->StartHole();
+		Player->StartHole(bNewHole ? EHoleStartType::Start : EHoleStartType::InProgress);
 	}
 
-	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: ActivatePlayer - Player=%s - starting turn"), *GetName(), *PG::StringUtils::ToString(Player));
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: ActivatePlayer - Player=%s - starting turn; bNewHole=%s; bNewPlayer=%s"),
+		*GetName(), *PG::StringUtils::ToString(Player), LoggingUtils::GetBoolString(bNewHole), LoggingUtils::GetBoolString(bNewPlayer));
 
 	Player->ActivateTurn();
 }
@@ -529,13 +545,22 @@ int32 UGolfTurnBasedDirectorComponent::DetermineNextPlayer() const
 			break;
 		}
 
-		const auto Pawn = Player->GetPaperGolfPawn();
-		if (!Pawn)
+		// If a new player replaced a bot or a bot joined but hasn't hit their shot yet then they will not have a pawn
+		if (!Player->HasPaperGolfPawn() && !PlayerState->HasPawnTransformSet())
 		{
+			UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Error, TEXT("%s: DetermineNextPlayer - Skip Player=(%d)%s - No pawn or transform set"), *GetName(), i, *PG::StringUtils::ToString(Player));
 			continue;
 		}
 
-		const auto DistanceToHole = CurrentHole->GetSquaredHorizontalDistanceTo(Pawn);
+		const auto DistanceToHole = [&]()
+		{
+			if (Player->HasPaperGolfPawn())
+			{
+				auto Pawn = Player->GetPaperGolfPawn();
+				return CurrentHole->GetSquaredHorizontalDistanceTo(Pawn);
+			}
+			return PlayerState->GetPawnSquaredHorizontalDistanceTo(*CurrentHole);
+		}();
 
 		FGolfPlayerOrderState CurrentPlayerState
 		{

@@ -114,6 +114,9 @@ public:
 	void SetPawnLocationAndRotation(APaperGolfPawn& PlayerPawn) const;
 	void SetLocationAndRotationFromPawn(const APaperGolfPawn& PlayerPawn);
 
+	bool HasPawnTransformSet() const;
+	float GetPawnSquaredHorizontalDistanceTo(const AActor& Actor) const;
+
 protected:
 	virtual void DoCopyProperties(const AGolfPlayerState* InPlayerState);
 		
@@ -172,4 +175,13 @@ FORCEINLINE int32 AGolfPlayerState::GetLastCompletedHoleScore() const
 	return !ScoreByHole.IsEmpty() ? static_cast<int32>(ScoreByHole.Last()) : -1;
 }
 
+FORCEINLINE float AGolfPlayerState::GetPawnSquaredHorizontalDistanceTo(const AActor& Actor) const
+{
+	return bPositionAndRotationSet ? FVector::DistSquared2D(Position, Actor.GetActorLocation()) : 0.0f;
+}
+
+FORCEINLINE  bool AGolfPlayerState::HasPawnTransformSet() const
+{
+	return bPositionAndRotationSet;
+}
 #pragma endregion Inline Definitions

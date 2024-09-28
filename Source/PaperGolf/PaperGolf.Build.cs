@@ -34,6 +34,7 @@ public class PaperGolf : ModuleRules
             "Slate",
             "SlateCore",
             "ApplicationCore",
+            "CoreOnline" // FUniqueNetIdWrapper in PreLogin of GameMode
         });
 
         CppStandard = CppStandardVersion.Cpp20;

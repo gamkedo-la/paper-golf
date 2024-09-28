@@ -40,6 +40,11 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PaperGolfGameModeBase)
 
+namespace
+{
+	constexpr const auto MatchJoinFailureMessage = TEXT("Match is no longer joinable");
+}
+
 APaperGolfGameModeBase::APaperGolfGameModeBase()
 {
 	// We will start the game when the desired number of players have joined or other time out happens which should trigger an AI bot to be spawned in their place
@@ -115,7 +120,7 @@ void APaperGolfGameModeBase::InitNumberOfPlayers(const FString& Options)
 		DesiredNumberOfBotPlayers = DefaultMinDesiredNumberOfBotPlayers;
 	}
 
-	const auto DesiredTotalPlayers = DesiredNumberOfPlayers + DesiredNumberOfBotPlayers;
+	const auto DesiredTotalPlayers = GetTotalNumberOfDesiredPlayers();
 	
 	if (!ensureAlwaysMsgf(DesiredTotalPlayers >= MinNumberOfPlayers,
 		TEXT("%s: InitNumberOfPlayers - DesiredNumberOfPlayers=%d + DesiredNumberOfBotPlayers=%d < MinNumberOfPlayers=%d"),
@@ -227,31 +232,99 @@ void APaperGolfGameModeBase::Reset()
 	Super::Reset();
 }
 
-void APaperGolfGameModeBase::OnPostLogin(AController* NewPlayer)
+void APaperGolfGameModeBase::HandleSeamlessTravelPlayer(AController*& C)
 {
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnPostLogin - NewPlayer=%s"), *GetName(), *LoggingUtils::GetName(NewPlayer));
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: HandleSeamlessTravelPlayer - C=%s"), *GetName(), *LoggingUtils::GetName(C));
 
-	Super::OnPostLogin(NewPlayer);
+	// Make sure we can join the match
+	if (!ValidateJoinMatch(C))
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: HandleSeamlessTravelPlayer - Validation failured - destroying C=%s"), *GetName(), *LoggingUtils::GetName(C));
 
-	HandlePlayerJoining(NewPlayer);
+		if (C)
+		{
+			C->Destroy();
+			C = nullptr;
+		}
+		return;
+	}
+
+	Super::HandleSeamlessTravelPlayer(C);
 }
 
-void APaperGolfGameModeBase::InitSeamlessTravelPlayer(AController* NewController)
+void APaperGolfGameModeBase::KickPlayer(AController* Player, const TCHAR* Reason)
 {
-	// Seamless travel is done for hosting player when doing a seamless server travel. PostLogin is not called in this case so standardizing with OnPlayerJoined
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: KickPlayer - Player=%s; Reason=%s"), *GetName(), *LoggingUtils::GetName(Player), Reason);
 
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: InitSeamlessTravelPlayer - NewController=%s"), *GetName(), *LoggingUtils::GetName(NewController));
+	// Return client to main menu host
+	if (auto PC = Cast<APlayerController>(Player); PC)
+	{
+		PC->ClientReturnToMainMenuWithTextReason(FText::FromString(Reason));
+		PC->Destroy();
+	}
+}
 
-	Super::InitSeamlessTravelPlayer(NewController);
+bool APaperGolfGameModeBase::CanCourseBeStarted() const
+{
+	auto PaperGolfGameState = GetGameState<APaperGolfGameStateBase>();
 
-	HandlePlayerJoining(NewController);
+	if (!ensureMsgf(PaperGolfGameState, TEXT("%s: PaperGolfGameState=%s is not APaperGolfGameStateBase"), *GetName(), *LoggingUtils::GetName(GameState)))
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: PaperGolfGameState=%s is not APaperGolfGameStateBase"),
+			*GetName(), *LoggingUtils::GetName(GameState));
+		return false;
+	}
+
+	// TODO: May want to make this configurable
+	// return PaperGolfGameState->HasCourseStarted();
+	return PaperGolfGameState->GetNumCompletedHoles() == 0;
+}
+
+void APaperGolfGameModeBase::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: PreLogin - Options=%s; Address=%s; UniqueId=%s"), *GetName(), *Options, *Address, *UniqueId.ToString());
+
+	if (!ValidateJoinMatch(nullptr))
+	{
+		ErrorMessage = MatchJoinFailureMessage;
+		FGameModeEvents::GameModePreLoginEvent.Broadcast(this, UniqueId, ErrorMessage);
+
+		return;
+	}
+
+	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
+}
+
+bool APaperGolfGameModeBase::ValidateJoinMatch(AController* Controller)
+{
+	if (MatchIsJoinable())
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: ValidateJoinMatch - TRUE - Controller=%s"), *GetName(), *LoggingUtils::GetName(Controller));
+		return true;
+	}
+
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: ValidateJoinMatch - FALSE - Controller=%s"), *GetName(), *LoggingUtils::GetName(Controller));
+
+	KickPlayer(Controller, MatchJoinFailureMessage);
+
+	return false;
+}
+
+void APaperGolfGameModeBase::GenericPlayerInitialization(AController* NewPlayer)
+{
+	// This function is called immediately after OnPostLogin and InitSeamlessTravelPlayer and is designed to handle initialization code for both scenarios
+	// Handle our player set up here
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: GenericPlayerInitialization - NewPlayer=%s"), *GetName(), *LoggingUtils::GetName(NewPlayer));
+
+	Super::GenericPlayerInitialization(NewPlayer);
+
+	HandlePlayerJoining(NewPlayer);
 }
 
 void APaperGolfGameModeBase::OnPlayerJoined(AController* NewPlayer)
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnPlayerJoined - NewPlayer=%s"), *GetName(), *LoggingUtils::GetName(NewPlayer));
 
-	// TODO: 114-account-for-late-joining -> Any human player should replace a bot if at capacity
 	if (NewPlayer)
 	{
 		ConfigureJoinedPlayerState(*NewPlayer);
@@ -336,7 +409,7 @@ bool APaperGolfGameModeBase::ReadyToStartMatch_Implementation()
 	bool bReady{};
 	if (GetMatchState() == MatchState::WaitingToStart)
 	{
-		bReady = GetTotalNumberOfPlayers() == DesiredNumberOfPlayers + DesiredNumberOfBotPlayers;
+		bReady = GetTotalNumberOfPlayers() == GetTotalNumberOfDesiredPlayers();
 	}
 
 	// TODO: We may want to manually start the match after a countdown timer or something - this is checked on Tick in the AGameMode base class and will immediately start the match
@@ -569,20 +642,16 @@ bool APaperGolfGameModeBase::UpdatePlayerStartSpot(AController* Player, const FS
 	return bResult;
 }
 
-void APaperGolfGameModeBase::GenericPlayerInitialization(AController* NewPlayer)
-{
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: GenericPlayerInitialization - NewPlayer=%s"), *GetName(), *LoggingUtils::GetName(NewPlayer));
-
-	Super::GenericPlayerInitialization(NewPlayer);
-
-	// TODO: Maybe we can do something with AI here?
-}
 
 void APaperGolfGameModeBase::Logout(AController* Exiting)
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: Logout - Exiting=%s"), *GetName(), *LoggingUtils::GetName(Exiting));
 
-	HandlePlayerLeaving(Exiting);
+	// Logouts gets called for AI controllers as well so need to check if it's a player controller as AI only logs out if evicted and already handled that
+	if (Exiting && Exiting->IsPlayerController())
+	{
+		HandlePlayerLeaving(Exiting);
+	}
 
 	Super::Logout(Exiting);
 
@@ -599,30 +668,40 @@ void APaperGolfGameModeBase::Logout(AController* Exiting)
 
 bool APaperGolfGameModeBase::MatchIsActive() const
 {
-	if (!IsMatchInProgress())
+	// When waiting to start return true as match is being set up and need to allow players to login
+	if (!IsMatchInProgress() && MatchState != MatchState::WaitingToStart && MatchState != MatchState::EnteringMap)
 	{
 		return false;
 	}
 
 	// make sure world is not shutting down
+	return !IsWorldBeingDestroyed();
+}
+
+bool APaperGolfGameModeBase::IsWorldBeingDestroyed() const
+{
 	auto World = GetWorld();
 	if (!IsValid(World))
 	{
-		return false;
+		return true;
 	}
-	
-	return !World->bIsTearingDown;
+
+	return World->bIsTearingDown;
 }
 
 bool APaperGolfGameModeBase::MatchShouldBeAbandoned() const
 {
+	// TODO: Fix mismatch between NumPlayers and GetNumberOfActivePlayers that will also consider bots in derived classes
 	return MatchIsActive() && GetNumberOfActivePlayers() < MinNumberOfPlayers;
 }
 
 bool APaperGolfGameModeBase::MatchIsJoinable() const
 {
 	// Can join the match and kick a bot if the number of active human players is less than number of total desired players (Players + Bots)
-	return MatchIsActive() && GetNumberOfActivePlayers() < DesiredNumberOfPlayers + DesiredNumberOfBotPlayers;
+	const bool bResult = MatchIsActive() && NumPlayers < GetTotalNumberOfDesiredPlayers();
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Verbose, TEXT("%s: MatchIsJoinable - %s - MatchIsActive=%s; NumPlayers()=%d; DesiredNumberOfPlayers=%d; DesiredNumberOfBotPlayers=%d"),
+		*GetName(), LoggingUtils::GetBoolString(bResult), LoggingUtils::GetBoolString(MatchIsActive()), NumPlayers, DesiredNumberOfPlayers, DesiredNumberOfBotPlayers);
+	return bResult;
 }
 
 void APaperGolfGameModeBase::HandleMatchIsWaitingToStart()
@@ -731,6 +810,37 @@ AGolfAIController* APaperGolfGameModeBase::ReplaceLeavingPlayerWithBot(AControll
 	return CreatedBot;
 }
 
+AController* APaperGolfGameModeBase::ChooseBotToEvict() const
+{
+	auto PaperGolfGameState = GetGameState<APaperGolfGameStateBase>();
+
+	if (!ensureMsgf(PaperGolfGameState, TEXT("%s: PaperGolfGameState=%s is not APaperGolfGameStateBase"), *GetName(), *LoggingUtils::GetName(GameState)))
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: PaperGolfGameState=%s is not APaperGolfGameStateBase"),
+			*GetName(), *LoggingUtils::GetName(GameState));
+		return nullptr;
+	}
+
+	AGolfPlayerState* PlayerStateToEvict{};
+
+	for (auto PlayerState : PaperGolfGameState->PlayerArray)
+	{
+		auto GolfPlayerState = Cast<AGolfPlayerState>(PlayerState);
+		if (!GolfPlayerState || !GolfPlayerState->IsABot())
+		{
+			continue;
+		}
+
+		// If GolfPlayerState CompareByScore returns true with PlayerStateToEvict, then GolfPlayerState is better and should be preferred to be evicted
+		if (!PlayerStateToEvict || GolfPlayerState->CompareByScore(*PlayerStateToEvict))
+		{
+			PlayerStateToEvict = GolfPlayerState;
+		}
+	}
+
+	return PlayerStateToEvict ? PlayerStateToEvict->GetOwningController() : nullptr;
+}
+
 void APaperGolfGameModeBase::HandlePlayerLeaving(AController* LeavingPlayer)
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: HandlePlayerLeaving - LeavingPlayer=%s"), *GetName(), *LoggingUtils::GetName(LeavingPlayer));
@@ -762,9 +872,73 @@ void APaperGolfGameModeBase::HandlePlayerJoining(AController* NewPlayer)
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: HandlePlayerJoining - NewPlayer=%s"), *GetName(), *LoggingUtils::GetName(NewPlayer));
 
-	// TODO: 114-account-for-late-joining - If joining and at capacity but there is a bot in game, choose a victim bot and replace it with the new player
-	// Should add a "RemoveBot" that will also do "--DesiredNumberOfBotPlayers" so that the restart will spawn the appropriate number of bots
-	OnPlayerJoined(NewPlayer);
+	if (!IsValid(NewPlayer))
+	{
+		return;
+	}
+
+	// Note that NumPlayers already incremented so we would be full if >
+	const bool bNotFull = GetTotalNumberOfPlayers() <= GetTotalNumberOfDesiredPlayers();
+
+	// TODO: We may want to make it configurable to be able to join a course in progress and not force player to be spectator
+	const bool bCourseCanBeStarted = CanCourseBeStarted();
+
+	if (bNotFull && bCourseCanBeStarted)
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: HandlePlayerJoining - Not full - NumPlayers=%d; DesiredNumberOfPlayers=%d"),
+			*GetName(), GetTotalNumberOfPlayers(), GetTotalNumberOfDesiredPlayers());
+
+		OnPlayerJoined(NewPlayer);
+		return;
+	}
+
+#if PG_ALLOW_BOT_REPLACE_PLAYER
+	// If we are full or course has already started we need to see if we can remove a bot
+	AController* const BotToEvict = ChooseBotToEvict();
+#else
+	AController* const BotToEvict = nullptr;
+#endif
+
+	ConfigureJoinedPlayerState(*NewPlayer);
+
+	if (BotToEvict)
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: HandlePlayerJoining - Full - Replacing BotToEvict=%s with NewPlayer=%s"),
+			*GetName(), *LoggingUtils::GetName(BotToEvict), *LoggingUtils::GetName(NewPlayer));
+
+		ReplacePlayer(BotToEvict, NewPlayer);
+		DestroyBot(BotToEvict);
+	}
+	else if (auto GolfPlayerState = NewPlayer->GetPlayerState<AGolfPlayerState>(); ensure(GolfPlayerState))
+	{
+		GolfPlayerState->SetSpectatorOnly();
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: HandlePlayerJoining - Full - No BotToEvict - NewPlayer=%s joining as spectator only"), *GetName(), *LoggingUtils::GetName(NewPlayer));
+		OnPlayerJoined(NewPlayer);
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: HandlePlayerJoining - Full - No BotToEvict - NewPlayer=%s - Invalid player state"),
+			*GetName(), *LoggingUtils::GetName(NewPlayer->GetPlayerState<APlayerState>()));
+
+		KickPlayer(NewPlayer, MatchJoinFailureMessage);
+	}
+}
+
+void APaperGolfGameModeBase::DestroyBot(AController* BotToEvict)
+{
+	if (!BotToEvict)
+	{
+		return;
+	}
+
+	if (auto BotToEvictGolfController = Cast<IGolfController>(BotToEvict); ensure(BotToEvictGolfController) && BotToEvictGolfController->HasPaperGolfPawn())
+	{
+		if (auto Pawn = BotToEvictGolfController->GetPaperGolfPawn(); Pawn)
+		{
+			Pawn->Destroy();
+		}
+	}
+	BotToEvict->Destroy();
 }
 
 void APaperGolfGameModeBase::ReplacePlayer(AController* LeavingPlayer, AController* NewPlayer)
@@ -836,7 +1010,7 @@ void APaperGolfGameModeBase::CreateBots()
 	{
 		if (auto Controller = CreateBot(i + 1); Controller)
 		{
-			HandlePlayerJoining(Controller);
+			OnPlayerJoined(Controller);
 		}
 	}
 }

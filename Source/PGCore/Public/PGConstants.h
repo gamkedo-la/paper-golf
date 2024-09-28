@@ -15,7 +15,7 @@
 
 #ifndef PG_ALLOW_PLAYER_REPLACE_BOT
 // TODO: Toggle once implemented
-	#define PG_ALLOW_PLAYER_REPLACE_BOT 0
+	#define PG_ALLOW_PLAYER_REPLACE_BOT 1
 #endif
 
 namespace PG

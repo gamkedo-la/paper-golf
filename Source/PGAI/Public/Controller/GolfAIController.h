@@ -52,7 +52,7 @@ public:
 
 	virtual bool IsReadyForNextShot() const override;
 
-	virtual void StartHole() override;
+	virtual void StartHole(EHoleStartType InHoleStartType) override;
 
 	virtual void ActivateTurn() override;
 

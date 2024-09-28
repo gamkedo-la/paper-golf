@@ -57,7 +57,7 @@ public:
 	virtual bool HasPaperGolfPawn() const override;
 
 	virtual void ReceivePlayerStart(AActor* PlayerStart) override;
-	virtual void StartHole() override;
+	virtual void StartHole(EHoleStartType InHoleStartType) override;
 	virtual void ActivateTurn() override;
 	virtual void Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState) override;
 
@@ -199,7 +199,7 @@ private:
 	void ClientActivateTurn();
 
 	UFUNCTION(Client, Reliable)
-	void ClientStartHole(AActor* InPlayerStart);
+	void ClientStartHole(AActor* InPlayerStart, EHoleStartType InHoleStartType);
 
 	UFUNCTION(Client, Reliable)
 	void ClientSpectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState);
@@ -360,6 +360,7 @@ private:
 	bool bOutOfBounds{};
 
 	bool bSpectatorFlicked{};
+	EHoleStartType HoleStartType{};
 };
 
 #pragma region Inline Definitions

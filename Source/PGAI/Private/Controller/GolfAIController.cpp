@@ -168,9 +168,9 @@ bool AGolfAIController::IsReadyForNextShot() const
 	return true;
 }
 
-void AGolfAIController::StartHole()
+void AGolfAIController::StartHole(EHoleStartType InHoleStartType)
 {
-	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: StartHole"), *GetName());
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: StartHole: InHoleStartType=%s"), *GetName(), *LoggingUtils::GetName(InHoleStartType));
 
 	GolfAIShotComponent->StartHole();
 }

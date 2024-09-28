@@ -69,6 +69,7 @@ void AGolfPlayerController::DoReset()
 	CurrentSpectatorPlayerState = nullptr;
 	SpectatingPawnPlayerStateMap.Reset();
 	bSpectatorFlicked = false;
+	HoleStartType = EHoleStartType::Default;
 
 	bTurnActivated = false;
 	bTurnActivationRequested = false;
@@ -880,9 +881,11 @@ void AGolfPlayerController::ReceivePlayerStart(AActor* InPlayerStart)
 	PlayerStart = InPlayerStart;
 }
 
-void AGolfPlayerController::StartHole()
+void AGolfPlayerController::StartHole(EHoleStartType InHoleStartType)
 {
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: StartHole"), *GetName());
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: StartHole: InHoleStartType=%s"), *GetName(), *LoggingUtils::GetName(InHoleStartType));
+
+	HoleStartType = InHoleStartType;
 
 	// Hide until after the hole fly by has been played or skipped on the server
 	if (IsLocalController() && PlayerPawn)
@@ -890,14 +893,16 @@ void AGolfPlayerController::StartHole()
 		PlayerPawn->SetActorHiddenInGameNoRep(true);
 	}
 
-	ClientStartHole(PlayerStart);
+	ClientStartHole(PlayerStart, InHoleStartType);
 }
 
-void AGolfPlayerController::ClientStartHole_Implementation(AActor* InPlayerStart)
+void AGolfPlayerController::ClientStartHole_Implementation(AActor* InPlayerStart, EHoleStartType InHoleStartType)
 {
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientStartHole: PlayerStart=%s"), *GetName(), *LoggingUtils::GetName(InPlayerStart));
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientStartHole: PlayerStart=%s; InHoleStartType=%s"),
+		*GetName(), *LoggingUtils::GetName(InPlayerStart), *LoggingUtils::GetName(InHoleStartType));
 
 	PlayerStart = InPlayerStart;
+	HoleStartType = InHoleStartType;
 
 	// This is where we need to look to grab the current hole, play the hole flyby if it hasn't been seen, and then do the camera introduction
 	// We also need to sync when the current hole number replicates
@@ -1029,6 +1034,13 @@ void AGolfPlayerController::SpectateCurrentGolfHole()
 
 void AGolfPlayerController::TriggerPlayerCameraIntroduction()
 {
+	if (HoleStartType != EHoleStartType::Start)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: TriggerPlayerCameraIntroduction - HoleStartType=%s - skipping"), *GetName(), *LoggingUtils::GetName(HoleStartType));
+		OnCameraIntroductionComplete();
+		return;
+	}
+
 	const auto GolfPlayerStart = Cast<AGolfPlayerStart>(PlayerStart);
 
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: TriggerPlayerCameraIntroduction: GolfPlayerStart=%s"), *GetName(), *LoggingUtils::GetName(GolfPlayerStart));

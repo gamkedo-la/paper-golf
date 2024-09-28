@@ -77,6 +77,8 @@ private:
 
 	bool IsActivePlayer(const IGolfController* Player) const;
 
+	bool IsWorldShuttingDown() const;
+
 private:
 	// TODO: Use APGTurnBasedGameMode if need the functionality of it.  Keeping it to the base class for now for maximum reuse
 	UPROPERTY(Transient)

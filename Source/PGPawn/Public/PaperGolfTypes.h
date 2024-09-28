@@ -23,6 +23,15 @@ enum class EShotFocusType : uint8
 	Focus
 };
 
+UENUM(BlueprintType)
+enum class EHoleStartType : uint8
+{
+	Default	UMETA(Hidden),
+	Start,
+	InProgress,
+	MAX UMETA(Hidden)
+};
+
 USTRUCT()
 struct FShotFocusScores
 {

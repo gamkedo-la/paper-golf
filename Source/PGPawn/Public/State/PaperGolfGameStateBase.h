@@ -64,6 +64,10 @@ public:
 	
 	virtual bool IsHoleComplete() const;
 
+	bool HasCourseStarted() const;
+
+	int32 GetNumCompletedHoles() const;
+
 protected:
 	virtual void BeginPlay() override;
 
