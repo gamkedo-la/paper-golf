@@ -256,6 +256,13 @@ void APaperGolfGameModeBase::KickPlayer(AController* Player, const TCHAR* Reason
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: KickPlayer - Player=%s; Reason=%s"), *GetName(), *LoggingUtils::GetName(Player), Reason);
 
+	if (Player && Player->IsLocalPlayerController())
+	{
+		// Return server to main menu host which will end the game
+		ReturnToMainMenuHost();
+		return;
+	}
+
 	// Return client to main menu host
 	if (auto PC = Cast<APlayerController>(Player); PC)
 	{
