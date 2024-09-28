@@ -866,6 +866,16 @@ void APaperGolfGameModeBase::HandlePlayerLeaving(AController* LeavingPlayer)
 #endif
 
 	}
+
+	// Be sure to destroy the leaving player's pawn
+	// TODO: Just like with the bot, it would be better to just swap this out
+	if (auto GolfController = Cast<IGolfController>(LeavingPlayer); GolfController && GolfController->HasPaperGolfPawn())
+	{
+		if (auto Pawn = GolfController->GetPaperGolfPawn(); Pawn)
+		{
+			Pawn->Destroy();
+		}
+	}
 }
 
 void APaperGolfGameModeBase::HandlePlayerJoining(AController* NewPlayer)
