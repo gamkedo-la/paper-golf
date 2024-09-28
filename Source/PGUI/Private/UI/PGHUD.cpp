@@ -128,12 +128,28 @@ void APGHUD::RemoveActiveMessageWidget()
 	UnregisterHoleFinishedMessageRemoval();
 }
 
-void APGHUD::SpectatePlayer_Implementation(APaperGolfPawn* PlayerPawn, AGolfPlayerState* InPlayerState)
+void APGHUD::SpectatePlayer(int32 PlayerStateId)
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: SpectatePlayer: PlayerStateId=%d"), *GetName(), PlayerStateId);
+
+	AGolfPlayerState* PlayerState{};
+	if (TryFindPlayerById(PlayerStateId, PlayerState))
+	{
+		ActivePlayer = *PlayerState;
+		SpectatePlayer(PlayerState);
+	}
+	else
+	{
+		ActivePlayer = FActivePlayer(PlayerStateId, EDeferredPlayerState::SpectatingShotSetup);
+		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: SpectatePlayer: PlayerStateId=%d - Player not yet replicated - deferring SpectatingShotSetup"),
+			*GetName(), PlayerStateId);
+	}
+}
+
+void APGHUD::SpectatePlayer_Implementation(const AGolfPlayerState* InPlayerState)
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log,
-		TEXT("%s: SpectatePlayer: PlayerPawn=%s; InPlayerState=%s"), *GetName(), *LoggingUtils::GetName(PlayerPawn), *LoggingUtils::GetName<APlayerState>(InPlayerState));
-
-	ActivePlayer = InPlayerState;
+		TEXT("%s: SpectatePlayer: InPlayerState=%s"), *GetName(), *LoggingUtils::GetName<APlayerState>(InPlayerState));
 
 	if (auto GolfGameState = GetGameState(); GolfGameState)
 	{
@@ -144,8 +160,8 @@ void APGHUD::SpectatePlayer_Implementation(APaperGolfPawn* PlayerPawn, AGolfPlay
 	{
 		if (!InPlayerState)
 		{
-			UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Warning, TEXT("%s: SpectatePlayer: %s - No player state defined"),
-				*GetName(), *LoggingUtils::GetName(PlayerPawn));
+			UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Warning, TEXT("%s: SpectatePlayer: No player state defined"),
+				*GetName());
 		}
 
 		DisplayTurnWidget(SpectatingWidgetClass, &ThisClass::SpectatingWidget,
@@ -159,7 +175,17 @@ void APGHUD::BeginTurn_Implementation()
 
 	if (auto PC = GetOwningPlayerController(); PC)
 	{
-		ActivePlayer = PC->GetPlayerState<AGolfPlayerState>();
+		if (auto MyPlayerState = PC->GetPlayerState<AGolfPlayerState>(); ensure(MyPlayerState))
+		{
+			ActivePlayer = *MyPlayerState;
+		}
+		else
+		{
+			UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Error, TEXT("%s: BeginTurn - Could not get own AGolfPlayerState : %s"),
+				*GetName(), *LoggingUtils::GetName(PC->GetPlayerState<APlayerState>()));
+			ActivePlayer.Reset();
+		}
+
 		if (auto GolfGameState = GetGameState(); GolfGameState)
 		{
 			CheckNotifyHoleShotsUpdate(*GolfGameState);
@@ -189,10 +215,28 @@ void APGHUD::HideActiveTurnWidget()
 	}
 }
 
-void APGHUD::BeginSpectatorShot_Implementation(APaperGolfPawn* PlayerPawn, AGolfPlayerState* InPlayerState)
+void APGHUD::BeginSpectatorShot(int32 PlayerStateId)
 {
-	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: BeginSpectatorShot: PlayerPawn=%s; InPlayerState=%s"),
-		*GetName(), *LoggingUtils::GetName(PlayerPawn), *LoggingUtils::GetName<APlayerState>(InPlayerState));
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: BeginSpectatorShot: PlayerStateId=%d"), *GetName(), PlayerStateId);
+
+	AGolfPlayerState* PlayerState{};
+	if (TryFindPlayerById(PlayerStateId, PlayerState))
+	{
+		ActivePlayer = *PlayerState;
+		BeginSpectatorShot(PlayerState);
+	}
+	else
+	{
+		ActivePlayer = FActivePlayer(PlayerStateId, EDeferredPlayerState::SpectatingShot);
+		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: SpectatePlayer: PlayerStateId=%d - Player not yet replicated - deferring SpectatingShot"),
+			*GetName(), PlayerStateId);
+	}
+}
+
+void APGHUD::BeginSpectatorShot_Implementation(const AGolfPlayerState* InPlayerState)
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: BeginSpectatorShot: InPlayerState=%s"),
+		*GetName(), *LoggingUtils::GetName<APlayerState>(InPlayerState));
 
 	HideActiveTurnWidget();
 }
@@ -221,6 +265,54 @@ APaperGolfGameStateBase* APGHUD::GetGameState() const
 	ensure(GolfGameState);
 
 	return GolfGameState;
+}
+
+bool APGHUD::TryFindPlayerById(int32 PlayerStateId, AGolfPlayerState*& OutPlayerState) const
+{
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return false;
+	}
+
+	auto GolfGameState = World->GetGameState<APaperGolfGameStateBase>();
+	if (!GolfGameState)
+	{
+		return false;
+	}
+
+	OutPlayerState = GolfGameState->GetPlayerStateById(PlayerStateId);
+	return OutPlayerState != nullptr;
+}
+
+void APGHUD::CheckExecuteDeferredSpectatorAction(const AGolfPlayerState& AddedPlayerState)
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: CheckExecuteDeferredSpectatorAction: AddedPlayerState=%s"),
+		*GetName(), *LoggingUtils::GetName<APlayerState>(AddedPlayerState));
+
+	if (!ActivePlayer || !ActivePlayer->MatchesDeferredState(AddedPlayerState.GetPlayerId()))
+	{
+		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: CheckExecuteDeferredSpectatorAction: No deferred state to execute"),
+			*GetName());
+		return;
+	}
+
+	check(ActivePlayer);
+
+	const auto DeferredStateToExecute = ActivePlayer->LastDeferredState;
+	ActivePlayer = AddedPlayerState;
+
+	switch (ActivePlayer->LastDeferredState)
+	{
+		case EDeferredPlayerState::SpectatingShotSetup:
+			SpectatePlayer(&AddedPlayerState);
+			break;
+		case EDeferredPlayerState::SpectatingShot:
+			BeginSpectatorShot(&AddedPlayerState);
+			break;
+		default:
+			checkNoEntry();
+	}
 }
 
 void APGHUD::DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& WidgetClass)
@@ -552,6 +644,11 @@ void APGHUD::OnPlayersChanged(APaperGolfGameStateBase& GameState, const AGolfPla
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnPlayersChanged: PlayerState=%s; bPlayerAdded=%s"),
 		*GetName(), *LoggingUtils::GetName<APlayerState>(PlayerState), LoggingUtils::GetBoolString(bPlayerAdded));
 
+	if (bPlayerAdded)
+	{
+		CheckExecuteDeferredSpectatorAction(PlayerState);
+	}
+
 	// hide player scores by default and then invoke logic to check if we should show it
 	HideCurrentHoleScoresHUD();
 	CheckNotifyHoleShotsUpdate(GameState);
@@ -590,10 +687,10 @@ void APGHUD::CheckNotifyHoleShotsUpdate(const APaperGolfGameStateBase& GameState
 
 	if (bAllPlayersOneShot)
 	{
-		if (bHideActivePlayerHoleScore)
+		if (bHideActivePlayerHoleScore && ActivePlayer)
 		{
 			// remove active turn player since it shows the stroke on the HUD
-			GolfPlayerScores.Remove(ActivePlayer);
+			GolfPlayerScores.Remove(const_cast<AGolfPlayerState*>(ActivePlayer->PlayerState.Get()));
 		}
 
 		ShowCurrentHoleScoresHUD(GolfPlayerScores);
@@ -646,7 +743,7 @@ void APGHUD::OnCourseComplete()
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnCourseComplete"), *GetName());
 
 	bCourseComplete = true;
-	ActivePlayer = nullptr;
+	ActivePlayer.Reset();
 	bShotUpdatesReceived = false;
 
 	if (!CheckShowFinalResults(GetGameState()))
@@ -661,10 +758,16 @@ void APGHUD::OnHoleComplete()
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnHoleComplete"), *GetName());
 
-	ActivePlayer = nullptr;
+	ActivePlayer.Reset();
 	bShotUpdatesReceived = false;
 
 	HideCurrentHoleScoresHUD();
 }
 
 #pragma endregion Event Handlers for HUD State
+
+APGHUD::FActivePlayer::FActivePlayer(const AGolfPlayerState& InPlayerState)
+{
+	PlayerState = &InPlayerState;
+	Id = InPlayerState.GetPlayerId();
+}

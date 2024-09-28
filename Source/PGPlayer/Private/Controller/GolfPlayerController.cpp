@@ -66,7 +66,7 @@ void AGolfPlayerController::DoReset()
 	TotalRotation = FRotator::ZeroRotator;
 	PlayerPawn = nullptr;
 	PlayerStart = nullptr;
-	CurrentSpectatorPlayerState = nullptr;
+	SpectatorParams = {};
 	SpectatingPawnPlayerStateMap.Reset();
 	bSpectatorFlicked = false;
 	HoleStartType = EHoleStartType::Default;
@@ -440,7 +440,7 @@ void AGolfPlayerController::AddYawInput(float Val)
 
 bool AGolfPlayerController::IsSpectatingShotSetup() const
 {
-	return CurrentSpectatorPlayerState.IsValid() && !bSpectatorFlicked;
+	return IsValid(SpectatorParams.PlayerState) && !bSpectatorFlicked;
 }
 
 bool AGolfPlayerController::IsInCinematicSequence() const
@@ -1135,6 +1135,8 @@ void AGolfPlayerController::ActivateTurn()
 		return;
 	}
 
+	SpectatorParams = {};
+
 	if(!ensureAlwaysMsgf(PlayerPawn, TEXT("%s: ActivateTurn - PlayerPawn is NULL"), *GetName()))
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s: ActivateTurn - PlayerPawn is NULL"), *GetName());
@@ -1176,7 +1178,6 @@ void AGolfPlayerController::DoActivateTurn()
 	// Ensure that input is always activated and timer is always registered
 	EnableInput(this);
 
-	CurrentSpectatorPlayerState = nullptr;
 	bSpectatorFlicked = false;
 
 	if (ShouldEnableInputForActivateTurn())
@@ -1316,20 +1317,27 @@ void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* I
 		PlayerState->SetIsSpectator(true);
 	}
 
-	CurrentSpectatorPlayerState = InPlayerState;
 	bSpectatorFlicked = false;
 
-	ClientSpectate(InPawn, InPlayerState);
+	SpectatorParams = FSpectatorParams
+	{
+		.Pawn = InPawn,
+		.PlayerState = InPlayerState
+	};
+
+	if (IsLocalController())
+	{
+		DoSpectate(InPawn, InPlayerState);
+	}
 
 	SpectatePawn(InPawn, InPlayerState);
 }
 
-void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState)
+void AGolfPlayerController::DoSpectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState)
 {
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientSpectate - InPawn=%s; InPlayerState=%s"),
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DoSpectate - InPawn=%s; InPlayerState=%s"),
 		*GetName(), *LoggingUtils::GetName(InPawn), InPlayerState ? *InPlayerState->GetPlayerName() : TEXT("NULL"));
 
-	CurrentSpectatorPlayerState = InPlayerState;
 	bSpectatorFlicked = false;
 
 	// Turn off collision on our own pawn
@@ -1344,7 +1352,10 @@ void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn
 
 	if (auto HUD = GetHUD<APGHUD>(); ensure(HUD))
 	{
-		HUD->SpectatePlayer(InPawn, InPlayerState);
+		if (InPlayerState)
+		{
+			HUD->SpectatePlayer(InPlayerState->GetPlayerId());
+		}
 
 		if (InPawn)
 		{
@@ -1378,8 +1389,8 @@ void AGolfPlayerController::OnSpectatedPawnDestroyed(AActor* InPawn)
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnSpectatedPawnDestroyed - InPawn=%s"),
 		*GetName(), *LoggingUtils::GetName(InPawn));
 
-	const auto StrongCurrentSpectatorState = CurrentSpectatorPlayerState.Get();
-	if (!StrongCurrentSpectatorState)
+	const auto CurrentSpectatorState = SpectatorParams.PlayerState;
+	if (!CurrentSpectatorState)
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Verbose, TEXT("%s: OnSpectatedPawnDestroyed - InPawn=%s - CurrentSpectatorPlayerState is NULL - skipping"),
 			*GetName(), *LoggingUtils::GetName(InPawn));
@@ -1400,14 +1411,14 @@ void AGolfPlayerController::OnSpectatedPawnDestroyed(AActor* InPawn)
 	}
 
 	// If we are spectating the current player state and InNewPawn is NULL it likely means that pawn is destroyed so switch to the golf hole
-	if (StrongCurrentSpectatorState == MatchedPlayer)
+	if (CurrentSpectatorState == MatchedPlayer)
 	{
 		SpectateCurrentGolfHole();
 	}
 	else
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Verbose, TEXT("%s: OnSpectatedPawnDestroyed - InPawn=%s - Skipping as StrongCurrentSpectatorState=%s != MatchedPlayer=%s"),
-			*GetName(), *LoggingUtils::GetName(InPawn), *StrongCurrentSpectatorState->GetPlayerName(), *MatchedPlayer->GetPlayerName());
+		UE_VLOG_UELOG(this, LogPGPlayer, Verbose, TEXT("%s: OnSpectatedPawnDestroyed - InPawn=%s - Skipping as CurrentSpectatorState=%s != MatchedPlayer=%s"),
+			*GetName(), *LoggingUtils::GetName(InPawn), *CurrentSpectatorState->GetPlayerName(), *MatchedPlayer->GetPlayerName());
 	}
 }
 
@@ -1441,7 +1452,7 @@ void AGolfPlayerController::OnHandleSpectatorShot(AGolfPlayerState* InPlayerStat
 	SpectatingPawnPlayerStateMap.Add(InPawn, InPlayerState);
 	InPawn->OnDestroyed.AddUniqueDynamic(this, &ThisClass::OnSpectatedPawnDestroyed);
 
-	if (auto StrongCurrentSpectatorState = CurrentSpectatorPlayerState.Get(); !StrongCurrentSpectatorState || StrongCurrentSpectatorState != InPlayerState)
+	if (auto StrongCurrentSpectatorState = SpectatorParams.PlayerState; !StrongCurrentSpectatorState || StrongCurrentSpectatorState != InPlayerState)
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: OnHandleSpectatorShot - Skipping as spectator status has changed - CurrentSpectatorPlayerState=%s; InPlayerState=%s"),
 			*GetName(), StrongCurrentSpectatorState ? *StrongCurrentSpectatorState->GetPlayerName() : TEXT("NULL"), InPlayerState ? *InPlayerState->GetPlayerName() : TEXT("NULL"));
@@ -1467,9 +1478,9 @@ void AGolfPlayerController::OnHandleSpectatorShot(AGolfPlayerState* InPlayerStat
 			// Transition back to viewing pawn after flick
 			SetViewTargetWithBlend(InPawn.Get(), SpectatorShotCameraCutTime, EViewTargetBlendFunction::VTBlend_EaseInOut, SpectatorShotCameraCutExponent);
 
-			if (HUD.IsValid())
+			if (auto StrongPlayerState = InPlayerState.Get(); HUD.IsValid() && StrongPlayerState)
 			{
-				HUD->BeginSpectatorShot(InPawn.Get(), InPlayerState.Get());
+				HUD->BeginSpectatorShot(StrongPlayerState->GetPlayerId());
 			}
 
 			// Removing the handle invalidates the delegate so we need to do it last
@@ -1493,8 +1504,8 @@ void AGolfPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	//DOREPLIFETIME_CONDITION(AGolfPlayerController, ShotFinishedLocation, COND_OwnerOnly);
 	DOREPLIFETIME(AGolfPlayerController, bScored);
+	DOREPLIFETIME(AGolfPlayerController, SpectatorParams);
 }
 
 void AGolfPlayerController::SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState* InPlayerState)
@@ -1586,6 +1597,17 @@ UTutorialTrackingSubsystem* AGolfPlayerController::GetTutorialTrackingSubsystem(
 	return TutorialTrackingSubsystem;
 }
 
+void AGolfPlayerController::OnRep_SpectatorParams()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnRep_SpectatorParams: Pawn=%s; PlayerState=%s"),
+		*GetName(),*LoggingUtils::GetName(SpectatorParams.Pawn), *LoggingUtils::GetName<APlayerState>(SpectatorParams.PlayerState.Get()));
+
+	if (SpectatorParams.PlayerState && SpectatorParams.Pawn)
+	{
+		DoSpectate(SpectatorParams.Pawn, SpectatorParams.PlayerState);
+	}
+}
+
 void AGolfPlayerController::SetSpectatorPawn(ASpectatorPawn* NewSpectatorPawn)
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SetSpectatorPawn - NewSpectatorPawn=%s"),
@@ -1597,14 +1619,14 @@ void AGolfPlayerController::SetSpectatorPawn(ASpectatorPawn* NewSpectatorPawn)
 	{
 		EnableInput(this);
 
-		if (auto SpectatorPlayerState = CurrentSpectatorPlayerState.Get(); SpectatorPlayerState && SpectatorPlayerState->GetPawn())
+		if (IsValid(SpectatorParams.Pawn))
 		{
-			GolfSpectatorPawn->TrackPlayer(Cast<APaperGolfPawn>(SpectatorPlayerState->GetPawn()));
+			GolfSpectatorPawn->TrackPlayer(Cast<APaperGolfPawn>(SpectatorParams.Pawn));
 		}
 		else
 		{
 			UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SetSpectatorPawn - Pawn has not yet replicated for SpectatorPlayerState=%s"),
-				*GetName(), *LoggingUtils::GetName<APlayerState>(SpectatorPlayerState));
+				*GetName(), *LoggingUtils::GetName<APlayerState>(SpectatorParams.PlayerState.Get()));
 			SetViewTarget(GolfSpectatorPawn);
 		}
 	}

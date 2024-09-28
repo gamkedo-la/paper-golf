@@ -68,6 +68,8 @@ public:
 
 	int32 GetNumCompletedHoles() const;
 
+	AGolfPlayerState* GetPlayerStateById(int32 PlayerStateId) const;
+
 protected:
 	virtual void BeginPlay() override;
 

@@ -23,6 +23,20 @@ class APaperGolfGameStateBase;
 class IPawnCameraLook;
 class UTutorialTrackingSubsystem;
 
+
+USTRUCT()
+struct FSpectatorParams
+{
+	GENERATED_BODY()
+
+	UPROPERTY(Transient)
+	TObjectPtr<APaperGolfPawn> Pawn{};
+
+	UPROPERTY(Transient)
+	TObjectPtr<AGolfPlayerState> PlayerState{};
+};
+
+
 /**
  * 
  */
@@ -201,8 +215,7 @@ private:
 	UFUNCTION(Client, Reliable)
 	void ClientStartHole(AActor* InPlayerStart, EHoleStartType InHoleStartType);
 
-	UFUNCTION(Client, Reliable)
-	void ClientSpectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState);
+	void DoSpectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState);
 
 	void DoActivateTurn();
 	void ShowActivateTurnHUD();
@@ -274,6 +287,9 @@ private:
 
 	UTutorialTrackingSubsystem* GetTutorialTrackingSubsystem() const;
 
+	UFUNCTION()
+	void OnRep_SpectatorParams();
+
 private:
 
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
@@ -341,7 +357,8 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<APaperGolfPawn> PlayerPawn{};
 
-	TWeakObjectPtr<AGolfPlayerState> CurrentSpectatorPlayerState{};
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_SpectatorParams)
+	FSpectatorParams SpectatorParams{};
 
 	TMap<TWeakObjectPtr<AActor>, TWeakObjectPtr<AGolfPlayerState>> SpectatingPawnPlayerStateMap{};
 

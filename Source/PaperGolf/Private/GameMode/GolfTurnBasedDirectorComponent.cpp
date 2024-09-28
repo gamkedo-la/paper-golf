@@ -196,7 +196,6 @@ void UGolfTurnBasedDirectorComponent::DoReplacePlayer(AController* PlayerToRemov
 	{
 		ActivePlayerIndex = Players.IndexOfByKey(CurrentActivePlayer);
 
-		// FIXME: This causes an assertion because the golf player state hasn't replicated yet
 		if (GolfPlayerToAdd)
 		{
 			GolfPlayerToAdd->Spectate(CurrentActivePlayer->GetPaperGolfPawn(), CurrentActivePlayer->GetGolfPlayerState());

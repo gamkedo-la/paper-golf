@@ -177,6 +177,22 @@ int32 APaperGolfGameStateBase::GetNumCompletedHoles() const
 	return MinCompletedHoles;
 }
 
+AGolfPlayerState* APaperGolfGameStateBase::GetPlayerStateById(int32 PlayerStateId) const
+{
+	for (auto PlayerState : PlayerArray)
+	{
+		if (auto GolfPlayerState = Cast<AGolfPlayerState>(PlayerState); GolfPlayerState)
+		{
+			if (GolfPlayerState->GetPlayerId() == PlayerStateId)
+			{
+				return GolfPlayerState;
+			}
+		}
+	}
+
+	return nullptr;
+}
+
 void APaperGolfGameStateBase::BeginPlay()
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: BeginPlay"), *GetName());

@@ -51,23 +51,27 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void RemoveActiveMessageWidget();
 
-	UFUNCTION(BlueprintNativeEvent, Category = "UI")
-	void SpectatePlayer(APaperGolfPawn* PlayerPawn, AGolfPlayerState* InPlayerState);
-
 	UFUNCTION(BlueprintNativeEvent, Category = UI)
 	void BeginTurn();
 
 	UFUNCTION(BlueprintNativeEvent, Category = UI)
 	void BeginShot();
 
-	UFUNCTION(BlueprintNativeEvent, Category = UI)
-	void BeginSpectatorShot(APaperGolfPawn* PlayerPawn, AGolfPlayerState* InPlayerState);
-
 	/* Plays the hole flyby. To be notified when it is completed or canceled bind to the UTutorialTrackingSystem::OnHoleFlybyComplete delegate */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category = "Cinematics")
 	void PlayHoleFlybySequence(ULevelSequence* LevelSequence, bool bFadeCamera = false);
 
+	void SpectatePlayer(int32 PlayerStateId);
+	void BeginSpectatorShot(int32 PlayerStateId);
+
 protected:
+
+	UFUNCTION(BlueprintNativeEvent, Category = "UI")
+	void SpectatePlayer(const AGolfPlayerState* InPlayerState);
+
+	UFUNCTION(BlueprintNativeEvent, Category = UI)
+	void BeginSpectatorShot(const AGolfPlayerState* InPlayerState);
+
 	UFUNCTION(BlueprintImplementableEvent, Category = "UI")
 	void OnToggleHUDVisibility(bool bVisible);
 
@@ -89,6 +93,31 @@ protected:
 	void HideCurrentHoleScoresHUD();
 
 private:
+
+	enum class EDeferredPlayerState : uint8
+	{
+		None,
+		SpectatingShotSetup,
+		SpectatingShot
+	};
+
+	struct FActivePlayer
+	{
+		TWeakObjectPtr<const AGolfPlayerState> PlayerState{};
+		int32 Id{};
+		EDeferredPlayerState LastDeferredState{ EDeferredPlayerState::None };
+
+
+		bool MatchesDeferredState(int32 PlayerId) const { return Id == PlayerId && LastDeferredState != EDeferredPlayerState::None; }
+
+		FActivePlayer(const AGolfPlayerState& InPlayerState);
+		FActivePlayer(int32 Id, EDeferredPlayerState RequestedState) : Id(Id), LastDeferredState(RequestedState) {}
+	};
+
+	bool TryFindPlayerById(int32 PlayerStateId, AGolfPlayerState*& OutPlayerState) const;
+
+	void CheckExecuteDeferredSpectatorAction(const AGolfPlayerState& AddedPlayerState);
+
 	void DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& WidgetClass);
 
 	void Init();
@@ -148,13 +177,11 @@ protected:
 	TObjectPtr<UGolfUserWidget> GolfWidget{};
 
 	// Use this instead of the game state since there may be a replication delay
-	UPROPERTY(Transient, BlueprintReadOnly)
-	TObjectPtr<AGolfPlayerState> ActivePlayer{};
+	TOptional<FActivePlayer> ActivePlayer{};
 
 	/* Hide the score of the active player in the top-left scores HUD at the start of the turn. */
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	bool bHideActivePlayerHoleScore{};
-
 
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
