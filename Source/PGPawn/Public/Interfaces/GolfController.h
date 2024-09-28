@@ -46,6 +46,14 @@ public:
 	* 
 	*/
 	virtual void ReceivePlayerStart(AActor* PlayerStart) = 0;
+
+
+	/*
+	* 
+	* Receives a player pawn that was previously possessed by another player when joining the game late.
+	*/
+	virtual void ReceivePlayerPawn(APaperGolfPawn* InPawn) = 0;
+
 	/*
 	* Called when it is this player's turn for the first time on a hole.
 	* Called right before ActivateTurn on the server.

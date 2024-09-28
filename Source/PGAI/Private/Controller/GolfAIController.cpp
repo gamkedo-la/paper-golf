@@ -548,6 +548,21 @@ void AGolfAIController::ResetShot()
 	GolfControllerCommonComponent->ResetShot();
 }
 
+void AGolfAIController::ReceivePlayerPawn(APaperGolfPawn* InPawn)
+{
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ReceivePlayerPawn - InPawn=%s"), *GetName(), *LoggingUtils::GetName(InPawn));
+
+	if (PlayerPawn && InPawn && PlayerPawn != InPawn)
+	{
+		UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ReceivePlayerPawn - PlayerPawn=%s is now irrelevant as this controller already possessed new pawn=%s"),
+			*GetName(), *LoggingUtils::GetName(InPawn), *LoggingUtils::GetName(PlayerPawn));
+		InPawn->Destroy();
+		return;
+	}
+
+	PlayerPawn = InPawn;
+}
+
 void AGolfAIController::DetermineShotType()
 {
 	GolfControllerCommonComponent->SetPaperGolfPawnAimFocus();

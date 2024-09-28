@@ -68,6 +68,8 @@ public:
 
 	virtual void ResetShot() override;
 
+	virtual void ReceivePlayerPawn(APaperGolfPawn* InPawn) override;
+
 protected:
 	virtual AController* AsController() override { return this; }
 

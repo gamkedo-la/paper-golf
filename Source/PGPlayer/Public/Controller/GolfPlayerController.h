@@ -105,6 +105,8 @@ public:
 	UFUNCTION(BlueprintPure)
 	bool IsInCinematicSequence() const;
 
+	virtual void ReceivePlayerPawn(APaperGolfPawn* InPawn) override;
+
 	// TODO: Can we remove UFUNCTION on some of these
 protected:
 	virtual void BeginPlay() override;

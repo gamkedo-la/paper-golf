@@ -338,6 +338,20 @@ void APaperGolfGameModeBase::OnPlayerJoined(AController* NewPlayer)
 	}
 }
 
+void APaperGolfGameModeBase::OnPlayerLeft(AController* LeavingPlayer)
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnPlayerLeft - LeavingPlayer=%s"), *GetName(), *LoggingUtils::GetName(LeavingPlayer));
+
+	// Be sure to destroy the leaving player's pawn
+	if (auto GolfController = Cast<IGolfController>(LeavingPlayer); GolfController && GolfController->HasPaperGolfPawn())
+	{
+		if (auto Pawn = GolfController->GetPaperGolfPawn(); Pawn)
+		{
+			Pawn->Destroy();
+		}
+	}
+}
+
 void APaperGolfGameModeBase::ConfigureJoinedPlayerState(AController& Player)
 {
 	// See https://forums.unrealengine.com/t/pass-playerstate-to-the-server-when-the-client-join-a-session/719511
@@ -873,16 +887,6 @@ void APaperGolfGameModeBase::HandlePlayerLeaving(AController* LeavingPlayer)
 #endif
 
 	}
-
-	// Be sure to destroy the leaving player's pawn
-	// TODO: Just like with the bot, it would be better to just swap this out
-	if (auto GolfController = Cast<IGolfController>(LeavingPlayer); GolfController && GolfController->HasPaperGolfPawn())
-	{
-		if (auto Pawn = GolfController->GetPaperGolfPawn(); Pawn)
-		{
-			Pawn->Destroy();
-		}
-	}
 }
 
 void APaperGolfGameModeBase::HandlePlayerJoining(AController* NewPlayer)
@@ -924,7 +928,8 @@ void APaperGolfGameModeBase::HandlePlayerJoining(AController* NewPlayer)
 			*GetName(), *LoggingUtils::GetName(BotToEvict), *LoggingUtils::GetName(NewPlayer));
 
 		ReplacePlayer(BotToEvict, NewPlayer);
-		DestroyBot(BotToEvict);
+
+		BotToEvict->Destroy();
 	}
 	else if (auto GolfPlayerState = NewPlayer->GetPlayerState<AGolfPlayerState>(); ensure(GolfPlayerState))
 	{
@@ -939,23 +944,6 @@ void APaperGolfGameModeBase::HandlePlayerJoining(AController* NewPlayer)
 
 		KickPlayer(NewPlayer, MatchJoinFailureMessage);
 	}
-}
-
-void APaperGolfGameModeBase::DestroyBot(AController* BotToEvict)
-{
-	if (!BotToEvict)
-	{
-		return;
-	}
-
-	if (auto BotToEvictGolfController = Cast<IGolfController>(BotToEvict); ensure(BotToEvictGolfController) && BotToEvictGolfController->HasPaperGolfPawn())
-	{
-		if (auto Pawn = BotToEvictGolfController->GetPaperGolfPawn(); Pawn)
-		{
-			Pawn->Destroy();
-		}
-	}
-	BotToEvict->Destroy();
 }
 
 void APaperGolfGameModeBase::ReplacePlayer(AController* LeavingPlayer, AController* NewPlayer)

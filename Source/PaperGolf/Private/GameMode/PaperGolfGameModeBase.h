@@ -114,7 +114,7 @@ protected:
 	virtual float DoAdditionalCourseComplete() { return CourseCompleteActionDelayTimeSeconds; }
 
 	virtual void OnPlayerJoined(AController* NewPlayer);
-	virtual void OnPlayerLeft(AController* LeavingPlayer) {}
+	virtual void OnPlayerLeft(AController* LeavingPlayer);
 
 	/* Called when a player is leaving and another is immediately replacing.
 	* Use case is when a player leaves the game early and is replaced with a bot or a player late joins and replaces a bot.
@@ -140,7 +140,6 @@ private:
 
 	void CreateBots();
 
-	void DestroyBot(AController* BotToEvict);
 	/*
 	* Adds another bot player to the match up to max number of players.
 	*/

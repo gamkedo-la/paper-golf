@@ -45,6 +45,12 @@ void APGTurnBasedGameMode::OnPlayerReplaced(AController* LeavingPlayer, AControl
 
 	if (LeavingGolfController && NewGolfController)
 	{
+		// Transfer ownership of the pawn if it exists
+		if (LeavingGolfController->HasPaperGolfPawn())
+		{
+			NewGolfController->ReceivePlayerPawn(LeavingGolfController->GetPaperGolfPawn());
+		}
+
 		check(TurnBasedDirectorComponent);
 		TurnBasedDirectorComponent->ReplacePlayer(LeavingPlayer, NewPlayer);
 	}
