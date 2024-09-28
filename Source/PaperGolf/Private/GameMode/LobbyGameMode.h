@@ -50,6 +50,7 @@ private:
 	FString GetPathForMap(const TSoftObjectPtr<UWorld>& World) const;
 	FString GetPathForGameMode(const TSoftClassPtr<APaperGolfGameModeBase>& GameMode) const;
 
+	TSoftObjectPtr<UWorld> GetMap(const FString& MapName) const;
 	TSoftObjectPtr<UWorld> GetRandomMap() const;
 
 	void ValidateMaps();
@@ -64,7 +65,7 @@ private:
 	TMap<FString, FGameModeInfo> MatchTypesToModes;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Maps")
-	TArray<TSoftObjectPtr<UWorld>> Maps;
+	TMap<FString, TSoftObjectPtr<UWorld>> Maps;
 
 	bool bCanStartMatch{};
 	bool bMatchStarted{};

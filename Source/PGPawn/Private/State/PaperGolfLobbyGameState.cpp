@@ -17,15 +17,17 @@ void APaperGolfLobbyGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(APaperGolfLobbyGameState, GameModeName);
+	DOREPLIFETIME(APaperGolfLobbyGameState, MapName);
 	DOREPLIFETIME(APaperGolfLobbyGameState, MinPlayers);
 	DOREPLIFETIME(APaperGolfLobbyGameState, MaxPlayers);
 }
 
-void APaperGolfLobbyGameState::Initialize(const FString& InGameModeName, int32 InMinPlayers, int32 InMaxPlayers)
+void APaperGolfLobbyGameState::Initialize(const FString& InGameModeName, const FString& InMapName, int32 InMinPlayers, int32 InMaxPlayers)
 {
-	UE_VLOG_UELOG(this, LogPGPawn, Display, TEXT("%s: Initialize - GameModeName=%s; MinPlayers=%d; MaxPlayers=%d"), *GetName(), *InGameModeName, InMinPlayers, InMaxPlayers);
+	UE_VLOG_UELOG(this, LogPGPawn, Display, TEXT("%s: Initialize - GameModeName=%s; InMapName=%s; MinPlayers=%d; MaxPlayers=%d"), *GetName(), *InGameModeName, *InMapName, InMinPlayers, InMaxPlayers);
 
 	GameModeName = InGameModeName;
+	MapName = InMapName;
 	MinPlayers = InMinPlayers;
 	MaxPlayers = InMaxPlayers;
 

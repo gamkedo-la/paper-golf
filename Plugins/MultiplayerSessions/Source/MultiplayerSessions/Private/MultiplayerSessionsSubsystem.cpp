@@ -186,14 +186,14 @@ TArray<FOnlineSessionSearchResult> UMultiplayerSessionsSubsystem::FilterSessionS
 	return FilteredResults;
 }
 
-void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, const FString& MatchType)
+void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, const FString& MatchType, const FString& Map)
 {
-	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: CreateSession: NumPublicConnections=%d; MatchType=%s"), *GetName(), NumPublicConnections, *MatchType);
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: CreateSession: NumPublicConnections=%d; MatchType=%s; Map=%s"), *GetName(), NumPublicConnections, *MatchType, *Map);
 
 	if (!OnlineSessionInterface.IsValid())
 	{
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: CreateSession - OnlineSessionInterface is not valid: NumPublicConnections=%d; MatchType=%s"), 
-			*GetName(), NumPublicConnections, *MatchType);
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: CreateSession - OnlineSessionInterface is not valid: NumPublicConnections=%d; MatchType=%s; Map=%s"), 
+			*GetName(), NumPublicConnections, *MatchType, *Map);
 
 		MultiplayerOnCreateSessionComplete.Broadcast(false);
 
@@ -207,6 +207,7 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, co
 
 		LastNumPublicConnections = NumPublicConnections;
 		LastMatchType = MatchType;
+		LastMap = Map;
 		bCreateSessionOnDestroy = true;
 
 		DestroySession();
@@ -216,6 +217,7 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, co
 
 	DesiredNumPublicConnections = NumPublicConnections;
 	DesiredMatchType = MatchType;
+	DesiredMap = Map;
 
 	// Call our callback function when the session is created
 	// Store the delegate in a FDelegateHandle so we can later remove it from the delegaet list in OnlineSessionInterface
@@ -253,7 +255,7 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, co
 
 	if (!bWasSuccessful)
 	{
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: CreateSession FAILED: NumPublicConnections=%d; MatchType=%s"), *GetName(), NumPublicConnections, *MatchType);
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: CreateSession FAILED: NumPublicConnections=%d; MatchType=%s; Map=%s"), *GetName(), NumPublicConnections, *MatchType, *Map);
 
 		OnlineSessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegateHandle);
 		CreateSessionCompleteDelegateHandle.Reset();
@@ -262,18 +264,19 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, co
 	}
 	else
 	{
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: CreateSession InProgress: NumPublicConnections=%d; MatchType=%s"), *GetName(), NumPublicConnections, *MatchType);
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: CreateSession InProgress: NumPublicConnections=%d; MatchType=%s; Map=%s"), *GetName(), NumPublicConnections, *MatchType, *Map);
 
 		// Don't call MultiplayerOnCreateSessionComplete.Broadcast(true) yet as we need to wait for the OnCreateSessionComplete function to trigger
 	}
 }
 
-void UMultiplayerSessionsSubsystem::CreateLocalSession(int32 NumPublicConnections, const FString& MatchType)
+void UMultiplayerSessionsSubsystem::CreateLocalSession(int32 NumPublicConnections, const FString& MatchType, const FString& Map)
 {
-	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: CreateLocalSession: NumPublicConnections=%d; MatchType=%s"), *GetName(), NumPublicConnections, *MatchType);
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: CreateLocalSession: NumPublicConnections=%d; MatchType=%s; Map=%s"), *GetName(), NumPublicConnections, *MatchType, *Map);
 
 	DesiredNumPublicConnections = NumPublicConnections;
 	DesiredMatchType = MatchType;
+	DesiredMap = Map;
 
 	MultiplayerOnCreateSessionComplete.Broadcast(true);
 }
@@ -535,7 +538,7 @@ void UMultiplayerSessionsSubsystem::OnDestroySessionComplete(FName SessionName, 
 			*GetName(), LastNumPublicConnections, *LastMatchType);
 
 		bCreateSessionOnDestroy = false;
-		CreateSession(LastNumPublicConnections, LastMatchType);
+		CreateSession(LastNumPublicConnections, LastMatchType, LastMap);
 	}
 }
 

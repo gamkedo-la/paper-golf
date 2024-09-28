@@ -39,8 +39,8 @@ public:
 
 	void SetBuildId(int32 InBuildId);
 	void SetAllowBots(bool bInAllowBots);
-	void CreateSession(int32 NumPublicConnections, const FString& MatchType);
-	void CreateLocalSession(int32 NumPublicConnections, const FString& MatchType);
+	void CreateSession(int32 NumPublicConnections, const FString& MatchType, const FString& Map);
+	void CreateLocalSession(int32 NumPublicConnections, const FString& MatchType, const FString& Map);
 
 	void FindSessions(int32 MaxSearchResults);
 	void JoinSession(const FOnlineSessionSearchResult& OnlineSessionSearchResult);
@@ -63,6 +63,7 @@ public:
 
 	int32 GetDesiredNumPublicConnections() const;
 	FString GetDesiredMatchType() const;
+	FString GetDesiredMap() const;
 
 	UFUNCTION(BlueprintPure)
 	bool IsLanMatch() const;
@@ -118,9 +119,12 @@ private:
 
 	int32 LastNumPublicConnections{};
 	FString LastMatchType{};
+	FString LastMap{};
 
 	int32 DesiredNumPublicConnections{};
 	FString DesiredMatchType{};
+	FString DesiredMap{};
+
 	int32 BuildId{};
 	FSessionsConfiguration SessionsConfiguration{};
 	FName LastSubsystemName{};
@@ -159,4 +163,9 @@ FORCEINLINE void UMultiplayerSessionsSubsystem::SetAllowBots(bool bInAllowBots)
 FORCEINLINE bool UMultiplayerSessionsSubsystem::AllowBots() const
 {
 	return bAllowBots;
+}
+
+FORCEINLINE FString UMultiplayerSessionsSubsystem::GetDesiredMap() const
+{
+	return DesiredMap;
 }

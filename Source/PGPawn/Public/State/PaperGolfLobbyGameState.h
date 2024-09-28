@@ -20,7 +20,7 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	void Initialize(const FString& InGameModeName, int32 InMinPlayers, int32 InMaxPlayers);
+	void Initialize(const FString& InGameModeName, const FString& InMapName, int32 InMinPlayers, int32 InMaxPlayers);
 
 	virtual void AddPlayerState(APlayerState* PlayerState) override;
 	virtual void RemovePlayerState(APlayerState* PlayerState) override;
@@ -30,6 +30,9 @@ public:
 
 	UFUNCTION(BlueprintPure)
 	FString GetGameModeName() const { return GameModeName; }
+
+	UFUNCTION(BlueprintPure)
+	FString GetMapName() const { return MapName; }
 
 	UFUNCTION(BlueprintPure)
 	int32 GetMinPlayers() const { return MinPlayers; }
@@ -46,6 +49,9 @@ public:
 private:
 	UPROPERTY(Transient, Replicated)
 	FString GameModeName{};
+
+	UPROPERTY(Transient, Replicated)
+	FString MapName{};
 
 	UPROPERTY(Transient, Replicated)
 	int32 MinPlayers{};

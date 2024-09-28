@@ -27,7 +27,7 @@ class MULTIPLAYERSESSIONS_API UMenu : public UUserWidget
 public:
 
 	UFUNCTION(BlueprintCallable, Category = "Menu")
-	void MenuSetup(const TMap<FString,FString>& MatchTypesToDisplayMap, const FString& LobbyPath,
+	void MenuSetup(const TMap<FString,FString>& MatchTypesToDisplayMap, const TArray<FString>& Maps, const FString& LobbyPath,
 		int32 MinPlayers = 2, int32 MaxPlayers = 4, int32 DefaultNumPlayers = 2, bool bDefaultLANMatch = true, bool bDefaultAllowBots = false);
 
 protected:
@@ -57,6 +57,7 @@ private:
 
 	void InitNumberOfPlayersComboBox(int32 MinPlayers, int32 MaxPlayers);
 	void InitMatchTypesComboBox(const TMap<FString, FString>& MatchTypesToDisplayMap);
+	void InitMapsComboBox(const TArray<FString>& Maps);
 
 	// Allow invoking from blueprint for Gamepad support
 	UFUNCTION(BlueprintCallable)
@@ -79,6 +80,7 @@ private:
 	bool IsDirectIpLanMatch() const;
 
 	FString GetPreferredMatchType() const;
+	FString GetPreferredMap() const;
 	int32 GetMaxNumberOfPlayers() const;
 
 
@@ -109,11 +111,16 @@ private:
 	UPROPERTY(Category = "Menu", BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
 	TObjectPtr<UComboBoxString> CboMaxNumberOfPlayers{};
 
+	UPROPERTY(Category = "Menu", BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
+	TObjectPtr<UComboBoxString> CboAvailableMaps{};
+
 	// Subsystem to handle all online functionality
 	UPROPERTY(Transient)
 	UMultiplayerSessionsSubsystem* MultiplayerSessionsSubsystem {};
 
 	TMap<FString,FString> MatchDisplayNamesToMatchTypes{};
+	TArray<FString> AvailableMaps{};
+
 	FString PathToLobby{};
 	int32 DefaultNumPlayers{};
 };

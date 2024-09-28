@@ -25,13 +25,13 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(Menu)
 
-void UMenu::MenuSetup(const TMap<FString, FString>& MatchTypesToDisplayMap, const FString& LobbyPath, int32 MinPlayers, int32 MaxPlayers, int32 InDefaultNumPlayers, bool bDefaultLANMatch, bool bDefaultAllowBots)
+void UMenu::MenuSetup(const TMap<FString, FString>& MatchTypesToDisplayMap, const TArray<FString>& Maps, const FString& LobbyPath, int32 MinPlayers, int32 MaxPlayers, int32 InDefaultNumPlayers, bool bDefaultLANMatch, bool bDefaultAllowBots)
 {
-	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: MenuSetup: MinPlayers=%d; MaxPlayers=%d; DefaultNumPlayers=%d; bDefaultLANMatch=%s; DefaultAllowBots=%s; MatchTypesToDisplayMap=%d; LobbyPath=%s"), 
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: MenuSetup: MinPlayers=%d; MaxPlayers=%d; DefaultNumPlayers=%d; bDefaultLANMatch=%s; DefaultAllowBots=%s; MatchTypesToDisplayMap=%d; Maps=%d; LobbyPath=%s"), 
 		*GetName(), MinPlayers, MaxPlayers, InDefaultNumPlayers,
 		bDefaultLANMatch ? TEXT("TRUE") : TEXT("FALSE"), 
 		bDefaultAllowBots ? TEXT("TRUE") : TEXT("FALSE"),
-		MatchTypesToDisplayMap.Num(), *LobbyPath);
+		MatchTypesToDisplayMap.Num(), Maps.Num(), *LobbyPath);
 
 	PathToLobby = LobbyPath;
 	DefaultNumPlayers = InDefaultNumPlayers;
@@ -57,6 +57,7 @@ void UMenu::MenuSetup(const TMap<FString, FString>& MatchTypesToDisplayMap, cons
 
 	InitNumberOfPlayersComboBox(MinPlayers, MaxPlayers);
 	InitMatchTypesComboBox(MatchTypesToDisplayMap);
+	InitMapsComboBox(Maps);
 
 	FInputModeGameAndUI InputModeData;
 	InputModeData.SetWidgetToFocus(TakeWidget());
@@ -149,6 +150,12 @@ bool UMenu::Initialize()
 		return false;
 	}
 
+	if (!ensureMsgf(CboAvailableMaps, TEXT("%s: CboAvailableMaps is NULL"), *GetName()))
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: CboAvailableMaps NULL!"), *GetName());
+		return false;
+	}
+
 	if (!ensureMsgf(CboMaxNumberOfPlayers, TEXT("%s: CboMaxNumberOfPlayers is NULL"), *GetName()))
 	{
 		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: CboMaxNumberOfPlayers NULL!"), *GetName());
@@ -225,6 +232,28 @@ void UMenu::InitMatchTypesComboBox(const TMap<FString, FString>& MatchTypesToDis
 	for (const auto& Entry : MatchTypesToDisplayMap)
 	{
 		MatchDisplayNamesToMatchTypes.Add(Entry.Value, Entry.Key);
+	}
+}
+
+void UMenu::InitMapsComboBox(const TArray<FString>& Maps)
+{
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: InitMapsComboBox: Maps=%d"), *GetName(), Maps.Num());
+
+	if (!CboAvailableMaps)
+	{
+		return;
+	}
+
+	CboAvailableMaps->ClearOptions();
+	for (int32 Index = 0; const auto & Map : Maps)
+	{
+		CboAvailableMaps->AddOption(Map);
+
+		if (Index == 0)
+		{
+			CboAvailableMaps->SetSelectedOption(Map);
+		}
+		++Index;
 	}
 }
 
@@ -514,14 +543,14 @@ void UMenu::HostDiscoverableMatch()
 {
 	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: HostDiscoverableMatch"), *GetName());
 
-	MultiplayerSessionsSubsystem->CreateSession(GetMaxNumberOfPlayers(), GetPreferredMatchType());
+	MultiplayerSessionsSubsystem->CreateSession(GetMaxNumberOfPlayers(), GetPreferredMatchType(), GetPreferredMap());
 }
 
 void UMenu::HostDirectLanMatch()
 {
 	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: HostDirectLanMatch"), *GetName());
 
-	MultiplayerSessionsSubsystem->CreateLocalSession(GetMaxNumberOfPlayers(), GetPreferredMatchType());
+	MultiplayerSessionsSubsystem->CreateLocalSession(GetMaxNumberOfPlayers(), GetPreferredMatchType(), GetPreferredMap());
 }
 
 void UMenu::OnLanMatchChanged(bool bIsChecked)
@@ -589,6 +618,11 @@ FString UMenu::GetPreferredMatchType() const
 	
 	UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: GetPreferredMatchType - Could not find match type for display name %s"), *GetName(), *CboAvailableMatchTypes->GetSelectedOption());
 	return {};
+}
+
+FString UMenu::GetPreferredMap() const
+{
+	return CboAvailableMaps ? CboAvailableMaps->GetSelectedOption() : FString{};
 }
 
 int32 UMenu::GetMaxNumberOfPlayers() const

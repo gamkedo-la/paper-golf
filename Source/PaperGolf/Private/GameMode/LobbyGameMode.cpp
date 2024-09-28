@@ -21,6 +21,10 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(LobbyGameMode)
 
+namespace
+{
+	const FString RandomMapName = TEXT("Random");
+}
 
 void ALobbyGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
@@ -87,6 +91,7 @@ void ALobbyGameMode::InitGameState()
 
 	LobbyGameState->Initialize(
 		FoundMatchTypeInfo->Name,
+		Subsystem->GetDesiredMap(),
 		FoundMatchTypeInfo->MinPlayers,
 		Subsystem->GetDesiredNumPublicConnections()
 	);
@@ -127,7 +132,7 @@ bool ALobbyGameMode::HostStartMatch()
 	check(!FoundMatchTypeInfo->GameMode.IsNull());
 
 	const FString GameModeName = FoundMatchTypeInfo->GameMode.ToSoftObjectPath().ToString();
-	const FString MapPath = GetPathForMap(GetRandomMap());
+	const FString MapPath = GetPathForMap(GetMap(Subsystem->GetDesiredMap()));
 
 	const FString MatchUrl = FString::Printf(TEXT("%s?game=%s?%s%d?%s%d?%s%d"),
 		*MapPath, *GameModeName,
@@ -255,19 +260,51 @@ FString ALobbyGameMode::GetPathForGameMode(const TSoftClassPtr<APaperGolfGameMod
 	return GameMode.ToSoftObjectPath().ToString();
 }
 
+TSoftObjectPtr<UWorld> ALobbyGameMode::GetMap(const FString& MapName) const
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: GetMap - %s"), *GetName(), *MapName);
+	
+	const TSoftObjectPtr<UWorld> MatchedMap{};
+
+	if (MapName != RandomMapName)
+	{
+		if(auto FindResult = Maps.Find(MapName); FindResult)
+		{
+			return *FindResult;
+		}
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Warning, TEXT("%s: GetMap - MapName=%s not found in Maps"), *GetName(), *MapName);
+	}
+
+	return GetRandomMap();
+}
+
 TSoftObjectPtr<UWorld> ALobbyGameMode::GetRandomMap() const
 {
 	check(!Maps.IsEmpty());
-	return Maps[FMath::RandRange(0, Maps.Num() - 1)];
+
+	auto MapIndex = FMath::RandRange(0, Maps.Num() - 1);
+
+	for (auto It = Maps.CreateConstIterator(); It; ++It)
+	{
+		if (MapIndex == 0)
+		{
+			return It.Value();
+		}
+		--MapIndex;
+	}
+
+	checkNoEntry();
+
+	return nullptr;
 }
 
 void ALobbyGameMode::ValidateMaps()
 {
 	for(auto It = Maps.CreateIterator(); It; ++It)
 	{
-		if (It->IsNull())
+		if (It->Value.IsNull())
 		{
-			UE_VLOG_UELOG(this, LogPaperGolfGame, Warning, TEXT("%s: Invalid map in Maps array at index %d"), *GetName(), It.GetIndex());
+			UE_VLOG_UELOG(this, LogPaperGolfGame, Warning, TEXT("%s: Invalid map in Maps array at key=%s"), *GetName(), *It->Key);
 			It.RemoveCurrent();
 		}
 	}
