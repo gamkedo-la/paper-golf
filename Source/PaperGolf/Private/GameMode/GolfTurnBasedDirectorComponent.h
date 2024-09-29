@@ -45,6 +45,9 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
+
+	void InitFromConsoleVars();
+
 	void RegisterEventHandlers();
 
 	UFUNCTION()

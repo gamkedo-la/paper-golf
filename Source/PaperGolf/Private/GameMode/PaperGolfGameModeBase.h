@@ -45,9 +45,6 @@ public:
 	/** Called when match starts */
 	virtual void HandleMatchHasStarted() override;
 
-	void SetDesiredNumberOfPlayers(int32 InDesiredNumberOfPlayers);
-	void SetDesiredNumberOfBotPlayers(int32 InDesiredNumberOfBotPlayers);
-
 	// Begin Player start selection functions
 	virtual bool ShouldSpawnAtStartSpot(AController* Player) override;
 	virtual void HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer) override;
@@ -132,6 +129,9 @@ protected:
 
 private:
 
+	void SetDesiredNumberOfPlayers(int32 InDesiredNumberOfPlayers);
+	void SetDesiredNumberOfBotPlayers(int32 InDesiredNumberOfBotPlayers);
+
 	void HandlePlayerLeaving(AController* LeavingPlayer);
 	void HandlePlayerJoining(AController* NewPlayer);
 	void ReplacePlayer(AController* LeavingPlayer, AController* NewPlayer);
@@ -172,6 +172,9 @@ private:
 	void InitNumberOfPlayers(const FString& Options);
 
 	void SetNumberOfPlayersFromOptions(const FString& Options);
+	void InitFromConsoleVars();
+
+	void CheckDefaultOptions();
 
 	void DetermineAllowBots(const FString& Options);
 
@@ -182,7 +185,8 @@ private:
 	bool MatchShouldBeAbandoned() const;
 	bool IsWorldBeingDestroyed() const;
 
-	int32 GetTotalNumberOfDesiredPlayers() const;
+	int32 GetMaximumNumberOfPlayers() const;
+	int32 GetTotalPlayersToStartMatch() const;
 
 	void KickPlayer(AController* Player, const TCHAR* Reason);
 
@@ -239,6 +243,7 @@ private:
 
 	int32 DesiredNumberOfPlayers{};
 	int32 DesiredNumberOfBotPlayers{};
+	int32 MaxPlayers{};
 
 	int32 HumanPlayerDefaultNameIndex{};
 
@@ -273,7 +278,12 @@ FORCEINLINE int32 APaperGolfGameModeBase::GetMinimumNumberOfPlayers() const
 	return MinNumberOfPlayers;
 }
 
-FORCEINLINE int32 APaperGolfGameModeBase::GetTotalNumberOfDesiredPlayers() const
+FORCEINLINE int32 APaperGolfGameModeBase::GetMaximumNumberOfPlayers() const
+{
+	return MaxPlayers;
+}
+
+FORCEINLINE int32 APaperGolfGameModeBase::GetTotalPlayersToStartMatch() const
 {
 	return DesiredNumberOfPlayers + DesiredNumberOfBotPlayers;
 }

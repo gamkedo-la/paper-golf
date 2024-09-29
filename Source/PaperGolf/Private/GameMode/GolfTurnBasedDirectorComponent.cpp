@@ -31,6 +31,9 @@
 
 #include <limits>
 
+#include "PGConstants.h"
+#include "Debug/PGConsoleVars.h"
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GolfTurnBasedDirectorComponent)
 
 namespace
@@ -185,7 +188,8 @@ void UGolfTurnBasedDirectorComponent::DoReplacePlayer(AController* PlayerToRemov
 		}
 		else
 		{
-			UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: DoReplacePlayer - World is tearing down - skipping next turn"), *GetName())
+			UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: DoReplacePlayer - World is tearing down - skipping next turn"), *GetName());
+			ActivePlayerIndex = INDEX_NONE;
 		}
 	}
 	// If there is an active player, then we need to update the index after removal of the other player
@@ -253,10 +257,28 @@ void UGolfTurnBasedDirectorComponent::BeginPlay()
 
 	check(GetOwner()->HasAuthority());
 
+	InitFromConsoleVars();
+
 	bPlayersNeedInitialSort = true;
 	ActivePlayerIndex = INDEX_NONE;
 
 	RegisterEventHandlers();
+}
+
+void UGolfTurnBasedDirectorComponent::InitFromConsoleVars()
+{
+#if PG_DEBUG_ENABLED
+
+	if (const auto OverrideSkipHumanPlayers = PG::GameMode::CSkipHumanPlayers.GetValueOnGameThread(); OverrideSkipHumanPlayers >= 0)
+	{
+		const bool bOverrideSkipHumanPlayers = OverrideSkipHumanPlayers > 0;
+
+		UE_CVLOG_UELOG(bOverrideSkipHumanPlayers != bSkipHumanPlayers, this, LogPaperGolfGame, Display, TEXT("%s: InitFromConsoleVars - bSkipHumanPlayers= %s -> %s"),
+			*GetName(), LoggingUtils::GetBoolString(bSkipHumanPlayers), LoggingUtils::GetBoolString(bOverrideSkipHumanPlayers));
+
+		bSkipHumanPlayers = bOverrideSkipHumanPlayers;
+	}
+#endif
 }
 
 void UGolfTurnBasedDirectorComponent::RegisterEventHandlers()
