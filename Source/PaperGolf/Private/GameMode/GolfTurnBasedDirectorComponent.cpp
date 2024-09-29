@@ -47,7 +47,6 @@ namespace
 UGolfTurnBasedDirectorComponent::UGolfTurnBasedDirectorComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
-	bWantsInitializeComponent = true;
 }
 
 void UGolfTurnBasedDirectorComponent::StartHole()
@@ -94,8 +93,6 @@ void UGolfTurnBasedDirectorComponent::AddPlayer(AController* Player)
 		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Display, TEXT("%s: AddPlayer - Player=%s set to spectator only as game mode set to skip human players"), *GetName(), *LoggingUtils::GetName(Player));
 	}
 
-	// TODO: Need to mark player if they join in middle of hole since need to then join as a spectator until the next hole
-	// This will be handled in 114-account-for-late-joining
 	Players.AddUnique(GolfPlayer);
 }
 
@@ -218,16 +215,6 @@ void UGolfTurnBasedDirectorComponent::ReplacePlayer(AController* LeavingPlayer, 
 	// However, pawn spawning is not guaranteed until GameMode->RestartPlayer which happens during turn activation and need the pawn to determine the distance to the hole
 
 	DoReplacePlayer(LeavingPlayer, NewPlayer);
-}
-
-void UGolfTurnBasedDirectorComponent::InitializeComponent()
-{
-	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: InitializeComponent"), *GetName());
-
-	Super::InitializeComponent();
-
-	// TODO: Disable this if just going to use BeginPlay to handle the set up or if that doesn't work then might need a function that the game mode will call to initialize
-	// or we could just do it on start hole
 }
 
 int32 UGolfTurnBasedDirectorComponent::GetNumberOfActivePlayers() const

@@ -442,8 +442,6 @@ void APaperGolfGameModeBase::OnMatchStateSet()
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnMatchStateSet: %s"), *GetName(), *MatchState.ToString());
 
 	Super::OnMatchStateSet();
-
-	// TODO: If we start players as spectators, we can use RestartPlayer(AController*) to spawn them in one at a time - or maybe call it when starting the hole on each player
 }
 
 void APaperGolfGameModeBase::HandleMatchHasStarted()
@@ -717,9 +715,7 @@ void APaperGolfGameModeBase::HandleMatchIsWaitingToStart()
 
 	Super::HandleMatchIsWaitingToStart();
 
-	// This is where ShooterGameMode creates bots does it in ShooterGame\Private\Online\ShooterGameMode.cpp
-	// TODO: However, this is called immediately so will need to create additional bots on a timer if the total number of players is less than the desired number
-	// This could be checked inReadyToStartMatch_Implementation as that is called continuously after this function is called
+	// Create the initial bots configured in the game options as soon as the game is starting
 	CreateBots();
 }
 
@@ -1032,8 +1028,6 @@ void APaperGolfGameModeBase::CreateBots()
 	}
 }
 
-// TODO: Replace generic "Bot 1", "Bot 2" with popular 90s names
-
 AGolfAIController* APaperGolfGameModeBase::CreateBot(int32 BotNumber)
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: CreateBot - BotNumber=%d"), *GetName(), BotNumber);
@@ -1068,7 +1062,7 @@ void APaperGolfGameModeBase::InitBot(AGolfAIController& AIController, int32 BotN
 
 	if(auto PlayerState = AIController.GetGolfPlayerState(); ensureMsgf(PlayerState, TEXT("%s: No player state for %s - BotNumber=%d"), *GetName(), *AIController.GetName(), BotNumber))
 	{
-		// TODO: Draw from a random list of funny golfer names
+		// TODO: Draw from a random list of 90s names
 		PlayerState->SetPlayerName(FString::Printf(TEXT("Bot %d"), BotNumber));
 
 		if (PlayerStateConfigurator)

@@ -21,10 +21,9 @@ class UGolfController : public UInterface
 	GENERATED_BODY()
 };
 
-// TODO: Cannot have BlueprintPure UFUNCTIONs on interfaces
-// If have BlueprintCallable functions that aren't events, then must mark NotBlueprintable
 /**
- * 
+ * Base interface implemented by both player and AI golf controllers.
+ * Used to invoke golf-specific logic from the game mode and supporting components generically without needing to know if the controller is a player or AI.
  */
 class PGPAWN_API IGolfController
 {
