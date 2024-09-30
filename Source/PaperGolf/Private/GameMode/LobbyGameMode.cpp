@@ -134,11 +134,12 @@ bool ALobbyGameMode::HostStartMatch()
 	const FString GameModeName = FoundMatchTypeInfo->GameMode.ToSoftObjectPath().ToString();
 	const FString MapPath = GetPathForMap(GetMap(Subsystem->GetDesiredMap()));
 
-	const FString MatchUrl = FString::Printf(TEXT("%s?game=%s?%s%d?%s%d?%s%d"),
+	const FString MatchUrl = FString::Printf(TEXT("%s?game=%s?%s%d?%s%d?%s%d?%s%d"),
 		*MapPath, *GameModeName,
 		PG::GameModeOptions::NumPlayers, GetNumPlayers(),
 		PG::GameModeOptions::NumBots, GetNumBots(),
-		PG::GameModeOptions::AllowBots, Subsystem->AllowBots()
+		PG::GameModeOptions::AllowBots, Subsystem->AllowBots(),
+		PG::GameModeOptions::MaxPlayers, Subsystem->GetDesiredNumPublicConnections()
 	);
 
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: ServerTravel to Map=%s with GameMode=%s - %s"),

@@ -18,5 +18,15 @@ namespace PG
 	extern PGCORE_API TAutoConsoleVariable<float> CGlobalPowerAccuracyDampenExponent;
 	extern PGCORE_API TAutoConsoleVariable<float> CGlobalMinPowerMultiplier;
 	extern PGCORE_API TAutoConsoleVariable<float> CGlobalPowerAccuracyExponent;
+
+	namespace GameMode
+	{
+		extern PGCORE_API TAutoConsoleVariable<int32> CAllowBots;
+		extern PGCORE_API TAutoConsoleVariable<int32> CSkipHumanPlayers;
+		extern PGCORE_API TAutoConsoleVariable<int32> CNumDesiredBots;
+		extern PGCORE_API TAutoConsoleVariable<int32> CNumDesiredPlayers;
+		extern PGCORE_API TAutoConsoleVariable<int32> CMinTotalPlayers;
+		extern PGCORE_API TAutoConsoleVariable<int32> CMaxTotalPlayers;
+	}
 }
 #endif

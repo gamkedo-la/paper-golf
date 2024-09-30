@@ -84,8 +84,10 @@ void APaperGolfGameModeBase::InitNumberOfPlayers(const FString& Options)
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: InitNumberOfPlayers - Options=%s"), *GetName(), *Options);
 
+	// TODO: total number of players should not exceed 4 - PG::MaxPlayers
 	if (!SetDesiredNumberOfPlayersFromPIESettings())
 	{
+		InitFromConsoleVars();
 		SetNumberOfPlayersFromOptions(Options);
 	}
 	// This will be optimized out in non-editor builds
@@ -94,18 +96,31 @@ void APaperGolfGameModeBase::InitNumberOfPlayers(const FString& Options)
 		// If playing in the editor, consider both the number of human players from editor windows and the options passed into the game mode
 		const auto EditorHumanPlayers = DesiredNumberOfPlayers;
 
-		// reset number of players and attempt to read from options
+		// reset number of players and attempt to read from console vars and options
 		DesiredNumberOfPlayers = 0;
+
+		InitFromConsoleVars();
 		SetNumberOfPlayersFromOptions(Options);
 
 		// Use the editor values for number of human players if none passed from options
 		if (DesiredNumberOfPlayers == 0)
 		{
 			DesiredNumberOfPlayers = EditorHumanPlayers;
+			MaxPlayers = FMath::Max(MaxPlayers, GetTotalPlayersToStartMatch());
 		}
 	}
 
 	// fallback to defaults
+	CheckDefaultOptions();
+
+	DetermineAllowBots(Options);
+
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitNumberOfPlayers - DesiredNumberOfPlayers=%d; DesiredNumberOfBotPlayers=%d; MinNumberOfPlayers=%d; MaxPlayers=%d; bAllowBots=%s"),
+		*GetName(), DesiredNumberOfPlayers, DesiredNumberOfBotPlayers, MinNumberOfPlayers, MaxPlayers, LoggingUtils::GetBoolString(bAllowBots));
+}
+
+void APaperGolfGameModeBase::CheckDefaultOptions()
+{
 	if (DesiredNumberOfPlayers <= 0)
 	{
 		UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitNumberOfPlayers - Falling back to default number of players - DefaultDesiredNumberOfPlayers=%d"),
@@ -120,8 +135,15 @@ void APaperGolfGameModeBase::InitNumberOfPlayers(const FString& Options)
 		DesiredNumberOfBotPlayers = DefaultMinDesiredNumberOfBotPlayers;
 	}
 
-	const auto DesiredTotalPlayers = GetTotalNumberOfDesiredPlayers();
-	
+	if (GetTotalPlayersToStartMatch() > MaxPlayers)
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitNumberOfPlayers - Increasing MaxPlayers=%d to %d to account for current num players=%d and bots=%d requested"),
+			*GetName(), MaxPlayers, GetTotalPlayersToStartMatch(), DesiredNumberOfPlayers, DesiredNumberOfBotPlayers);
+		MaxPlayers = GetTotalPlayersToStartMatch();
+	}
+
+	const auto DesiredTotalPlayers = GetTotalPlayersToStartMatch();
+
 	if (!ensureAlwaysMsgf(DesiredTotalPlayers >= MinNumberOfPlayers,
 		TEXT("%s: InitNumberOfPlayers - DesiredNumberOfPlayers=%d + DesiredNumberOfBotPlayers=%d < MinNumberOfPlayers=%d"),
 		*GetName(), DesiredNumberOfPlayers, DesiredNumberOfBotPlayers, MinNumberOfPlayers))
@@ -133,11 +155,6 @@ void APaperGolfGameModeBase::InitNumberOfPlayers(const FString& Options)
 		);
 		DesiredNumberOfBotPlayers += AdditionalBotPlayers;
 	}
-
-	DetermineAllowBots(Options);
-
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: InitNumberOfPlayers - DesiredNumberOfPlayers=%d; DesiredNumberOfBotPlayers=%d; MinNumberOfPlayers=%d; bAllowBots=%s"),
-		*GetName(), DesiredNumberOfPlayers, DesiredNumberOfBotPlayers, MinNumberOfPlayers, LoggingUtils::GetBoolString(bAllowBots));
 }
 
 void APaperGolfGameModeBase::SetNumberOfPlayersFromOptions(const FString& Options)
@@ -153,6 +170,60 @@ void APaperGolfGameModeBase::SetNumberOfPlayersFromOptions(const FString& Option
 	{
 		UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: SetNumberOfPlayersFromOptions - DesiredNumberOfBotPlayers=%d"), *GetName(), DesiredNumberOfBotPlayers);
 	}
+
+	if (FParse::Value(*Options, PG::GameModeOptions::MaxPlayers, MaxPlayers))
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: SetNumberOfPlayersFromOptions - MaxPlayers=%d"), *GetName(), MaxPlayers);
+	}
+}
+
+void APaperGolfGameModeBase::InitFromConsoleVars()
+{
+#if PG_DEBUG_ENABLED
+	
+	if (const auto OverrideAllowBots = PG::GameMode::CAllowBots.GetValueOnGameThread(); OverrideAllowBots >= 0)
+	{
+		const bool bOverrideAllowBots = OverrideAllowBots > 0;
+
+		UE_CVLOG_UELOG(bAllowBots != bOverrideAllowBots, this, LogPaperGolfGame, Display, TEXT("%s: InitFromConsoleVars - bAllowBots= %s -> %s"),
+			*GetName(), LoggingUtils::GetBoolString(bAllowBots), LoggingUtils::GetBoolString(bOverrideAllowBots));
+
+		bAllowBots = bOverrideAllowBots;
+	}
+
+	if (const auto OverrideDesiredNumberOfPlayers = PG::GameMode::CNumDesiredPlayers.GetValueOnGameThread(); OverrideDesiredNumberOfPlayers >= 0)
+	{
+		UE_CVLOG_UELOG(DesiredNumberOfPlayers != OverrideDesiredNumberOfPlayers, this, LogPaperGolfGame, Display, TEXT("%s: InitFromConsoleVars - DesiredNumberOfPlayers= %d -> %d"),
+			*GetName(), DesiredNumberOfPlayers, OverrideDesiredNumberOfPlayers);
+
+		DesiredNumberOfPlayers = OverrideDesiredNumberOfPlayers;
+	}
+
+	if (const auto OverrideDesiredNumberOfBotPlayers = PG::GameMode::CNumDesiredBots.GetValueOnGameThread(); OverrideDesiredNumberOfBotPlayers >= 0)
+	{
+		UE_CVLOG_UELOG(DesiredNumberOfBotPlayers != OverrideDesiredNumberOfBotPlayers, this, LogPaperGolfGame, Display, TEXT("%s: InitFromConsoleVars - DesiredNumberOfBotPlayers= %d -> %d"),
+			*GetName(), DesiredNumberOfBotPlayers, OverrideDesiredNumberOfBotPlayers);
+
+		DesiredNumberOfBotPlayers = OverrideDesiredNumberOfBotPlayers;
+	}
+
+	if (const auto OverrideMinTotalPlayers = PG::GameMode::CMinTotalPlayers.GetValueOnGameThread(); OverrideMinTotalPlayers > 0)
+	{
+		UE_CVLOG_UELOG(MinNumberOfPlayers != OverrideMinTotalPlayers, this, LogPaperGolfGame, Display, TEXT("%s: InitFromConsoleVars - MinNumberOfPlayers= %d -> %d"),
+			*GetName(), MinNumberOfPlayers, OverrideMinTotalPlayers);
+
+		MinNumberOfPlayers = OverrideMinTotalPlayers;
+	}
+
+	if (const auto OverrideMaxTotalPlayers = PG::GameMode::CMaxTotalPlayers.GetValueOnGameThread(); OverrideMaxTotalPlayers > 0)
+	{
+		UE_CVLOG_UELOG(MaxPlayers != OverrideMaxTotalPlayers, this, LogPaperGolfGame, Display, TEXT("%s: InitFromConsoleVars - MaxPlayers= %d -> %d"),
+			*GetName(), MaxPlayers, OverrideMaxTotalPlayers);
+
+		MaxPlayers = OverrideMaxTotalPlayers;
+	}
+
+#endif
 }
 
 void APaperGolfGameModeBase::DetermineAllowBots(const FString& Options)
@@ -416,7 +487,7 @@ bool APaperGolfGameModeBase::ReadyToStartMatch_Implementation()
 	bool bReady{};
 	if (GetMatchState() == MatchState::WaitingToStart)
 	{
-		bReady = GetTotalNumberOfPlayers() == GetTotalNumberOfDesiredPlayers();
+		bReady = GetTotalNumberOfPlayers() == GetTotalPlayersToStartMatch();
 	}
 
 	// TODO: We may want to manually start the match after a countdown timer or something - this is checked on Tick in the AGameMode base class and will immediately start the match
@@ -442,8 +513,6 @@ void APaperGolfGameModeBase::OnMatchStateSet()
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnMatchStateSet: %s"), *GetName(), *MatchState.ToString());
 
 	Super::OnMatchStateSet();
-
-	// TODO: If we start players as spectators, we can use RestartPlayer(AController*) to spawn them in one at a time - or maybe call it when starting the hole on each player
 }
 
 void APaperGolfGameModeBase::HandleMatchHasStarted()
@@ -662,7 +731,7 @@ void APaperGolfGameModeBase::Logout(AController* Exiting)
 
 	Super::Logout(Exiting);
 
-	// If fall below minimum number of players, return to the main menu
+	// If fall below minimum number of players for a game in progress, return to the main menu
 	if (MatchShouldBeAbandoned())
 	{
 		UE_VLOG_UELOG(this, LogPaperGolfGame, Log,
@@ -705,9 +774,9 @@ bool APaperGolfGameModeBase::MatchShouldBeAbandoned() const
 bool APaperGolfGameModeBase::MatchIsJoinable() const
 {
 	// Can join the match and kick a bot if the number of active human players is less than number of total desired players (Players + Bots)
-	const bool bResult = MatchIsActive() && NumPlayers < GetTotalNumberOfDesiredPlayers();
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Verbose, TEXT("%s: MatchIsJoinable - %s - MatchIsActive=%s; NumPlayers()=%d; DesiredNumberOfPlayers=%d; DesiredNumberOfBotPlayers=%d"),
-		*GetName(), LoggingUtils::GetBoolString(bResult), LoggingUtils::GetBoolString(MatchIsActive()), NumPlayers, DesiredNumberOfPlayers, DesiredNumberOfBotPlayers);
+	const bool bResult = MatchIsActive() && NumPlayers < GetMaximumNumberOfPlayers();
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Verbose, TEXT("%s: MatchIsJoinable - %s - MatchIsActive=%s; NumPlayers()=%d; DesiredNumberOfPlayers=%d; DesiredNumberOfBotPlayers=%d; MaxPlayers=%d"),
+		*GetName(), LoggingUtils::GetBoolString(bResult), LoggingUtils::GetBoolString(MatchIsActive()), NumPlayers, DesiredNumberOfPlayers, DesiredNumberOfBotPlayers, MaxPlayers);
 	return bResult;
 }
 
@@ -717,9 +786,7 @@ void APaperGolfGameModeBase::HandleMatchIsWaitingToStart()
 
 	Super::HandleMatchIsWaitingToStart();
 
-	// This is where ShooterGameMode creates bots does it in ShooterGame\Private\Online\ShooterGameMode.cpp
-	// TODO: However, this is called immediately so will need to create additional bots on a timer if the total number of players is less than the desired number
-	// This could be checked inReadyToStartMatch_Implementation as that is called continuously after this function is called
+	// Create the initial bots configured in the game options as soon as the game is starting
 	CreateBots();
 }
 
@@ -776,13 +843,6 @@ AGolfAIController* APaperGolfGameModeBase::AddBot()
 {
 	// TODO: This needs to be revisited with player names
 	const auto CreatedBot = CreateBot(NumBots + 1);
-
-	//if (CreatedBot)
-	//{
-	//	// Increment so that on restart the game mode knows to create another bot
-	//	++DesiredNumberOfBotPlayers;
-	//	--DesiredNumberOfPlayers;
-	//}
 
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, 
 		TEXT("%s: AddBot - %s - NumPlayers=%d; DesiredNumberOfPlayers=%d"),
@@ -895,7 +955,7 @@ void APaperGolfGameModeBase::HandlePlayerJoining(AController* NewPlayer)
 	}
 
 	// Note that NumPlayers already incremented so we would be full if >
-	const bool bNotFull = GetTotalNumberOfPlayers() <= GetTotalNumberOfDesiredPlayers();
+	const bool bNotFull = GetTotalNumberOfPlayers() <= GetMaximumNumberOfPlayers();
 
 	// TODO: We may want to make it configurable to be able to join a course in progress and not force player to be spectator
 	const bool bCourseCanBeStarted = CanCourseBeStarted();
@@ -903,7 +963,7 @@ void APaperGolfGameModeBase::HandlePlayerJoining(AController* NewPlayer)
 	if (bNotFull && bCourseCanBeStarted)
 	{
 		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: HandlePlayerJoining - Not full - NumPlayers=%d; DesiredNumberOfPlayers=%d"),
-			*GetName(), GetTotalNumberOfPlayers(), GetTotalNumberOfDesiredPlayers());
+			*GetName(), GetTotalNumberOfPlayers(), GetMaximumNumberOfPlayers());
 
 		OnPlayerJoined(NewPlayer);
 		return;
@@ -1032,8 +1092,6 @@ void APaperGolfGameModeBase::CreateBots()
 	}
 }
 
-// TODO: Replace generic "Bot 1", "Bot 2" with popular 90s names
-
 AGolfAIController* APaperGolfGameModeBase::CreateBot(int32 BotNumber)
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: CreateBot - BotNumber=%d"), *GetName(), BotNumber);
@@ -1068,7 +1126,7 @@ void APaperGolfGameModeBase::InitBot(AGolfAIController& AIController, int32 BotN
 
 	if(auto PlayerState = AIController.GetGolfPlayerState(); ensureMsgf(PlayerState, TEXT("%s: No player state for %s - BotNumber=%d"), *GetName(), *AIController.GetName(), BotNumber))
 	{
-		// TODO: Draw from a random list of funny golfer names
+		// TODO: Draw from a random list of 90s names
 		PlayerState->SetPlayerName(FString::Printf(TEXT("Bot %d"), BotNumber));
 
 		if (PlayerStateConfigurator)

@@ -160,7 +160,11 @@ bool APaperGolfGameStateBase::HasCourseStarted() const
 
 int32 APaperGolfGameStateBase::GetNumCompletedHoles() const
 {
-	const auto& GolfPlayerStates = GetActiveGolfPlayerStates();
+	// exclude players that haven't taken any shots yet
+	const auto GolfPlayerStates = GetActiveGolfPlayerStates().FilterByPredicate([](const AGolfPlayerState* PlayerState)
+	{
+		return PlayerState->GetTotalShots() > 0;
+	});
 
 	if (GolfPlayerStates.IsEmpty())
 	{

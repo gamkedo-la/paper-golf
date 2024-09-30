@@ -31,6 +31,9 @@
 
 #include <limits>
 
+#include "PGConstants.h"
+#include "Debug/PGConsoleVars.h"
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GolfTurnBasedDirectorComponent)
 
 namespace
@@ -47,7 +50,6 @@ namespace
 UGolfTurnBasedDirectorComponent::UGolfTurnBasedDirectorComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
-	bWantsInitializeComponent = true;
 }
 
 void UGolfTurnBasedDirectorComponent::StartHole()
@@ -94,8 +96,6 @@ void UGolfTurnBasedDirectorComponent::AddPlayer(AController* Player)
 		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Display, TEXT("%s: AddPlayer - Player=%s set to spectator only as game mode set to skip human players"), *GetName(), *LoggingUtils::GetName(Player));
 	}
 
-	// TODO: Need to mark player if they join in middle of hole since need to then join as a spectator until the next hole
-	// This will be handled in 114-account-for-late-joining
 	Players.AddUnique(GolfPlayer);
 }
 
@@ -188,7 +188,8 @@ void UGolfTurnBasedDirectorComponent::DoReplacePlayer(AController* PlayerToRemov
 		}
 		else
 		{
-			UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: DoReplacePlayer - World is tearing down - skipping next turn"), *GetName())
+			UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: DoReplacePlayer - World is tearing down - skipping next turn"), *GetName());
+			ActivePlayerIndex = INDEX_NONE;
 		}
 	}
 	// If there is an active player, then we need to update the index after removal of the other player
@@ -218,16 +219,6 @@ void UGolfTurnBasedDirectorComponent::ReplacePlayer(AController* LeavingPlayer, 
 	// However, pawn spawning is not guaranteed until GameMode->RestartPlayer which happens during turn activation and need the pawn to determine the distance to the hole
 
 	DoReplacePlayer(LeavingPlayer, NewPlayer);
-}
-
-void UGolfTurnBasedDirectorComponent::InitializeComponent()
-{
-	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: InitializeComponent"), *GetName());
-
-	Super::InitializeComponent();
-
-	// TODO: Disable this if just going to use BeginPlay to handle the set up or if that doesn't work then might need a function that the game mode will call to initialize
-	// or we could just do it on start hole
 }
 
 int32 UGolfTurnBasedDirectorComponent::GetNumberOfActivePlayers() const
@@ -266,10 +257,28 @@ void UGolfTurnBasedDirectorComponent::BeginPlay()
 
 	check(GetOwner()->HasAuthority());
 
+	InitFromConsoleVars();
+
 	bPlayersNeedInitialSort = true;
 	ActivePlayerIndex = INDEX_NONE;
 
 	RegisterEventHandlers();
+}
+
+void UGolfTurnBasedDirectorComponent::InitFromConsoleVars()
+{
+#if PG_DEBUG_ENABLED
+
+	if (const auto OverrideSkipHumanPlayers = PG::GameMode::CSkipHumanPlayers.GetValueOnGameThread(); OverrideSkipHumanPlayers >= 0)
+	{
+		const bool bOverrideSkipHumanPlayers = OverrideSkipHumanPlayers > 0;
+
+		UE_CVLOG_UELOG(bOverrideSkipHumanPlayers != bSkipHumanPlayers, this, LogPaperGolfGame, Display, TEXT("%s: InitFromConsoleVars - bSkipHumanPlayers= %s -> %s"),
+			*GetName(), LoggingUtils::GetBoolString(bSkipHumanPlayers), LoggingUtils::GetBoolString(bOverrideSkipHumanPlayers));
+
+		bSkipHumanPlayers = bOverrideSkipHumanPlayers;
+	}
+#endif
 }
 
 void UGolfTurnBasedDirectorComponent::RegisterEventHandlers()

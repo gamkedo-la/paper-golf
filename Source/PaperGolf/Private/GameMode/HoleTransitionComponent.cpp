@@ -3,9 +3,6 @@
 
 #include "GameMode/HoleTransitionComponent.h"
 
-// TODO: May not need the game mode reference here if using events
-#include "GameMode/PaperGolfGameModeBase.h"
-
 #include "Logging/LoggingUtils.h"
 #include "Utils/ArrayUtils.h"
 #include "Utils/StringUtils.h"

@@ -9,4 +9,5 @@ namespace PG::GameModeOptions
 	inline constexpr auto NumPlayers = TEXT("numPlayers=");
 	inline constexpr auto NumBots = TEXT("numBots=");
 	inline constexpr auto AllowBots = TEXT("allowBots=");
+	inline constexpr auto MaxPlayers = TEXT("maxPlayers=");
 }

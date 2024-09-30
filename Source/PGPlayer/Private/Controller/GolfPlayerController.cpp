@@ -1066,8 +1066,6 @@ void AGolfPlayerController::OnCameraIntroductionComplete()
 {
     UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnCameraIntroductionComplete"), *GetName());
     
-    // TODO: Trigger hole fly by logic if re-ordering
-    // May refactor to a simple state machine
     MarkFirstPlayerTurnReady();
 }
 
@@ -1306,10 +1304,6 @@ void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* I
 
 	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: Spectate - InPawn=%s; InPlayerState=%s"), 
 		*GetName(), *LoggingUtils::GetName(InPawn), InPlayerState ? *InPlayerState->GetPlayerName() : TEXT("NULL"));
-
-	// TODO: Hide the player pawn and UI and switch to spectate the input player pawn
-	// Need to account for possibly destroying the player pawn after scoring so the player pawn could be null
-	// Should track the possessed paper golf pawn as need to switch back to it when activating the turn
 
 	// Allow the spectator pawn to take over the controls; otherwise, some of the bindings will be disabled
 	if (PlayerState)

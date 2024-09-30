@@ -33,8 +33,6 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ReplacePlayer(AController* LeavingPlayer, AController* NewPlayer);
 
-	virtual void InitializeComponent() override;
-
 	bool IsSkippingHumanPlayers() const;
 
 	/*
@@ -47,6 +45,9 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
+
+	void InitFromConsoleVars();
+
 	void RegisterEventHandlers();
 
 	UFUNCTION()
