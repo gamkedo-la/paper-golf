@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SplineComponent.h"
+#include "PositionSpeedStruct.h"
 #include "MovingObstacle.generated.h"
 
 UCLASS()
@@ -22,6 +23,12 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	USplineComponent* movementPath;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int positionalSpeedStructsCount;
+
+	UPROPERTY(EditAnywhere, BlueprintReadonly)
+	TArray<FPositionSpeedStruct> positionalSpeedStructs;
 
 	UPROPERTY(EditAnywhere)
 	float distance;
