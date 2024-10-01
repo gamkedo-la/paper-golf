@@ -1201,7 +1201,7 @@ void AGolfPlayerController::DoActivateTurn()
 		return;
 	}
 
-	++LifetimeTurnCount;
+	bFirstAction = false;
 
 	const auto PaperGolfPawn = Cast<APaperGolfPawn>(GetPawn());
 
@@ -1328,7 +1328,7 @@ void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* I
 
 	// Prefer Client RPC due to timing issues relying on replication, but on first turn the pawn and player state may not have arrived on 
 	// clients, so in that case use replication
-	if (LifetimeTurnCount > 0)
+	if (!bFirstAction)
 	{
 		ClientSpectate(InPawn, InPlayerState);
 	}
@@ -1338,6 +1338,8 @@ void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* I
 	}
 
 	SpectatePawn(InPawn, InPlayerState);
+
+	bFirstAction = false;
 }
 
 void AGolfPlayerController::DoSpectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState)
@@ -1347,6 +1349,7 @@ void AGolfPlayerController::DoSpectate(APaperGolfPawn* InPawn, AGolfPlayerState*
 
 	bSpectatorFlicked = false;
 	bStartedSpectating = true;
+	bFirstAction = false;
 
 	// Turn off collision on our own pawn
 	if (IsValid(PlayerPawn))
@@ -1521,6 +1524,12 @@ void AGolfPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 
 void AGolfPlayerController::SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState* InPlayerState)
 {
+	if (!HasAuthority())
+	{
+		// Can only change state to spectator on the server side
+		return;
+	}
+
 	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: Changing state to spectator"), *GetName());
 
 	const auto CurrentSpectatorPawn = GetSpectatorPawn();
@@ -1605,7 +1614,7 @@ UTutorialTrackingSubsystem* AGolfPlayerController::GetTutorialTrackingSubsystem(
 bool AGolfPlayerController::ShouldSpectateFromRep() const
 {
 	// Make sure we are not already spectating
-	return LifetimeTurnCount == 0 && !GetPawn() && !bStartedSpectating && SpectatorParams.PlayerState && SpectatorParams.Pawn;
+	return bFirstAction && !GetPawn() && !bStartedSpectating && SpectatorParams.PlayerState && SpectatorParams.Pawn;
 }
 
 void AGolfPlayerController::CheckRepDoSpectate()
@@ -1667,6 +1676,8 @@ void AGolfPlayerController::SetSpectatorPawn(ASpectatorPawn* NewSpectatorPawn)
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SetSpectatorPawn - NewSpectatorPawn=%s is not a AGolfShotSpectatorPawn"),
 			*GetName(), *LoggingUtils::GetName(NewSpectatorPawn));
+
+		bStartedSpectating = false;
 	}
 }
 

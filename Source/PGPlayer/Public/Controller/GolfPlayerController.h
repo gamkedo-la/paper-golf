@@ -391,7 +391,7 @@ private:
 	bool bSpectatorFlicked{};
 	bool bStartedSpectating{};
 	EHoleStartType HoleStartType{};
-	int32 LifetimeTurnCount{};
+	bool bFirstAction{ true };
 };
 
 #pragma region Inline Definitions

@@ -97,6 +97,16 @@ void UGolfTurnBasedDirectorComponent::AddPlayer(AController* Player)
 	}
 
 	Players.AddUnique(GolfPlayer);
+
+	// Need to set the player to spectate if there is an active player
+	if (ActivePlayerIndex != INDEX_NONE)
+	{
+		checkf(ActivePlayerIndex >= 0 && ActivePlayerIndex < Players.Num(),
+			TEXT("%s: ActivePlayerIndex=%d >= Players.Num()=%d"), *GetName(), ActivePlayerIndex, Players.Num());
+		const auto CurrentActivePlayer = Players[ActivePlayerIndex];
+
+		GolfPlayer->Spectate(CurrentActivePlayer->GetPaperGolfPawn(), CurrentActivePlayer->GetGolfPlayerState());
+	}
 }
 
 void UGolfTurnBasedDirectorComponent::RemovePlayer(AController* Player)

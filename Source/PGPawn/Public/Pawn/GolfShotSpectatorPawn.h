@@ -45,6 +45,8 @@ private:
 	void TrackPivotComponentTransformUpdates();
 	void UnTrackPivotComponentTransformUpdates();
 
+	void DoTrackCurrentPlayer();
+
 private:
 
 	UPROPERTY(Category = "Camera", VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))

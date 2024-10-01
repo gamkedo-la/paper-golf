@@ -61,6 +61,22 @@ void AGolfShotSpectatorPawn::TrackPlayer(const APaperGolfPawn* PlayerPawn)
 		return;
 	}
 
+	if (HasActorBegunPlay())
+	{
+		DoTrackCurrentPlayer();
+	}
+}
+
+void AGolfShotSpectatorPawn::DoTrackCurrentPlayer()
+{
+	const auto PlayerPawn = TrackedPlayerPawn.Get();
+	if (!PlayerPawn)
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: DoTrackCurrentPlayer"), *GetName());
+
 	if (auto PlayerRootComponent = PlayerPawn->GetPivotComponent(); PlayerRootComponent)
 	{
 		UpdateSpectatorTransform(PlayerRootComponent);
@@ -112,6 +128,12 @@ void AGolfShotSpectatorPawn::BeginPlay()
 
 	CameraLookComponent->Initialize(*CameraSpringArm);
 	SetCameraLag(false);
+
+	// TrackedPlayerPawn was set before BeginPlay was called, so do that now
+	if (TrackedPlayerPawn.IsValid())
+	{
+		DoTrackCurrentPlayer();
+	}
 }
 
 void AGolfShotSpectatorPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
