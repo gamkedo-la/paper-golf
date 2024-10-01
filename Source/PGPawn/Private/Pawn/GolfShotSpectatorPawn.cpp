@@ -43,6 +43,12 @@ AGolfShotSpectatorPawn::AGolfShotSpectatorPawn()
 
 void AGolfShotSpectatorPawn::TrackPlayer(const APaperGolfPawn* PlayerPawn)
 {
+	if (TrackedPlayerPawn.Get() == PlayerPawn)
+	{
+		UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: TrackPlayer=%s - Already tracking"), *GetName(), *LoggingUtils::GetName(PlayerPawn));
+		return;
+	}
+
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: TrackPlayer=%s"), *GetName(), *LoggingUtils::GetName(PlayerPawn));
 
 	// remove any previous tracking
@@ -169,6 +175,8 @@ void AGolfShotSpectatorPawn::TrackPivotComponentTransformUpdates()
 
 	if (auto PlayerRootComponent = PlayerPawn->GetPivotComponent(); PlayerRootComponent)
 	{
+		UE_VLOG_UELOG(this, LogPGPawn, Verbose, TEXT("%s: TrackPivotComponentTransformUpdates=%s -> %s"), *GetName(), *LoggingUtils::GetName(PlayerPawn), *LoggingUtils::GetName(PlayerRootComponent));
+
 		PlayerRootComponent->TransformUpdated.AddUObject(this, &ThisClass::OnPlayerTransformUpdated);
 	}
 }
@@ -183,6 +191,8 @@ void AGolfShotSpectatorPawn::UnTrackPivotComponentTransformUpdates()
 
 	if (auto PlayerRootComponent = PlayerPawn->GetPivotComponent(); PlayerRootComponent)
 	{
+		UE_VLOG_UELOG(this, LogPGPawn, Verbose, TEXT("%s: UnTrackPivotComponentTransformUpdates=%s -> %s"), *GetName(), *LoggingUtils::GetName(PlayerPawn), *LoggingUtils::GetName(PlayerRootComponent));
+
 		PlayerRootComponent->TransformUpdated.RemoveAll(this);
 	}
 }

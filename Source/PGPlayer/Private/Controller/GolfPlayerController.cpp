@@ -69,6 +69,7 @@ void AGolfPlayerController::DoReset()
 	SpectatorParams = {};
 	SpectatingPawnPlayerStateMap.Reset();
 	bSpectatorFlicked = false;
+	bStartedSpectating = false;
 	HoleStartType = EHoleStartType::Default;
 
 	bTurnActivated = false;
@@ -830,6 +831,10 @@ void AGolfPlayerController::SetPawn(APawn* InPawn)
 			DoActivateTurn();
 		}
 	}
+	else if (!HasAuthority())
+	{
+		CheckRepDoSpectate();
+	}
 }
 
 void AGolfPlayerController::ToggleShotType()
@@ -1176,7 +1181,7 @@ void AGolfPlayerController::DoActivateTurn()
 	// Ensure that input is always activated and timer is always registered
 	EnableInput(this);
 
-	bSpectatorFlicked = false;
+	bStartedSpectating = bSpectatorFlicked = false;
 
 	if (ShouldEnableInputForActivateTurn())
 	{
@@ -1195,6 +1200,8 @@ void AGolfPlayerController::DoActivateTurn()
 		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DoActivateTurn - Turn already activated"), *GetName());
 		return;
 	}
+
+	++LifetimeTurnCount;
 
 	const auto PaperGolfPawn = Cast<APaperGolfPawn>(GetPawn());
 
@@ -1319,12 +1326,25 @@ void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* I
 		.PlayerState = InPlayerState
 	};
 
-	if (IsLocalController())
+	// Prefer Client RPC due to timing issues relying on replication, but on first turn the pawn and player state may not have arrived on 
+	// clients, so in that case use replication
+	if (LifetimeTurnCount > 0)
+	{
+		ClientSpectate(InPawn, InPlayerState);
+		//if (!IsLocalController())
+		//{
+		//	// Make sure we execute the non-local parts on the server
+		//	DoSpectate(InPawn, InPlayerState);
+		//}
+	}
+	else if(IsLocalController())
 	{
 		DoSpectate(InPawn, InPlayerState);
 	}
 
-	SpectatePawn(InPawn, InPlayerState);
+	// TODO: We can only call ChangeState from server even though the client rpc just calls ChangeState
+	// Understand why this is but it doesn't work otherwise
+	SpectatePawn(InPawn, InPlayerState, true);
 }
 
 void AGolfPlayerController::DoSpectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState)
@@ -1333,6 +1353,7 @@ void AGolfPlayerController::DoSpectate(APaperGolfPawn* InPawn, AGolfPlayerState*
 		*GetName(), *LoggingUtils::GetName(InPawn), InPlayerState ? *InPlayerState->GetPlayerName() : TEXT("NULL"));
 
 	bSpectatorFlicked = false;
+	bStartedSpectating = true;
 
 	// Turn off collision on our own pawn
 	if (IsValid(PlayerPawn))
@@ -1341,26 +1362,31 @@ void AGolfPlayerController::DoSpectate(APaperGolfPawn* InPawn, AGolfPlayerState*
 	}
 
 	EndAnyActiveTurn();
+	
+	//SpectatePawn(InPawn, InPlayerState);
 
-	BlueprintSpectate(InPawn, InPlayerState);
-
-	if (auto HUD = GetHUD<APGHUD>(); ensure(HUD))
+	if (IsLocalController())
 	{
-		if (InPlayerState)
-		{
-			HUD->SpectatePlayer(InPlayerState->GetPlayerId());
-		}
+		BlueprintSpectate(InPawn, InPlayerState);
 
-		if (InPawn)
+		if (auto HUD = GetHUD<APGHUD>(); ensure(HUD))
 		{
-			OnHandleSpectatorShot(InPlayerState, InPawn);
-		}
-		else if(InPlayerState)
-		{
-			// On simulated proxies, the InPawn is null if it was first spawned on the server as the spawning may not have replicated yet,
-			// so need to listen for when the player state is replicated on the pawn and then can trigger the OnFlick logic
-			// There is a chance that the flick event could happen before the state change replicates, but the issue would be cosmetic
-			InPlayerState->OnPawnSet.AddUniqueDynamic(this, &ThisClass::OnSpectatorShotPawnSet);
+			if (InPlayerState)
+			{
+				HUD->SpectatePlayer(InPlayerState->GetPlayerId());
+			}
+
+			if (InPawn)
+			{
+				OnHandleSpectatorShot(InPlayerState, InPawn);
+			}
+			else if (InPlayerState)
+			{
+				// On simulated proxies, the InPawn is null if it was first spawned on the server as the spawning may not have replicated yet,
+				// so need to listen for when the player state is replicated on the pawn and then can trigger the OnFlick logic
+				// There is a chance that the flick event could happen before the state change replicates, but the issue would be cosmetic
+				InPlayerState->OnPawnSet.AddUniqueDynamic(this, &ThisClass::OnSpectatorShotPawnSet);
+			}
 		}
 	}
 }
@@ -1502,14 +1528,8 @@ void AGolfPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 	DOREPLIFETIME(AGolfPlayerController, SpectatorParams);
 }
 
-void AGolfPlayerController::SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState* InPlayerState)
+void AGolfPlayerController::SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState* InPlayerState, bool bFromServerOnly)
 {
-	if (!HasAuthority())
-	{
-		// Can only change state to spectator on the server side
-		return;
-	}
-
 	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: Changing state to spectator"), *GetName());
 
 	const auto CurrentSpectatorPawn = GetSpectatorPawn();
@@ -1517,11 +1537,17 @@ void AGolfPlayerController::SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SpectatePawn - SpectatorPawn is Invalid - recreating"), *GetName());
 		ChangeState(TEXT("Temp"));
-		ClientGotoState(TEXT("Temp"));
+		if (bFromServerOnly)
+		{
+			ClientGotoState(TEXT("Temp"));
+		}
 	}
 
 	ChangeState(NAME_Spectating);
-	ClientGotoState(NAME_Spectating);
+	if (bFromServerOnly)
+	{
+		ClientGotoState(NAME_Spectating);
+	}
 }
 
 void AGolfPlayerController::SkipHoleFlybyAndCameraIntroduction()
@@ -1591,15 +1617,43 @@ UTutorialTrackingSubsystem* AGolfPlayerController::GetTutorialTrackingSubsystem(
 	return TutorialTrackingSubsystem;
 }
 
+bool AGolfPlayerController::ShouldSpectateFromRep() const
+{
+	// Make sure we are not already spectating
+	return LifetimeTurnCount == 0 && !GetPawn() && !bStartedSpectating && SpectatorParams.PlayerState && SpectatorParams.Pawn;
+}
+
+void AGolfPlayerController::CheckRepDoSpectate()
+{
+	if (ShouldSpectateFromRep())
+	{
+		DoSpectate(SpectatorParams.Pawn, SpectatorParams.PlayerState);
+	}
+}
+
 void AGolfPlayerController::OnRep_SpectatorParams()
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnRep_SpectatorParams: Pawn=%s; PlayerState=%s"),
 		*GetName(),*LoggingUtils::GetName(SpectatorParams.Pawn), *LoggingUtils::GetName<APlayerState>(SpectatorParams.PlayerState.Get()));
 
-	if (SpectatorParams.PlayerState && SpectatorParams.Pawn)
+	CheckRepDoSpectate();
+}
+
+void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState)
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientSpectate_Implementation - InPawn=%s; InPlayerState=%s"),
+		*GetName(), *LoggingUtils::GetName(InPawn), InPlayerState ? *InPlayerState->GetPlayerName() : TEXT("NULL"));
+
+	if (!HasAuthority())
 	{
-		DoSpectate(SpectatorParams.Pawn, SpectatorParams.PlayerState);
+		SpectatorParams = FSpectatorParams
+		{
+			.Pawn = InPawn,
+			.PlayerState = InPlayerState
+		};
 	}
+
+	DoSpectate(InPawn, InPlayerState);
 }
 
 void AGolfPlayerController::SetSpectatorPawn(ASpectatorPawn* NewSpectatorPawn)

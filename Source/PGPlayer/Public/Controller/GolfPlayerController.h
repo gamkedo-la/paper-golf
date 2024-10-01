@@ -153,7 +153,7 @@ protected:
 	virtual void ClientReset_Implementation() override;
 
 	void TriggerHoleFlybyAndPlayerCameraIntroduction();
-    void OnCameraIntroductionComplete();
+	void OnCameraIntroductionComplete();
 
 	UFUNCTION(BlueprintCallable)
 	void SkipHoleFlybyAndCameraIntroduction();
@@ -199,7 +199,8 @@ private:
 
 	void SetupNextShot(bool bSetCanFlick);
 
-	void SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState* InPlayerState);
+	// Called on both clients and server locally after the spectating state has propagated
+	void SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState* InPlayerState, bool bFromServerOnly = false);
 
 	void SetPositionTo(const FVector& Position, const TOptional<FRotator>& OptionalRotation = {});
 
@@ -237,7 +238,7 @@ private:
 	bool CanFlick() const;
 
 	bool ShouldEnableInputForActivateTurn() const;
-	
+
 	UFUNCTION(BlueprintPure)
 	float GetFlickZ() const;
 
@@ -290,6 +291,17 @@ private:
 	UFUNCTION()
 	void OnRep_SpectatorParams();
 
+	// TODO: Do to a timing issue with the RPCs, we have to use this a majority of the time and only
+	// use the OnRep_ in the cases where we haven't had a turn yet
+	// Otherwise, the pawn attachments are broken on the client and weird stuff happens
+
+	UFUNCTION(Client, Reliable)
+	void ClientSpectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState);
+
+	bool ShouldSpectateFromRep() const;
+
+	void CheckRepDoSpectate();
+
 private:
 
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
@@ -305,11 +317,11 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	float RotationRate{ 100.0f };
-	
+
 	/*
 	* Increase the value to make slight accuracy errors more forgiving. This is on top of the defaults on the pawn.
 	*/
-	UPROPERTY(EditDefaultsOnly, Category = "Difficulty", meta=( ClampMin="1.0" ))
+	UPROPERTY(EditDefaultsOnly, Category = "Difficulty", meta = (ClampMin = "1.0"))
 	float AccuracyAdjustmentExponent{ 1.0f };
 
 	/*
@@ -377,7 +389,9 @@ private:
 	bool bOutOfBounds{};
 
 	bool bSpectatorFlicked{};
+	bool bStartedSpectating{};
 	EHoleStartType HoleStartType{};
+	int32 LifetimeTurnCount{};
 };
 
 #pragma region Inline Definitions
