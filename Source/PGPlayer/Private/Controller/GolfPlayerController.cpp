@@ -1331,20 +1331,13 @@ void AGolfPlayerController::Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* I
 	if (LifetimeTurnCount > 0)
 	{
 		ClientSpectate(InPawn, InPlayerState);
-		//if (!IsLocalController())
-		//{
-		//	// Make sure we execute the non-local parts on the server
-		//	DoSpectate(InPawn, InPlayerState);
-		//}
 	}
 	else if(IsLocalController())
 	{
 		DoSpectate(InPawn, InPlayerState);
 	}
 
-	// TODO: We can only call ChangeState from server even though the client rpc just calls ChangeState
-	// Understand why this is but it doesn't work otherwise
-	SpectatePawn(InPawn, InPlayerState, true);
+	SpectatePawn(InPawn, InPlayerState);
 }
 
 void AGolfPlayerController::DoSpectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState)
@@ -1363,8 +1356,6 @@ void AGolfPlayerController::DoSpectate(APaperGolfPawn* InPawn, AGolfPlayerState*
 
 	EndAnyActiveTurn();
 	
-	//SpectatePawn(InPawn, InPlayerState);
-
 	if (IsLocalController())
 	{
 		BlueprintSpectate(InPawn, InPlayerState);
@@ -1528,7 +1519,7 @@ void AGolfPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 	DOREPLIFETIME(AGolfPlayerController, SpectatorParams);
 }
 
-void AGolfPlayerController::SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState* InPlayerState, bool bFromServerOnly)
+void AGolfPlayerController::SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState* InPlayerState)
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: Changing state to spectator"), *GetName());
 
@@ -1537,17 +1528,11 @@ void AGolfPlayerController::SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SpectatePawn - SpectatorPawn is Invalid - recreating"), *GetName());
 		ChangeState(TEXT("Temp"));
-		if (bFromServerOnly)
-		{
-			ClientGotoState(TEXT("Temp"));
-		}
+		ClientGotoState(TEXT("Temp"));
 	}
 
 	ChangeState(NAME_Spectating);
-	if (bFromServerOnly)
-	{
-		ClientGotoState(NAME_Spectating);
-	}
+	ClientGotoState(NAME_Spectating);
 }
 
 void AGolfPlayerController::SkipHoleFlybyAndCameraIntroduction()

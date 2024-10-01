@@ -199,8 +199,8 @@ private:
 
 	void SetupNextShot(bool bSetCanFlick);
 
-	// Called on both clients and server locally after the spectating state has propagated
-	void SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState* InPlayerState, bool bFromServerOnly = false);
+	//  Must be called on server for spectator pawn to spawn
+	void SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState* InPlayerState);
 
 	void SetPositionTo(const FVector& Position, const TOptional<FRotator>& OptionalRotation = {});
 
