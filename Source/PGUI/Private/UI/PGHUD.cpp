@@ -490,6 +490,25 @@ bool APGHUD::FinalResultsAreDetermined() const
 	return bScoresSynced && bCourseComplete;
 }
 
+void APGHUD::CheckForInitialDeferredState(const APaperGolfGameStateBase& GameState)
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: CheckForInitialDeferredState"), *GetName());
+
+	if (!ActivePlayer || !ActivePlayer->HasAnyDeferredState())
+	{
+		return;
+	}
+
+	for (auto PlayerState : GameState.GetActiveGolfPlayerStates())
+	{
+		CheckExecuteDeferredSpectatorAction(*PlayerState);
+		if (!ActivePlayer)
+		{
+			return;
+		}
+	}
+}
+
 void APGHUD::PlayWinSoundIfApplicable()
 {
 	const auto bShouldCheckPlaySound = FinalResultsAreDetermined();
@@ -578,6 +597,8 @@ void APGHUD::Init()
 			GolfGameState->OnScoresSynced.AddUObject(this, &ThisClass::OnScoresSynced);
 			GolfGameState->OnPlayerShotsUpdated.AddUObject(this, &ThisClass::OnCurrentHoleScoreUpdate);
 			GolfGameState->OnPlayersChanged.AddUObject(this, &ThisClass::OnPlayersChanged);
+
+			CheckForInitialDeferredState(*GolfGameState);
 		}
 
 		if (auto GolfEventsSubsystem = World->GetSubsystem<UGolfEventsSubsystem>(); ensure(GolfEventsSubsystem))

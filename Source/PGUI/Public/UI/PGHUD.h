@@ -108,7 +108,8 @@ private:
 		EDeferredPlayerState LastDeferredState{ EDeferredPlayerState::None };
 
 
-		bool MatchesDeferredState(int32 PlayerId) const { return Id == PlayerId && LastDeferredState != EDeferredPlayerState::None; }
+		bool HasAnyDeferredState() const { return LastDeferredState != EDeferredPlayerState::None; }
+		bool MatchesDeferredState(int32 PlayerId) const { return Id == PlayerId && HasAnyDeferredState(); }
 
 		FActivePlayer(const AGolfPlayerState& InPlayerState);
 		FActivePlayer(int32 Id, EDeferredPlayerState RequestedState) : Id(Id), LastDeferredState(RequestedState) {}
@@ -165,6 +166,8 @@ private:
 	APaperGolfGameStateBase* GetGameState() const;
 
 	bool FinalResultsAreDetermined() const;
+	
+	void CheckForInitialDeferredState(const APaperGolfGameStateBase& GameState);
 
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config")
