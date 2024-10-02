@@ -9,6 +9,8 @@
 
 #include "PGGameInstance.generated.h"
 
+class UPGAudioOptionSettings;
+
 /**
  * 
  */
@@ -39,7 +41,18 @@ private:
 
 	void InitGamepadAvailable();
 	void HandleControllerConnectionChange(EInputDeviceConnectionState InputDeviceConnectionState, FPlatformUserId UserId, FInputDeviceId ControllerId);
-	void HandleControllerPairingChanged(FInputDeviceId ControllerId, FPlatformUserId NewUserId, FPlatformUserId OldUserId);
+	void HandleControllerPairingChanged(FInputDeviceId ControllerId, FPlatformUserId NewUserId, FPlatformUserId OldUserId);\
+
+	void InitSoundVolumes();
+	void ApplyMixToSoundClass(USoundClass* SoundClass, float Volume);
+
+#if WITH_EDITOR
+	virtual FGameInstancePIEResult StartPlayInEditorGameInstance(ULocalPlayer* LocalPlayer, const FGameInstancePIEParameters& Params) override;
+#endif
+
+private:
+	UPROPERTY(EditDefaultsOnly, Category = "Audio")
+	TObjectPtr<UPGAudioOptionSettings> AudioOptionSettings{};
 };
 
 #pragma region Inline Definitions

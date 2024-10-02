@@ -1,3 +1,5 @@
+// Copyright 2024 Game Salutes and HomeTeam GameDev contributors under GPL-3.0-only.
+
 #include "PlayerStateConfigurator.h"
 #include "PlayerConfig.h"
 #include "Algo/RandomShuffle.h"

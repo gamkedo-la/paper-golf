@@ -25,6 +25,7 @@ public class PaperGolf : ModuleRules
             "PGUI",
             "PGPawn",
             "MultiplayerSessions",
+            "PGSettings",
 
             // Engine modules
             "AIModule",

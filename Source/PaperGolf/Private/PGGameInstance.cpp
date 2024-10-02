@@ -18,6 +18,13 @@
 #include "GenericPlatform/GenericApplication.h" 
 #include "SlateBasics.h"
 
+#include "Settings/PGGameUserSettings.h"
+#include "Settings/PGAudioOptionSettings.h"
+#include "Sound/SoundMix.h"
+#include "Sound/SoundClass.h"
+
+#include "Kismet/GameplayStatics.h"
+
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PGGameInstance)
 
@@ -79,6 +86,8 @@ void UPGGameInstance::BeginLoadingScreen(const FString& MapName)
 void UPGGameInstance::EndLoadingScreen(UWorld* InLoadedWorld)
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: EndLoadingScreen: %s"), *GetName(), *LoggingUtils::GetName(InLoadedWorld));
+
+	InitSoundVolumes();
 }
 
 void UPGGameInstance::DoLoadingScreen()
@@ -142,6 +151,101 @@ void UPGGameInstance::HandleControllerPairingChanged(FInputDeviceId ControllerId
 }
 
 #pragma endregion Gamepad Support
+
+#pragma region Audio Settings
+
+void UPGGameInstance::InitSoundVolumes()
+{
+	const auto Settings = UPGGameUserSettings::GetInstance();
+	if (!ensureMsgf(Settings, TEXT("UPGGameUserSettings was NULL")))
+	{
+		return;
+	}
+
+	if (!ensureMsgf(AudioOptionSettings, TEXT("AudioOptionSettings is not set")))
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: AudioOptionSettings is not set"), *GetName());
+
+		return;
+	}
+
+	if (AudioOptionSettings->SfxSoundClass)
+	{
+		ApplyMixToSoundClass(AudioOptionSettings->SfxSoundClass, Settings->GetSfxVolume());
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: No SfxSoundClass set on %s!"), *GetName(), *LoggingUtils::GetName(AudioOptionSettings));
+	}
+
+	if (AudioOptionSettings->MusicSoundClass)
+	{
+		ApplyMixToSoundClass(AudioOptionSettings->MusicSoundClass, Settings->GetMusicVolume());
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: No MusicSoundClass set on %s!"), *GetName(), *LoggingUtils::GetName(AudioOptionSettings));
+	}
+
+	if (AudioOptionSettings->AmbienceSoundClass)
+	{
+		ApplyMixToSoundClass(AudioOptionSettings->AmbienceSoundClass, Settings->GetAmbienceVolume());
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: No AmbienceSoundClass set on %s!"), *GetName(), *LoggingUtils::GetName(AudioOptionSettings));
+	}
+
+	if (AudioOptionSettings->MainSoundClass)
+	{
+		ApplyMixToSoundClass(AudioOptionSettings->MainSoundClass, Settings->GetMainVolume());
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: No MainSoundClass set on %s!"), *GetName(), *LoggingUtils::GetName(AudioOptionSettings));
+	}
+}
+
+void UPGGameInstance::ApplyMixToSoundClass(USoundClass* SoundClass, float Volume)
+{
+	if (!AudioOptionSettings)
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: AudioOptionSettings is not set"), *GetName());
+
+		return;
+	}
+
+	if (!AudioOptionSettings->VolumeChangeMix)
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: No VolumeChangeMix set on %s!"), *GetName(), *LoggingUtils::GetName(AudioOptionSettings));
+		return;
+	}
+
+	if (!ensure(SoundClass))
+	{
+		return;
+	}
+
+	UGameplayStatics::SetSoundMixClassOverride(GetWorld(), AudioOptionSettings->VolumeChangeMix, SoundClass, Volume, 1.0f, 0.0f, true);
+	UGameplayStatics::PushSoundMixModifier(GetWorld(), AudioOptionSettings->VolumeChangeMix);
+
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: Changed volume of %s to %f"), *GetName(), *SoundClass->GetName(), Volume);
+}
+
+#if WITH_EDITOR
+
+FGameInstancePIEResult UPGGameInstance::StartPlayInEditorGameInstance(ULocalPlayer* LocalPlayer, const FGameInstancePIEParameters& Params)
+{
+	auto Result = Super::StartPlayInEditorGameInstance(LocalPlayer, Params);
+
+	InitSoundVolumes();
+
+	return Result;
+}
+
+#endif
+
+#pragma endregion Audio Settings
 
 void UPGGameInstance::InitMultiplayerSessionsSubsystem()
 {

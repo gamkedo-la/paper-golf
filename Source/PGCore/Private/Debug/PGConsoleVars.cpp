@@ -79,7 +79,7 @@ namespace PG
 		);
 
 		TAutoConsoleVariable<int32> CSkipHumanPlayers(
-			TEXT("pg.mode.allowBots"),
+			TEXT("pg.mode.skipHumans"),
 			-1,
 			TEXT("Override the game mode default to skip human players -> -1: variable disabled, 0: don't skip all human players, 1: skip all human players"),
 			ECVF_Scalability | ECVF_RenderThreadSafe
