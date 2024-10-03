@@ -73,7 +73,7 @@ void APaperGolfGameStateBase::RemovePlayerState(APlayerState* PlayerState)
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: RemovePlayerState - PlayerState=%s"), *GetName(), *LoggingUtils::GetName<APlayerState>(PlayerState));
 
-	const auto GolfPlayerState = Cast<AGolfPlayerState>(PlayerState); GolfPlayerState;
+	const auto GolfPlayerState = Cast<AGolfPlayerState>(PlayerState);
 
 	if (GolfPlayerState)
 	{
