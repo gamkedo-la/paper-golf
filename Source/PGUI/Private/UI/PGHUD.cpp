@@ -509,7 +509,7 @@ void APGHUD::CheckForInitialDeferredState(const APaperGolfGameStateBase& GameSta
 	}
 }
 
-void APGHUD::PlayWinSoundIfApplicable()
+void APGHUD::PlayCourseResultsSoundIfApplicable()
 {
 	const auto bShouldCheckPlaySound = FinalResultsAreDetermined();
 
@@ -519,7 +519,7 @@ void APGHUD::PlayWinSoundIfApplicable()
 		return;
 	}
 
-	UE_VLOG_UELOG(PC, LogPGUI, Log, TEXT("%s: PlayWinSoundIfApplicable - %s: bScoresSynced=%s; bCourseComplete=%s"),
+	UE_VLOG_UELOG(PC, LogPGUI, Log, TEXT("%s: PlayCourseResultsSoundIfApplicable - %s: bScoresSynced=%s; bCourseComplete=%s"),
 		*GetName(), LoggingUtils::GetBoolString(bShouldCheckPlaySound), LoggingUtils::GetBoolString(bScoresSynced), LoggingUtils::GetBoolString(bCourseComplete));
 
 	if (!bShouldCheckPlaySound)
@@ -540,9 +540,11 @@ void APGHUD::PlayWinSoundIfApplicable()
 		return;
 	}
 
-	const auto& Players = GameState->GetSortedPlayerStatesByScore();
+	TArray<int32> PlayerRanks;
 
-	// Skip win sound if playing single player
+	const auto& Players = GameState->GetSortedPlayerStatesByScore(&PlayerRanks);
+
+	// Skip win/lose sounds if playing single player
 	if(Players.Num() <= 1)
 	{
 		UE_VLOG_UELOG(PC, LogPGUI, Log, TEXT("%s - PlayerController=%s - Skipping win sound as there is only %d player%s : %s"),
@@ -579,10 +581,17 @@ void APGHUD::PlayWinSoundIfApplicable()
 	UE_VLOG_UELOG(PC, LogPGUI, Log, TEXT("%s - PlayerController=%s - Found player %s at index %d in sorted scores list : %s"),
 		*GetName(), *PC->GetName(), *LoggingUtils::GetName<APlayerState>(MyPlayerState), Index, *PG::ToStringObjectElements(Players));
 
-	// Best score
-	if (Index == 0)
+	// Best score or tie
+	checkf(Index >= 0 && Index < PlayerRanks.Num(), TEXT("Index=%d; PlayerRanks.Num()=%d"), Index, PlayerRanks.Num());
+	const auto Rank = PlayerRanks[Index];
+
+	if (Rank == 1)
 	{
 		PlaySound2D(WinSfx);
+	}
+	else
+	{
+		PlaySound2D(LoseSfx);
 	}
 }
 
@@ -628,7 +637,7 @@ void APGHUD::OnScoresSynced(APaperGolfGameStateBase& GameState)
 
 	CheckShowScoresOrFinalResults(GameState);
 
-	PlayWinSoundIfApplicable();
+	PlayCourseResultsSoundIfApplicable();
 }
 
 void APGHUD::CheckShowScoresOrFinalResults(const APaperGolfGameStateBase& GameState)
@@ -772,7 +781,7 @@ void APGHUD::OnCourseComplete()
 		HideCurrentHoleScoresHUD();
 	}
 
-	PlayWinSoundIfApplicable();
+	PlayCourseResultsSoundIfApplicable();
 }
 
 void APGHUD::OnHoleComplete()

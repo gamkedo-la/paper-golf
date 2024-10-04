@@ -156,7 +156,7 @@ private:
 
 	void PlaySound2D(const TSoftObjectPtr<USoundBase>& Sound);
 
-	void PlayWinSoundIfApplicable();
+	void PlayCourseResultsSoundIfApplicable();
 
 	void CheckNotifyHoleShotsUpdate(const APaperGolfGameStateBase& GameState);
 
@@ -228,6 +228,9 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Audio")
 	TSoftObjectPtr<USoundBase> WinSfx{};
+
+	UPROPERTY(EditDefaultsOnly, Category = "Audio")
+	TSoftObjectPtr<USoundBase> LoseSfx{};
 
 	FTimerHandle HoleFinishedMessageTimerHandle{};
 

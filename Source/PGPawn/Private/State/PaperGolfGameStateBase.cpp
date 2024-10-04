@@ -107,7 +107,7 @@ TArray<AGolfPlayerState*> APaperGolfGameStateBase::GetActiveGolfPlayerStates() c
 	return GolfPlayerStates;
 }
 
-TArray<AGolfPlayerState*> APaperGolfGameStateBase::GetSortedPlayerStatesByScore() const
+TArray<AGolfPlayerState*> APaperGolfGameStateBase::GetSortedPlayerStatesByScore(TArray<int32>* OutPlayerRanks) const
 {
 	TArray<AGolfPlayerState*> GolfPlayerStates = GetActiveGolfPlayerStates();
 
@@ -115,6 +115,35 @@ TArray<AGolfPlayerState*> APaperGolfGameStateBase::GetSortedPlayerStatesByScore(
 	{
 		return A.CompareByScore(B);
 	});
+
+	if (OutPlayerRanks)
+	{
+		OutPlayerRanks->Reset();
+		OutPlayerRanks->Reserve(GolfPlayerStates.Num());
+
+		for (int32 Rank = 0, TiedCount = 0, LastScore = std::numeric_limits<int32>::max(); const auto PlayerState : GolfPlayerStates)
+		{
+			const auto PlayerScore = PlayerState->GetDisplayScore();
+			if (LastScore != PlayerScore)
+			{
+				Rank += TiedCount + 1;
+				TiedCount = 0;
+			}
+			else
+			{
+				++TiedCount;
+			}
+
+			OutPlayerRanks->Add(Rank);
+			LastScore = PlayerScore;
+		}
+
+		UE_VLOG_UELOG(this, LogPGPawn, Verbose, TEXT("%s: GetSortedPlayerStatesByScore - DisplayScores=%s; OutPlayerRanks=%s"),
+			*GetName(), 
+			*PG::ToString<AGolfPlayerState*>(GolfPlayerStates, [](const AGolfPlayerState* PlayerState) { return FString::Printf(TEXT("%s=%d"), *PlayerState->GetPlayerName(), PlayerState->GetDisplayScore()); }),
+			*PG::ToString(*OutPlayerRanks)
+		);
+	}
 
 	return GolfPlayerStates;
 }

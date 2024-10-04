@@ -57,7 +57,9 @@ public:
 	TArray<AGolfPlayerState*> GetActiveGolfPlayerStates() const;
 
 	UFUNCTION(BlueprintPure)
-	TArray<AGolfPlayerState*> GetSortedPlayerStatesByScore() const;
+	TArray<AGolfPlayerState*> GetSortedPlayerStatesByScore() const { return GetSortedPlayerStatesByScore(nullptr); }
+
+	TArray<AGolfPlayerState*> GetSortedPlayerStatesByScore(TArray<int32>* OutPlayerRanks) const;
 
 	UFUNCTION(BlueprintPure)
 	TArray<AGolfPlayerState*> GetSortedPlayerStatesByCurrentHoleScore() const;
