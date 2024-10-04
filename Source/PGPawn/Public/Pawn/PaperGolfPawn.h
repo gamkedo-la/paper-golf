@@ -159,6 +159,12 @@ public:
 	UFUNCTION(BlueprintPure)
 	USceneComponent* GetPivotComponent() const;
 
+	/*
+	* Adjusts the position of the pawn if snap to ground would put the pawn inside the target's radius.
+	* If we are already within the target's radius, then we will not adjust the position.
+	*/
+	bool AdjustPositionIfSnapToGroundOverlapping(const FVector& Target, float TargetRadius);
+
 protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void BeginPlay() override;
@@ -209,6 +215,8 @@ private:
 	void ResetPhysicsState() const;
 
 	void Init();
+
+	float CalculateWidth() const;
 
 private:
 
@@ -281,6 +289,7 @@ private:
 	float OriginalCameraRotationLag{};
 
 	float Mass{};
+	float Width{};
 	bool bReadyForShot{};
 
 	/*

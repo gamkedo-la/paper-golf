@@ -317,6 +317,8 @@ void UGolfTurnBasedDirectorComponent::OnPaperGolfShotFinished(APaperGolfPawn* Pa
 	{
 		if (auto GolfController = Cast<IGolfController>(PaperGolfPawn->GetController()); GolfController)
 		{
+			AdjustPlayerPositionIfTooCloseToHole(*GolfController, *PaperGolfPawn);
+
 			// Cache this as the turn might be over before the score event comes in
 			PlayerPawnToController.Add(PaperGolfPawn, PaperGolfPawn->GetController());
 			bIsPlayerTurn = IsActivePlayer(GolfController);
@@ -339,6 +341,40 @@ void UGolfTurnBasedDirectorComponent::OnPaperGolfShotFinished(APaperGolfPawn* Pa
 		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: OnPaperGolfShotFinished - Skipping do next turn as PaperGolfPawn=%s is not the active player"),
 			*GetName(), *LoggingUtils::GetName(PaperGolfPawn));
 	}
+}
+
+void UGolfTurnBasedDirectorComponent::AdjustPlayerPositionIfTooCloseToHole(const IGolfController& Player, APaperGolfPawn& PaperGolfPawn)
+{
+	checkf(CurrentHole, TEXT("%s: AdjustPlayerPositionIfTooCloseToHole - CurrentHole is NULL"), *GetName());
+
+	// If player has already scored then nothing to do
+	const auto PlayerState = Player.GetGolfPlayerState();
+	if (!PlayerState)
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Warning, TEXT("%s: AdjustPlayerPositionIfTooCloseToHole - FALSE - Player=%s; PaperGolfPawn=%s does not have GolfPlayerState"),
+			*GetName(), *Player.ToString(), *PaperGolfPawn.GetName());
+		return;
+	}
+
+	if (PlayerState->HasScored())
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: AdjustPlayerPositionIfTooCloseToHole - FALSE - Player=%s; PaperGolfPawn=%s has already scored"),
+			*GetName(), *Player.ToString(), *PaperGolfPawn.GetName());
+		return;
+	}
+
+	// If overlapping the hole then a scored event will shortly come in so ignore in that case too
+	if (CurrentHole->IsActorOverlapping(&PaperGolfPawn))
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: AdjustPlayerPositionIfTooCloseToHole - FALSE - Player=%s; PaperGolfPawn=%s is overlapping hole"),
+			*GetName(), *Player.ToString(), *PaperGolfPawn.GetName());
+		return;
+	}
+
+	const bool bAdjustmentResult = PaperGolfPawn.AdjustPositionIfSnapToGroundOverlapping(CurrentHole->GetActorLocation(), CurrentHole->GetHoleRadius());
+
+	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: AdjustPlayerPositionIfTooCloseToHole - %s - Player=%s; PaperGolfPawn=%s"),
+		*GetName(), LoggingUtils::GetBoolString(bAdjustmentResult), *Player.ToString(), *PaperGolfPawn.GetName());
 }
 
 void UGolfTurnBasedDirectorComponent::OnPaperGolfPlayerScored(APaperGolfPawn* PaperGolfPawn)

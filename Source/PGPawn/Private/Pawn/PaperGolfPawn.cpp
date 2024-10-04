@@ -32,6 +32,7 @@
 #include "VisualLogger/VisualLogger.h"
 #include "Logging/LoggingUtils.h"
 #include "Utils/StringUtils.h"
+#include "Utils/ObjectUtils.h"
 #include "Utils/CollisionUtils.h"
 
 #include "Utils/VisualLoggerUtils.h"
@@ -54,6 +55,7 @@ namespace
 {
 	constexpr float ValidateFloatEpsilon = 0.001f;
 	constexpr float ValidateZOffsetExtentFraction = 0.5f;
+	constexpr float PawnWidthBuffer = 10.0f;
 
 	// TODO: Move into separate constants namespace exported if needed outside this class
 	const FName BottomSocketName = TEXT("Bottom");
@@ -838,6 +840,74 @@ bool APaperGolfPawn::ShouldReplicateComponent(const UActorComponent* ComponentTo
 	return !(Cast<UTextRenderComponent>(ComponentToReplicate) || Cast<UAudioComponent>(ComponentToReplicate));
 }
 
+bool APaperGolfPawn::AdjustPositionIfSnapToGroundOverlapping(const FVector& Target, float TargetRadius)
+{
+	// Precondition: Shot is complete and physics is not enabled as it should be set up for the next shot
+	// We cannot move the pawn if it is simulating physics and doing so will cause a disconnect between pivot component and the mesh
+	if (_PaperGolfMesh && !ensureMsgf(!_PaperGolfMesh->IsSimulatingPhysics(),
+		TEXT("%s: AdjustPositionIfSnapToGroundOverlapping - Still simulating physics, cannot adjust location!"), *GetName()))
+	{
+		return false;
+	}
+
+	const auto TargetRadiusSq = FMath::Square(TargetRadius);
+	auto ToTarget = Target - GetActorLocation();
+
+	const auto ToTargetDistSq = ToTarget.SizeSquared();
+
+	if (ToTargetDistSq <= TargetRadiusSq)
+	{
+		UE_VLOG_UELOG(this, LogPGPawn, Log,
+			TEXT("%s: AdjustPositionIfSnapToGroundOverlapping - FALSE - ToTargetDist=%fm <= TargetRadius=%fm"),
+			*GetName(), FMath::Sqrt(ToTargetDistSq) / 100, FMath::Sqrt(TargetRadiusSq) / 100
+		);
+		return false;
+	}
+
+	// Need to determine if we are less than radius + width of the pawn and if so push ourselves back outside the target in the direction to it
+	const auto TargetDist = FMath::Sqrt(ToTargetDistSq);
+	const auto TargetRadiusPlusWidth = TargetRadius + Width + PawnWidthBuffer;
+
+	if (TargetDist > TargetRadiusPlusWidth)
+	{
+		UE_VLOG_UELOG(this, LogPGPawn, Log,
+			TEXT("%s: AdjustPositionIfSnapToGroundOverlapping - FALSE - TargetDist=%fm > TargetRadiusPlusWidth=%fm"),
+			*GetName(), TargetDist / 100, TargetRadiusPlusWidth / 100
+		);
+		return false;
+	}
+
+	// We are within the adjustment zone so need to push in the opposite direction of the target by how much we overlap by
+	const auto Adjustment = (TargetRadiusPlusWidth - TargetDist) * -ToTarget.GetSafeNormal();
+
+	UE_VLOG_UELOG(this, LogPGPawn, Log,
+		TEXT("%s: AdjustPositionIfSnapToGroundOverlapping - TRUE - TargetDist=%fm <= TargetRadiusPlusWidth=%fm; Adjustment=%s; AdjustmentDistance=%fm"),
+		*GetName(), TargetDist / 100, TargetRadiusPlusWidth / 100, *Adjustment.ToCompactString(), Adjustment.Size() / 100
+	);
+
+	UE_VLOG_LOCATION(this,
+		LogPGPawn,
+		Log,
+		GetActorLocation(),
+		Width / 2,
+		FColor::Orange,
+		TEXT("OrigL")
+	);
+
+	SetActorLocation(GetActorLocation() + Adjustment);
+
+	UE_VLOG_LOCATION(this,
+		LogPGPawn,
+		Log,
+		GetActorLocation(),
+		20.0,
+		FColor::Blue,
+		TEXT("AdjL")
+	);
+
+	return true;
+}
+
 void APaperGolfPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -884,7 +954,34 @@ void APaperGolfPawn::Init()
 	}
 #endif
 
+	Width = CalculateWidth();
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: Width=%f"), *GetName(), Width);
+
 	InitDebugDraw();
+}
+
+float APaperGolfPawn::CalculateWidth() const
+{
+	// Use the CDO so that local rotations do not affect the result
+	const auto Bounds = [&]()
+	{
+		const auto ThisCDO = PG::ObjectUtils::GetClassDefaultObject<const ThisClass>(this);
+		check(ThisCDO);
+
+		if (const auto CDOMesh = PG::ObjectUtils::FindDefaultComponentByClass<UStaticMeshComponent>(ThisCDO); CDOMesh)
+		{
+			return PG::CollisionUtils::GetAABB(*CDOMesh);
+		}
+
+		return PG::CollisionUtils::GetAABB(*ThisCDO);
+	}();
+
+	const auto& Extent = Bounds.GetExtent();
+	// Paper football points along the X axis
+	//return Extent.X * 2;
+
+	// Since player can rotate, we need to use a bounding sphere
+	return Extent.Size() * 2;
 }
 
 void APaperGolfPawn::FellOutOfWorld(const UDamageType& DmgType)

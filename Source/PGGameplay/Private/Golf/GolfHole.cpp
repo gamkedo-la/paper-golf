@@ -183,11 +183,12 @@ void AGolfHole::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AGolfHole, GolfHoleState);
+	DOREPLIFETIME(AGolfHole, HoleRadius);
 }
 
-void AGolfHole::SetCollider(UPrimitiveComponent* InCollider)
+void AGolfHole::SetCollider(UPrimitiveComponent* InCollider, float InHoleRadius)
 {
-	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: SetCollider - %s"), *GetName(), *LoggingUtils::GetName(InCollider));
+	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: SetCollider - InCollider=%s;InHoleRadius=%f"), *GetName(), *LoggingUtils::GetName(InCollider), InHoleRadius);
 
 	if (!ensureMsgf(InCollider, TEXT("%s: SetCollider - Collider is null"), *GetName()))
 	{
@@ -195,6 +196,7 @@ void AGolfHole::SetCollider(UPrimitiveComponent* InCollider)
 	}
 
 	Collider = InCollider;
+	HoleRadius = InHoleRadius;
 
 	UpdateColliderRegistration();
 }
@@ -225,6 +227,21 @@ void AGolfHole::OnComponentEndOverlap(UPrimitiveComponent* OverlappedComponent, 
 	}
 
 	OverlapConditionComponent->EndOverlap(*PaperGolfPawn);
+}
+
+bool AGolfHole::IsActorOverlapping(AActor* Actor) const
+{
+	if (!Actor)
+	{
+		return false;
+	}
+
+	if (!ensureMsgf(Collider, TEXT("%s: IsActorOverlapping - Collider is null"), *GetName()))
+	{
+		return false;
+	}
+
+	return Collider->IsOverlappingActor(Actor);
 }
 
 void AGolfHole::OnHoleChanged(int32 NewHoleNumber)
@@ -360,6 +377,7 @@ void AGolfHole::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 
 	Category.Add(TEXT("Hole Number"), FString::Printf(TEXT("%d"), HoleNumber));
 	Category.Add(TEXT("State"), LoggingUtils::GetName(GolfHoleState));
+	Category.Add(TEXT("Hole Radius"), FString::Printf(TEXT("%.1f"), HoleRadius));
 
 	Snapshot->Status.Add(Category);
 

@@ -21,8 +21,11 @@ namespace PG::ObjectUtils
 	template<std::derived_from<UObject> T>
 	T* GetClassDefaultObject();
 
+    template<std::derived_from<UObject> T>
+    T* GetClassDefaultObject(T* Object);
+
 	template<std::derived_from<UActorComponent> T>
-	T* FindDefaultComponentByClass(AActor* ActorClassDefault);
+	T* FindDefaultComponentByClass(const AActor* ActorClassDefault);
 
     /**
     * Returns whether the specified UObject is exactly the specified type.
@@ -75,6 +78,29 @@ T* PG::ObjectUtils::GetClassDefaultObject()
 }
 
 template<std::derived_from<UObject> T>
+T* PG::ObjectUtils::GetClassDefaultObject(T* Object)
+{
+    if (!IsValid(Object))
+    {
+        return nullptr;
+    }
+
+	if (IsClassDefaultObject(Object))
+	{
+		return Object;
+	}
+
+    auto Class = Object->GetClass();
+    check(Class);
+
+    auto RawCDO = Class->GetDefaultObject();
+    auto CDO = Cast<T>(RawCDO);
+    ensureMsgf(CDO, TEXT("CDO is incorrect type for %s -> %s"), *Class->GetName(), RawCDO ? *RawCDO->GetName() : TEXT("NULL"));
+
+    return CDO;
+}
+
+template<std::derived_from<UObject> T>
 inline void PG::ObjectUtils::LoadObjectAsync(const TSoftObjectPtr<T>& ObjectPtr, TFunction<void(T*)>&& OnObjectLoaded)
 {
     Private::LoadAsync(ObjectPtr, MoveTemp(OnObjectLoaded));
@@ -124,7 +150,7 @@ inline bool PG::ObjectUtils::IsExactTypeOf(const T& Object)
 
 // Adapted from https://forums.unrealengine.com/t/how-to-get-a-component-from-a-classdefaultobject/383881/5
 template<std::derived_from<UActorComponent> T>
-T* PG::ObjectUtils::FindDefaultComponentByClass(AActor* ActorClassDefault)
+T* PG::ObjectUtils::FindDefaultComponentByClass(const AActor* ActorClassDefault)
 {
     if (!ActorClassDefault)
     {

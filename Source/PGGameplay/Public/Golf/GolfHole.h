@@ -51,9 +51,15 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Cinematics")
 	const TSoftObjectPtr<ULevelSequence>& GetHoleFlybySequence() const;
 
+	UFUNCTION(BlueprintPure, Category = "Hole")
+	float GetHoleRadius() const;
+
+	UFUNCTION(BlueprintPure, Category = "Hole", BlueprintAuthorityOnly)
+	bool IsActorOverlapping(AActor* Actor) const;
+
 protected:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
-	void SetCollider(UPrimitiveComponent* InCollider);
+	void SetCollider(UPrimitiveComponent* InCollider, float InHoleRadius);
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void BlueprintOnActiveHoleChanged(bool bIsActiveHole);
@@ -98,8 +104,11 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Config")
 	int32 HoleNumber{};
 
+	UPROPERTY(Transient, Replicated)
+	float HoleRadius{};
+
 	// Set to true initially as by default the hole is active so need to detect the flipped condition
-	UPROPERTY(ReplicatedUsing = OnRep_GolfHoleState)
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_GolfHoleState)
 	EGolfHoleState GolfHoleState{};
 
 	UPROPERTY(EditAnywhere, Category = "Cinematics")
@@ -118,6 +127,11 @@ FORCEINLINE int32 AGolfHole::GetHoleNumber_Implementation() const
 FORCEINLINE const TSoftObjectPtr<ULevelSequence>& AGolfHole::GetHoleFlybySequence() const
 {
 	return HoleFlybySequence;
+}
+
+FORCEINLINE float AGolfHole::GetHoleRadius() const
+{
+	return HoleRadius;
 }
 
 #pragma endregion Inline Definitions
