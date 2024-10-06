@@ -86,6 +86,9 @@ public:
 	FVector GetFlickForce(EShotType ShotType, float Accuracy, float Power) const;
 
 	UFUNCTION(BlueprintPure)
+	float GetFlickMaxSpeed(EShotType ShotType) const;
+
+	UFUNCTION(BlueprintPure)
 	FVector GetLinearVelocity() const;
 
 	UFUNCTION(BlueprintPure)
@@ -353,4 +356,15 @@ FORCEINLINE USceneComponent* APaperGolfPawn::GetPivotComponent() const
 {
 	return _PivotComponent;
 }
+
+FORCEINLINE float APaperGolfPawn::GetMass() const
+{
+	return Mass;
+}
+
+FORCEINLINE float APaperGolfPawn::GetFlickMaxSpeed(EShotType ShotType) const
+{
+	return GetFlickMaxForce(ShotType) / GetMass();
+}
+
 #pragma endregion Inline Definitions

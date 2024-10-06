@@ -86,9 +86,6 @@ private:
 
 	TTuple<bool, float> CalculateShotPitch(const FVector& FlickLocation, const FVector& FlickDirection, float FlickSpeed) const;
 
-	float GetMaxProjectileHeight(float FlickPitchAngle, float FlickSpeed) const;
-	bool TraceShotAngle(const APaperGolfPawn& PlayerPawn, const FVector& TraceStart, const FVector& FlickDirection, float FlickSpeed, float FlickAngleDegrees) const;
-
 	FVector GetFocusActorLocation(const FVector& FlickLocation) const;
 
 	bool ValidateAndLoadConfig();

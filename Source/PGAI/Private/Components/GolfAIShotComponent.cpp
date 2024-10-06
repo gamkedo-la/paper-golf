@@ -6,6 +6,8 @@
 
 #include "Pawn/PaperGolfPawn.h"
 
+#include "Library/PaperGolfPawnUtilities.h"
+
 #include "State/GolfPlayerState.h"
 
 #include "VisualLogger/VisualLogger.h"
@@ -557,7 +559,7 @@ UGolfAIShotComponent::FShotCalculationResult UGolfAIShotComponent::CalculateAvoi
 	// Via the work energy principle, reducing the power by N will reduce the speed by factor of sqrt(N)
 	const auto FlickSpeed = FlickMaxSpeed * FMath::Sqrt(PowerFraction);
 
-	if (TraceShotAngle(*PlayerPawn, FlickLocation, DefaultFlickDirection, FlickSpeed, PreferredPitchAngle))
+	if (UPaperGolfPawnUtilities::TraceShotAngle(this, PlayerPawn, FlickLocation, DefaultFlickDirection, FlickSpeed, PreferredPitchAngle, MinTraceDistance))
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotFactors - Solution Found with preferred pitch - PreferredPitch=%.1f; AdditionalRotationYaw=%f"),
 			*LoggingUtils::GetName(GetOwner()), *GetName(), PreferredPitchAngle, AdditionalRotationYaw);
@@ -637,7 +639,7 @@ TTuple<bool, float> UGolfAIShotComponent::CalculateShotPitch(const FVector& Flic
 		{
 			const auto PitchAngle = *It;
 
-			bool bPass = TraceShotAngle(*PlayerPawn, FlickLocation, FlickDirection, FlickSpeed, PitchAngle);
+			bool bPass = UPaperGolfPawnUtilities::TraceShotAngle(this, PlayerPawn, FlickLocation, FlickDirection, FlickSpeed, PitchAngle, MinTraceDistance);
 			if (bPass)
 			{
 				return { true, PitchAngle };
@@ -647,41 +649,6 @@ TTuple<bool, float> UGolfAIShotComponent::CalculateShotPitch(const FVector& Flic
 		// return default angle, which is last element
 		return { false, ShotPitchAngles.back() };
 	}
-}
-
-bool UGolfAIShotComponent::TraceShotAngle(const APaperGolfPawn& PlayerPawn, const FVector& TraceStart, const FVector& FlickDirection, float FlickSpeed, float FlickAngleDegrees) const
-{
-	auto World = GetWorld();
-	check(World);
-
-	const auto MaxHeight = FlickAngleDegrees > 0 ? FMath::Max(GetMaxProjectileHeight(45.0f, FlickSpeed), MinTraceDistance) : MinTraceDistance;
-
-	FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(&PlayerPawn);
-
-	// Pitch up or down based on the FlickAngleDegrees
-	const auto PitchedFlickDirection = FlickDirection.RotateAngleAxis(FlickAngleDegrees, -PlayerPawn.GetActorRightVector());
-
-	const FVector TraceEnd = TraceStart + PitchedFlickDirection * MaxHeight;
-
-	// Try line trace directly to max height as an approximation
-	bool bPass = !World->LineTraceTestByChannel(TraceStart, TraceEnd, PG::CollisionChannel::FlickTraceType, QueryParams);
-
-	UE_VLOG_ARROW(GetOwner(), LogPGAI, Log, TraceStart, TraceEnd, bPass ? FColor::Green : FColor::Red, TEXT("Trace %.1f"), FlickAngleDegrees);
-	UE_VLOG_UELOG(GetOwner(), LogPGAI, Verbose, TEXT("%s-%s: TraceShotAngle - TraceStart=%s; FlickDirection=%s; PitchedFlickDirection=%s; FlickAngle=%.1f; FlickSpeed=%.1f; MaxHeight=%.1f; bPass=%s"),
-		*LoggingUtils::GetName(GetOwner()), *GetName(),
-		*TraceStart.ToCompactString(), *FlickDirection.ToCompactString(), *PitchedFlickDirection.ToCompactString(), FlickAngleDegrees, FlickSpeed, MaxHeight, LoggingUtils::GetBoolString(bPass));
-
-	return bPass;
-}
-
-float UGolfAIShotComponent::GetMaxProjectileHeight(float FlickPitchAngle, float FlickSpeed) const
-{
-	// H = v^2 * sin^2(theta) / 2g
-	auto World = GetWorld();
-	check(World);
-
-	return FMath::Square(FlickSpeed) * FMath::Square(FMath::Sin(FMath::DegreesToRadians(FlickPitchAngle))) / (2 * FMath::Abs(World->GetGravityZ()));
 }
 
 FAIShotSetupResult UGolfAIShotComponent::CalculateDefaultShotParams() const

@@ -285,24 +285,30 @@ void AGolfPlayerController::ResetFlickZ()
 
 void AGolfPlayerController::AddPaperGolfPawnRelativeRotation(const FRotator& DeltaRotation)
 {
+	const auto RotationToApply = DeltaRotation * (RotationRate * GetWorld()->GetDeltaSeconds());
+
+	UE_VLOG_UELOG(this, LogPGPlayer, VeryVerbose,
+		TEXT("%s: AddPaperGolfPawnRelativeRotation - DeltaRotation=%s; RotationToApply=%s"),
+		*GetName(), *DeltaRotation.ToCompactString(), *RotationToApply.ToCompactString());
+
+	AddPaperGolfPawnRelativeRotationNoInterp(RotationToApply);
+}
+
+void AGolfPlayerController::AddPaperGolfPawnRelativeRotationNoInterp(const FRotator& RotationToApply)
+{
 	auto PaperGolfPawn = GetPaperGolfPawn();
 	if (!PaperGolfPawn)
 	{
 		return;
 	}
 
-	const auto RotationToApplyFunc = [&]()
-	{
-		return DeltaRotation * (RotationRate * GetWorld()->GetDeltaSeconds());
-	};
+	auto ClampedRotationToApply = RotationToApply;
 
-	auto RotationToApply = RotationToApplyFunc();
-
-	UPaperGolfPawnUtilities::ClampDeltaRotation(RotationMax, RotationToApply, TotalRotation);
+	UPaperGolfPawnUtilities::ClampDeltaRotation(RotationMax, ClampedRotationToApply, TotalRotation);
 
 	UE_VLOG_UELOG(this, LogPGPlayer, VeryVerbose,
-		TEXT("%s: AddPaperGolfPawnRelativeRotation - DeltaRotation=%s; RotationToApply=%s; ClampedRotationToApply=%s; TotalRotation=%s"),
-		*GetName(), *DeltaRotation.ToCompactString(), *RotationToApplyFunc().ToCompactString(), *RotationToApply.ToCompactString(), *TotalRotation.ToCompactString());
+		TEXT("%s: AddPaperGolfPawnRelativeRotation - RotationToApply=%s; ClampedRotationToApply=%s; TotalRotation=%s"),
+		*GetName(), *RotationToApply.ToCompactString(), *ClampedRotationToApply.ToCompactString(), *TotalRotation.ToCompactString());
 
 	PaperGolfPawn->AddDeltaRotation(RotationToApply);
 
@@ -1222,6 +1228,11 @@ void AGolfPlayerController::DoActivateTurn()
 	bTurnActivated = true;
 	bTurnActivationRequested = false;
 
+	if (IsLocalController())
+	{
+		ApplyIdealPitchAngle(CalculateIdealPitchAngle());
+	}
+
 	PaperGolfPawn->SetReadyForShot(true);
 
 	BlueprintActivateTurn();
@@ -1623,6 +1634,51 @@ void AGolfPlayerController::CheckRepDoSpectate()
 	{
 		DoSpectate(SpectatorParams.Pawn, SpectatorParams.PlayerState);
 	}
+}
+
+float AGolfPlayerController::CalculateIdealPitchAngle() const
+{
+	if (FMath::IsNearlyZero(DefaultPitchAngle))
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Verbose, TEXT("%s: CalculateIdealPitchAngle - 0.0 - DefaultPitchAngle is 0"), *GetName());
+		return 0.0f;
+	}
+
+	const auto PaperGolfPawn = GetPaperGolfPawn();
+	if (!PaperGolfPawn)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: CalculateIdealPitchAngle - %f - PaperGolfPawn is NULL"), *GetName(), DefaultPitchAngle);
+		return DefaultPitchAngle;
+	}
+
+	const auto TraceStart = PaperGolfPawn->GetFlickLocation(0.0f);
+	const auto& FlickDirection = PaperGolfPawn->GetFlickDirection();
+	const auto FlickMaxSpeed = PaperGolfPawn->GetFlickMaxSpeed(ShotType);
+
+	const auto bPassed = UPaperGolfPawnUtilities::TraceShotAngle(
+		this, PaperGolfPawn, TraceStart, FlickDirection, FlickMaxSpeed, DefaultPitchAngle);
+
+	const float IdealPitchAngle = bPassed ? DefaultPitchAngle : 0.0f;
+
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: CalculateIdealPitchAngle - %f"),
+		*GetName(), IdealPitchAngle);
+
+	return IdealPitchAngle;
+}
+
+void AGolfPlayerController::ApplyIdealPitchAngle(float PitchAngle)
+{
+	check(IsLocalController());
+
+	// Only do on local controller and then send up to the server
+	if (FMath::IsNearlyZero(PitchAngle))
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ApplyIdealPitchAngle - PitchAngle=%.2f"), *GetName(), PitchAngle);
+
+	AddPaperGolfPawnRelativeRotationNoInterp(FRotator(PitchAngle, 0.0f, 0.0f));
 }
 
 void AGolfPlayerController::OnRep_SpectatorParams()

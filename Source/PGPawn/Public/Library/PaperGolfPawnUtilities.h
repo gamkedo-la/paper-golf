@@ -6,6 +6,8 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "PaperGolfPawnUtilities.generated.h"
 
+class APaperGolfPawn;
+
 /**
  * 
  */
@@ -30,6 +32,10 @@ public:
 	static void DrawBox(const UObject* WorldContextObject, const FVector& Position, const FLinearColor& Color, const FVector& Extent);
 
 	static void ReattachPhysicsComponent(class UPrimitiveComponent* PhysicsComponent, const FTransform& RelativeTransform, bool bForceUpdate = false);
+
+	UFUNCTION(BlueprintCallable, Category = "Math")
+	static bool TraceShotAngle(const UObject* WorldContextObject, const APaperGolfPawn* PlayerPawn,
+		const FVector& TraceStart, const FVector& FlickDirection, float FlickSpeed, float FlickAngleDegrees, float MinTraceDistance = 1000.0f);
 
 private:
 	// UFUNCTION does not allow default parameters for non-primitive types so add overload specifically for blueprints

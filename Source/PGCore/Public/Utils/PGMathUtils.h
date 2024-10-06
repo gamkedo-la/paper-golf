@@ -16,6 +16,8 @@ namespace PG::MathUtils
 	{
 		return ClampDeltaYaw((Args + ...));
 	}
+
+	PGCORE_API float GetMaxProjectileHeight(const UObject* WorldContextObject, float FlickPitchAngle, float FlickSpeed);
 }
 
 #pragma region Template Definitions

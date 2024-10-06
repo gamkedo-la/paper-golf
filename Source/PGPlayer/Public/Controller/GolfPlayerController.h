@@ -302,6 +302,11 @@ private:
 
 	void CheckRepDoSpectate();
 
+	void AddPaperGolfPawnRelativeRotationNoInterp(const FRotator& RotationToApply);
+
+	float CalculateIdealPitchAngle() const;
+	void ApplyIdealPitchAngle(float PitchAngle);
+
 private:
 
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
@@ -334,6 +339,9 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot")
 	FLinearColor FlickReticuleColor{ };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
+	float DefaultPitchAngle{ 45.0f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Timer")
 	float OutOfBoundsDelayTime{ 3.0f };

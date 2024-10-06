@@ -12,6 +12,11 @@
 #include "Logging/LoggingUtils.h"
 #include "PGPawnLogging.h"
 
+#include "Pawn/PaperGolfPawn.h"
+
+#include "Utils/CollisionUtils.h"
+#include "Utils/PGMathUtils.h"
+
 #include <array>
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PaperGolfPawnUtilities)
@@ -27,6 +32,8 @@ namespace
 	// Maximum possible total range of each rotation axis.  Pitch can only go from -90 to 90 so total is 180 but the rest are free to go full 360.
 	constexpr const std::array<bool, 3> AxisSupportsFullRotation{ true, false, true };
 	constexpr const ConstRotatorArray AxisFullRotation{ 360.0, 180.0, 360.0 };
+
+	const UObject* GetVisualLoggerOwner(const UObject* WorldContextObject);
 }
 
 // Define here to avoid C4686 since declaring a template in the return type of a function signature does not instantiate it
@@ -52,6 +59,16 @@ namespace
 			Rotator.Pitch,
 			Rotator.Yaw
 		};
+	}
+	
+	const UObject* GetVisualLoggerOwner(const UObject* WorldContextObject)
+	{
+		if (auto ActorComponent = Cast<UActorComponent>(WorldContextObject); ActorComponent)
+		{
+			return ActorComponent->GetOwner();
+		}
+		
+		return WorldContextObject;
 	}
 }
 
@@ -189,4 +206,40 @@ void UPaperGolfPawnUtilities::DrawBox(const UObject* WorldContextObject, const F
 	const auto Box = FBox::BuildAABB(Position, Extent);
 
 	World->ForegroundLineBatcher->DrawSolidBox(Box, FTransform::Identity, Color.ToFColor(true), 0.0f, SDPG_World);
+}
+
+bool UPaperGolfPawnUtilities::TraceShotAngle(const UObject* WorldContextObject, const APaperGolfPawn* PlayerPawn, const FVector& TraceStart, const FVector& FlickDirection, float FlickSpeed, float FlickAngleDegrees, float MinTraceDistance)
+{
+	if (!ensure(WorldContextObject))
+	{
+		return false;
+	}
+
+	if (!ensure(PlayerPawn))
+	{
+		return false;
+	}
+
+	auto World = WorldContextObject->GetWorld();
+	check(World);
+
+	const auto MaxHeight = FlickAngleDegrees > 0 ? FMath::Max(PG::MathUtils::GetMaxProjectileHeight(WorldContextObject, 45.0f, FlickSpeed), MinTraceDistance) : MinTraceDistance;
+
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(PlayerPawn);
+
+	// Pitch up or down based on the FlickAngleDegrees
+	const auto PitchedFlickDirection = FlickDirection.RotateAngleAxis(FlickAngleDegrees, -PlayerPawn->GetActorRightVector());
+
+	const FVector TraceEnd = TraceStart + PitchedFlickDirection * MaxHeight;
+
+	// Try line trace directly to max height as an approximation
+	bool bPass = !World->LineTraceTestByChannel(TraceStart, TraceEnd, PG::CollisionChannel::FlickTraceType, QueryParams);
+
+	UE_VLOG_ARROW(GetVisualLoggerOwner(WorldContextObject), LogPGPawn, Log, TraceStart, TraceEnd, bPass ? FColor::Green : FColor::Red, TEXT("Trace %.1f"), FlickAngleDegrees);
+	UE_VLOG_UELOG(GetVisualLoggerOwner(WorldContextObject), LogPGPawn, Verbose, TEXT("%s-%s: TraceShotAngle - TraceStart=%s; FlickDirection=%s; PitchedFlickDirection=%s; FlickAngle=%.1f; FlickSpeed=%.1f; MaxHeight=%.1f; bPass=%s"),
+		*LoggingUtils::GetName(GetVisualLoggerOwner(WorldContextObject)), *WorldContextObject->GetName(),
+		*TraceStart.ToCompactString(), *FlickDirection.ToCompactString(), *PitchedFlickDirection.ToCompactString(), FlickAngleDegrees, FlickSpeed, MaxHeight, LoggingUtils::GetBoolString(bPass));
+
+	return bPass;
 }

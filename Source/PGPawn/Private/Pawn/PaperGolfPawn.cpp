@@ -1084,11 +1084,6 @@ float APaperGolfPawn::GetFlickDragForceMultiplier(float Power) const
 	return FlickDragForceCurve->FloatCurve.Eval(Power, 1.0f);
 }
 
-float APaperGolfPawn::GetMass() const
-{
-	return Mass;
-}
-
 void APaperGolfPawn::SetReadyForShot(bool bReady)
 {
 	bReadyForShot = bReady;
