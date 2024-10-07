@@ -150,6 +150,17 @@ FRotator APaperGolfPawn::GetPaperGolfRotation() const
 	return GetActorRotation();
 }
 
+#pragma region Debug Replication
+
+#if !UE_BUILD_SHIPPING
+
+void APaperGolfPawn::PostNetInit()
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: PostNetInit"), *GetName());
+
+	Super::PostNetInit();
+}
+
 void APaperGolfPawn::PostNetReceive()
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: PostNetReceive"), *GetName());
@@ -162,6 +173,13 @@ void APaperGolfPawn::OnRep_ReplicatedMovement()
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_ReplicatedMovement"), *GetName());
 
 	Super::OnRep_ReplicatedMovement();
+}
+
+void APaperGolfPawn::OnRep_AttachmentReplication()
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_AttachmentReplication"), *GetName());
+
+	Super::OnRep_AttachmentReplication();
 }
 
 void APaperGolfPawn::PostNetReceiveLocationAndRotation()
@@ -184,6 +202,9 @@ void APaperGolfPawn::PostNetReceivePhysicState()
 
 	Super::PostNetReceivePhysicState();
 }
+#endif
+#pragma endregion Debug Replication
+
 
 void APaperGolfPawn::AddCameraRelativeRotation(const FRotator& DeltaRotation)
 {
@@ -216,7 +237,7 @@ void APaperGolfPawn::OnRep_FocusActor()
 	// If client spectating, need to update camera focus
 	if (GetLocalRole() == ENetRole::ROLE_SimulatedProxy)
 	{
-		ResetRotation();
+		ResetCameraForShotSetup();
 	}
 }
 
@@ -1157,13 +1178,19 @@ void APaperGolfPawn::ResetCameraForShotSetup()
 		return;
 	}
 
-	const auto LookAtRotationYaw = GetRotationYawToFocusActor(FocusActor);
+	// Do not do this on simulated proxies as it will override net updates and we shouldn't be changing the position
+	if (IsLocallyControlled())
+	{
+		const auto LookAtRotationYaw = GetRotationYawToFocusActor(FocusActor);
 
-	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: ResetCameraForShotSetup - FocusActor=%s; LookAtRotationYaw=%f; bEnableCameraRotationLag=%s; CameraRotationLagSpeed=%f"),
-		*GetName(), *LoggingUtils::GetName(FocusActor), LookAtRotationYaw, LoggingUtils::GetBoolString(bEnableCameraRotationLag), _CameraSpringArm->CameraRotationLagSpeed);
-	UE_VLOG_LOCATION(this, LogPGPawn, Log, FocusActor->GetActorLocation(), 20.0, FColor::Turquoise, TEXT("Focus"));
+		UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: ResetCameraForShotSetup - FocusActor=%s; LookAtRotationYaw=%f; bEnableCameraRotationLag=%s; CameraRotationLagSpeed=%f"),
+			*GetName(), *LoggingUtils::GetName(FocusActor), LookAtRotationYaw, LoggingUtils::GetBoolString(bEnableCameraRotationLag), _CameraSpringArm->CameraRotationLagSpeed);
+		UE_VLOG_LOCATION(this, LogPGPawn, Log, FocusActor->GetActorLocation(), 20.0, FColor::Turquoise, TEXT("Focus"));
 
-	SetActorRotation(FRotator{ 0, LookAtRotationYaw, 0 });
+		const auto& ExistingRotation = GetActorRotation();
+
+		SetActorRotation(FRotator{ ExistingRotation.Pitch, LookAtRotationYaw, ExistingRotation.Roll });
+	}
 }
 
 float APaperGolfPawn::GetRotationYawToFocusActor(AActor* InFocusActor) const
@@ -1286,6 +1313,10 @@ void APaperGolfPawn::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 		MeshCategory.Add(TEXT("World Rotation"), _PaperGolfMesh->GetComponentRotation().ToCompactString());
 		MeshCategory.Add(TEXT("Relative Location"), _PaperGolfMesh->GetRelativeLocation().ToCompactString());
 		MeshCategory.Add(TEXT("Relative Rotation"), _PaperGolfMesh->GetRelativeRotation().ToCompactString());
+		MeshCategory.Add(TEXT("Linear Velocity"), _PaperGolfMesh->GetComponentVelocity().ToCompactString());
+		MeshCategory.Add(TEXT("Angular Velocity"), _PaperGolfMesh->GetPhysicsAngularVelocityInDegrees().ToCompactString() + TEXT(" Deg/s"));
+		MeshCategory.Add(TEXT("Is Simulating Physics"), LoggingUtils::GetBoolString(_PaperGolfMesh->IsSimulatingPhysics()));
+
 		Category.AddChild(MeshCategory);
 	}
 

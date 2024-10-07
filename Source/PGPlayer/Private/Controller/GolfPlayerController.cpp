@@ -1241,6 +1241,12 @@ void AGolfPlayerController::DoActivateTurn()
 	{
 		ShowActivateTurnHUD();
 	}
+
+	if (HasAuthority())
+	{
+		// Force initial client update
+		ForceNetUpdate();
+	}
 }
 
 void AGolfPlayerController::ShowActivateTurnHUD()

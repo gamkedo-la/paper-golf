@@ -136,8 +136,13 @@ public:
 	FVector GetPaperGolfPosition() const;
 	FRotator GetPaperGolfRotation() const;
 
+	// Overridden for logging purposes - if using for other purposes, move outside the preprocessor guard
+#if !UE_BUILD_SHIPPING
+
+	virtual void PostNetInit() override;
 	virtual void PostNetReceive() override;
 	virtual void OnRep_ReplicatedMovement() override;
+	virtual void OnRep_AttachmentReplication() override;
 
 	virtual void PostNetReceiveLocationAndRotation() override;
 
@@ -147,6 +152,7 @@ public:
 	/** Update and smooth simulated physic state, replaces PostNetReceiveLocation() and PostNetReceiveVelocity() */
 	virtual void PostNetReceivePhysicState() override;
 
+#endif
 	// IPawnCameraLook
 	virtual void AddCameraRelativeRotation(const FRotator& DeltaRotation) override;
 	virtual void ResetCameraRelativeRotation() override;
