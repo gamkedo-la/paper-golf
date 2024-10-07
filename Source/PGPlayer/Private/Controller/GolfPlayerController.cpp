@@ -310,7 +310,7 @@ void AGolfPlayerController::AddPaperGolfPawnRelativeRotationNoInterp(const FRota
 		TEXT("%s: AddPaperGolfPawnRelativeRotation - RotationToApply=%s; ClampedRotationToApply=%s; TotalRotation=%s"),
 		*GetName(), *RotationToApply.ToCompactString(), *ClampedRotationToApply.ToCompactString(), *TotalRotation.ToCompactString());
 
-	PaperGolfPawn->AddDeltaRotation(RotationToApply);
+	PaperGolfPawn->AddDeltaRotation(ClampedRotationToApply);
 
 	ServerSetPaperGolfPawnRotation(PaperGolfPawn->GetActorRotation());
 }
