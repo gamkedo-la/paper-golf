@@ -225,6 +225,9 @@ private:
 	void ServerSetPaperGolfPawnRotation(const FRotator& InTotalRotation);
 
 	UFUNCTION(Server, Reliable)
+	void ServerResetShot();
+
+	UFUNCTION(Server, Reliable)
 	void ServerProcessShootInput(const FRotator& InTotalRotation);
 
 	float GetAdjustedAccuracy(float Accuracy) const;

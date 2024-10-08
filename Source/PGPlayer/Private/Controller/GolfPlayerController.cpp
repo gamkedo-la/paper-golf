@@ -114,6 +114,8 @@ void AGolfPlayerController::ResetForCamera()
 
 void AGolfPlayerController::ResetShot()
 {
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ResetShot"), *GetName());
+
 	ShotType = EShotType::Default;
 	TotalRotation = FRotator::ZeroRotator;
 
@@ -123,6 +125,18 @@ void AGolfPlayerController::ResetShot()
 	DetermineShotType();
 
 	BlueprintResetShot();
+
+	if (!HasAuthority())
+	{
+		ServerResetShot();
+	}
+}
+
+void AGolfPlayerController::ServerResetShot_Implementation()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ServerResetShot"), *GetName());
+
+	ResetShot();
 }
 
 void AGolfPlayerController::DetermineShotType()
@@ -230,6 +244,11 @@ bool AGolfPlayerController::IsFlickedAtRest() const
 
 void AGolfPlayerController::DrawFlickLocation()
 {
+	if (!IsLocalController())
+	{
+		return;
+	}
+
 	const auto PaperGolfPawn = GetPaperGolfPawn();
 	if (!PaperGolfPawn)
 	{
