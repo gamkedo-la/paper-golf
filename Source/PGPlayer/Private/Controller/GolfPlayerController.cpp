@@ -364,8 +364,9 @@ void AGolfPlayerController::SetupNextShot(bool bSetCanFlick)
 		return;
 	}
 
-	ResetShot();
 	GolfControllerCommonComponent->SetPaperGolfPawnAimFocus();
+
+	ResetShot();
 	ResetForCamera();
 
 	if (IsLocalController())
