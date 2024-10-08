@@ -235,14 +235,7 @@ void APaperGolfPawn::OnRep_FocusActor()
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_FocusActor - Focus=%s"), *GetName(), *LoggingUtils::GetName(FocusActor));
 
 	// If client spectating, need to update camera focus - but only reset rotation if locally controlled
-	if (IsLocallyControlled())
-	{
-		ResetRotation();
-	}
-	else
-	{
-		ResetCameraForShotSetup();
-	}
+	ResetCameraForShotSetup();
 }
 
 void APaperGolfPawn::SnapToGround()
