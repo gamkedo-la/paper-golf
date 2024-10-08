@@ -234,8 +234,12 @@ void APaperGolfPawn::OnRep_FocusActor()
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_FocusActor - Focus=%s"), *GetName(), *LoggingUtils::GetName(FocusActor));
 
-	// If client spectating, need to update camera focus
-	if (GetLocalRole() == ENetRole::ROLE_SimulatedProxy)
+	// If client spectating, need to update camera focus - but only reset rotation if locally controlled
+	if (IsLocallyControlled())
+	{
+		ResetRotation();
+	}
+	else
 	{
 		ResetCameraForShotSetup();
 	}
@@ -939,7 +943,14 @@ void APaperGolfPawn::Tick(float DeltaTime)
 
 void APaperGolfPawn::BeginPlay()
 {
-	InitialRotation = GetActorRotation();
+	const auto& ActorRotation = GetActorRotation();
+
+	InitialRotation = FRotator
+	{
+		0.0f, // TODO: This should be based on the ground normal
+		ActorRotation.Yaw,
+		0.0f
+	};
 
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: BeginPlay: InitialRotation=%s"), *GetName(), *InitialRotation.ToCompactString());
 
@@ -1190,6 +1201,9 @@ void APaperGolfPawn::ResetCameraForShotSetup()
 		const auto& ExistingRotation = GetActorRotation();
 
 		SetActorRotation(FRotator{ ExistingRotation.Pitch, LookAtRotationYaw, ExistingRotation.Roll });
+
+		// InitialRotation is only affected by the look at yaw so don't use the other components
+		InitialRotation.Yaw = LookAtRotationYaw;
 	}
 }
 
