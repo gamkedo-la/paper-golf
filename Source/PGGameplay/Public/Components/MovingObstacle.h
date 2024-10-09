@@ -24,12 +24,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	USplineComponent* movementPath;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int positionalSpeedStructsCount;
-
-	UPROPERTY(EditAnywhere, BlueprintReadonly)
-	TArray<FPositionSpeedStruct> positionalSpeedStructs;
-
 	UPROPERTY(EditAnywhere)
 	float distance;
 

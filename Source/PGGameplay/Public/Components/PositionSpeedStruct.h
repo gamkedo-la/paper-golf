@@ -17,8 +17,11 @@ public:
 
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int distanceIn;
+	int distanceIn{};
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Meta = (MakeEditWidget = true))
-	FVector position;
+	FVector position = FVector::ZeroVector;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	USplineComponent* spline;
 };

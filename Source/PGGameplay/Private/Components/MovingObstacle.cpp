@@ -26,31 +26,12 @@ AMovingObstacle::AMovingObstacle()
 	{
 		staticMesh->SetupAttachment(RootComponent);
 	}
-
-	for (int i = 0; i<positionalSpeedStructs.Num();i++)
-	{
-		if (GEngine)
-			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("Some debug message!"));
-		//positionalSpeedStructs[i].spline = (movementPath);
-
-		positionalSpeedStructs[i].position = movementPath->GetTransformAtDistanceAlongSpline(positionalSpeedStructs[i].distanceIn, ESplineCoordinateSpace::World).GetLocation();
-	}
 }
 
 // Called when the game starts or when spawned
 void AMovingObstacle::BeginPlay()
 {
 	Super::BeginPlay();
-	
-
-	for (int i = 0; i < positionalSpeedStructs.Num();i++)
-	{
-		if (GEngine)
-			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("Some debug message!"));
-		//positionalSpeedStructs[i].spline = (movementPath);
-
-		positionalSpeedStructs[i].position = movementPath->GetTransformAtDistanceAlongSpline(positionalSpeedStructs[i].distanceIn, ESplineCoordinateSpace::World).GetLocation();
-	}
 }
 
 // Called every frame
