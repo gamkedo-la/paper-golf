@@ -108,7 +108,11 @@ void AGolfPlayerController::ResetForCamera()
 		return;
 	}
 
-	PaperGolfPawn->SnapToGround();
+	if (HasAuthority())
+	{
+		PaperGolfPawn->SnapToGround();
+	}
+
 	SetViewTargetWithBlend(PaperGolfPawn);
 }
 
@@ -125,11 +129,6 @@ void AGolfPlayerController::ResetShot()
 	DetermineShotType();
 
 	BlueprintResetShot();
-
-	if (!HasAuthority())
-	{
-		ServerResetShot();
-	}
 }
 
 void AGolfPlayerController::ServerResetShot_Implementation()
@@ -359,12 +358,12 @@ void AGolfPlayerController::SetupNextShot(bool bSetCanFlick)
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SetupNextShot: bSetCanFlick=%s"), *GetName(), LoggingUtils::GetBoolString(bSetCanFlick));
 
-	if(!GolfControllerCommonComponent->SetupNextShot(bSetCanFlick))
+	if(HasAuthority() && !GolfControllerCommonComponent->SetupNextShot(bSetCanFlick))
 	{
 		return;
 	}
 
-	GolfControllerCommonComponent->SetPaperGolfPawnAimFocus();
+	GolfControllerCommonComponent->SetPaperGolfPawnAimFocus(TurnActivationClientParamsOptional ? TurnActivationClientParamsOptional->Position : TOptional<FVector>{});
 
 	ResetShot();
 	ResetForCamera();
@@ -1190,12 +1189,25 @@ void AGolfPlayerController::ActivateTurn()
 		DoActivateTurn();
 	}
 
-	ClientActivateTurn();
+	// TotalRotation includes clamping if the idea pitch angle gets clamped so just pass that in
+
+	ClientActivateTurn(FTurnActivationClientParams
+	{
+		.Position = PlayerPawn->GetActorLocation(),
+		.WorldRotation = PlayerPawn->GetActorRotation(),
+		.TotalRotation = TotalRotation
+	});
 }
 
-void AGolfPlayerController::ClientActivateTurn_Implementation()
+void AGolfPlayerController::ClientActivateTurn_Implementation(const FTurnActivationClientParams& InTurnActivationClientParams)
 {
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientActivateTurn"), *GetName());
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientActivateTurn: InWorldRotation=%s; InTotalRotation=%s"), *GetName(),
+		*InTurnActivationClientParams.WorldRotation.ToCompactString(), *InTurnActivationClientParams.TotalRotation.ToCompactString());
+
+	if (!HasAuthority())
+	{
+		TurnActivationClientParamsOptional = InTurnActivationClientParams;
+	}
 
 	DoActivateTurn();
 }
@@ -1218,8 +1230,6 @@ void AGolfPlayerController::DoActivateTurn()
 		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DoActivateTurn - Skipping input activation until after introductions completed"), *GetName());
 		SetInputEnabled(false);
 	}
-
-	// TODO: If we just started the hole and need to see the hole flyby and then the player camera introduction then we'd want to defer the rest of these tasks until after they complete
 
 	if (bTurnActivated)
 	{
@@ -1248,9 +1258,13 @@ void AGolfPlayerController::DoActivateTurn()
 	bTurnActivated = true;
 	bTurnActivationRequested = false;
 
-	if (IsLocalController())
+	if (HasAuthority())
 	{
 		ApplyIdealPitchAngle(CalculateIdealPitchAngle());
+	}
+	else
+	{
+		ApplyCurrentTurnActivationClientParams();
 	}
 
 	PaperGolfPawn->SetReadyForShot(true);
@@ -1694,9 +1708,6 @@ float AGolfPlayerController::CalculateIdealPitchAngle() const
 
 void AGolfPlayerController::ApplyIdealPitchAngle(float PitchAngle)
 {
-	check(IsLocalController());
-
-	// Only do on local controller and then send up to the server
 	if (FMath::IsNearlyZero(PitchAngle))
 	{
 		return;
@@ -1705,6 +1716,39 @@ void AGolfPlayerController::ApplyIdealPitchAngle(float PitchAngle)
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ApplyIdealPitchAngle - PitchAngle=%.2f"), *GetName(), PitchAngle);
 
 	AddPaperGolfPawnRelativeRotationNoInterp(FRotator(PitchAngle, 0.0f, 0.0f));
+}
+
+void AGolfPlayerController::ApplyCurrentTurnActivationClientParams()
+{
+	check(!HasAuthority());
+	check(PlayerPawn);
+
+	if (!TurnActivationClientParamsOptional)
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ApplyCurrentTurnActivationClientParams - InWorldRotation=%s; InTotalRotation=%s"),
+		*GetName(), *TurnActivationClientParamsOptional->WorldRotation.ToCompactString(), *TurnActivationClientParamsOptional->TotalRotation.ToCompactString());
+
+	TotalRotation = TurnActivationClientParamsOptional->TotalRotation;
+
+	// No need to do this as not resetting rotation on client side
+	//PlayerPawn->SetActorRotation(TurnActivationClientParamsOptional->WorldRotation);
+
+	TurnActivationClientParamsOptional.Reset();
+}
+
+void AGolfPlayerController::ResetShotWithServerInvocation()
+{
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ResetShotWithServerInvocation"), *GetName());
+
+	ResetShot();
+
+	if (!HasAuthority())
+	{
+		ServerResetShot();
+	}
 }
 
 void AGolfPlayerController::OnRep_SpectatorParams()

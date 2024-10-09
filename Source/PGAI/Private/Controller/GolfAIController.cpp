@@ -352,7 +352,7 @@ bool AGolfAIController::SetupShot()
 	}
 
 	TArray<FShotFocusScores> FocusActorScores;
-	GolfControllerCommonComponent->GetBestFocusActor(&FocusActorScores);
+	GolfControllerCommonComponent->GetBestFocusActor({}, &FocusActorScores);
 
 	const auto ShotSetupResult = GolfAIShotComponent->SetupShot(
 		{

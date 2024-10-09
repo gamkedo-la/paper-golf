@@ -62,10 +62,9 @@ public:
 	UFUNCTION(BlueprintPure)
 	bool IsStuckInPerpetualMotion() const;
 
-	UFUNCTION(BlueprintCallable)
-	void SetFocusActor(AActor* Focus);
+	void SetFocusActor(AActor* Focus, const TOptional<FVector>& PositionOverride = {});
 
-	float GetRotationYawToFocusActor(AActor* InFocusActor) const;
+	float GetRotationYawToFocusActor(AActor* InFocusActor, const TOptional<FVector>& LocationOverride = {}) const;
 
 	UFUNCTION(BlueprintCallable)
 	void SnapToGround();
@@ -208,7 +207,7 @@ private:
 #endif
 
 	void SetCameraForFlick();
-	void ResetCameraForShotSetup();
+	void ResetCameraForShotSetup(const TOptional<FVector>& PositionOverride = {});
 
 	FNetworkFlickParams ToNetworkParams(const FFlickParams& Params) const;
 

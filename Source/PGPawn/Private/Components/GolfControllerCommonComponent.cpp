@@ -208,10 +208,10 @@ void UGolfControllerCommonComponent::AddToShotHistory(APaperGolfPawn* PaperGolfP
 	}
 }
 
-void UGolfControllerCommonComponent::SetPaperGolfPawnAimFocus()
+void UGolfControllerCommonComponent::SetPaperGolfPawnAimFocus(const TOptional<FVector>& PositionOverride)
 {
-	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: SetPaperGolfPawnAimFocus"),
-		*GetName(), *LoggingUtils::GetName(GetOwner()));
+	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: SetPaperGolfPawnAimFocus: PositionOverride=%s"),
+		*GetName(), *LoggingUtils::GetName(GetOwner()), *PG::StringUtils::ToString(PositionOverride));
 
 	if (!ensure(GolfController))
 	{
@@ -224,14 +224,17 @@ void UGolfControllerCommonComponent::SetPaperGolfPawnAimFocus()
 		return;
 	}
 
-	if (auto BestFocus = GetBestFocusActor(); BestFocus)
+	if (auto BestFocus = GetBestFocusActor(PositionOverride); BestFocus)
 	{
-		PaperGolfPawn->SetFocusActor(BestFocus);
+		PaperGolfPawn->SetFocusActor(BestFocus, PositionOverride);
 	}
 }
 
-AActor* UGolfControllerCommonComponent::GetBestFocusActor(TArray<FShotFocusScores>* OutFocusScores) const
+AActor* UGolfControllerCommonComponent::GetBestFocusActor(const TOptional<FVector>& PositionOverride, TArray<FShotFocusScores>* OutFocusScores) const
 {
+	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: GetBestFocusActor: PositionOverride=%s; OutFocusScores=%s"),
+		*GetName(), *LoggingUtils::GetName(GetOwner()), *PG::StringUtils::ToString(PositionOverride), LoggingUtils::GetBoolString(OutFocusScores != nullptr));
+
 	if (!ensure(GolfController))
 	{
 		return nullptr;
@@ -254,7 +257,7 @@ AActor* UGolfControllerCommonComponent::GetBestFocusActor(TArray<FShotFocusScore
 		return nullptr;
 	}
 
-	const auto& Position = PaperGolfPawn->GetActorLocation();
+	const auto Position = PositionOverride ? *PositionOverride : PaperGolfPawn->GetActorLocation();
 
 	AActor* BestFocus{ GolfHole };
 
@@ -453,11 +456,19 @@ void UGolfControllerCommonComponent::ResetShot()
 		return;
 	}
 
-	PaperGolfPawn->ResetRotation();
+	if (GetOwner()->HasAuthority())
+	{
+		PaperGolfPawn->ResetRotation();
+	}
 }
 
 bool UGolfControllerCommonComponent::SetupNextShot(bool bSetCanFlick)
 {
+	if (!ensure(GetOwner()->HasAuthority()))
+	{
+		return false;
+	}
+
 	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: SetupNextShot: bSetCanFlick=%s"),
 		*GetName(), *LoggingUtils::GetName(GetOwner()), LoggingUtils::GetBoolString(bSetCanFlick));
 

@@ -221,13 +221,13 @@ void APaperGolfPawn::AddCameraZoomDelta(float ZoomDelta)
 	CameraLookComponent->AddCameraZoomDelta(ZoomDelta);
 }
 
-void APaperGolfPawn::SetFocusActor(AActor* Focus)
+void APaperGolfPawn::SetFocusActor(AActor* Focus, const TOptional<FVector>& PositionOverride)
 {
-	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: SetFocusActor - Focus=%s"), *GetName(), *LoggingUtils::GetName(Focus));
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: SetFocusActor - Focus=%s; PositionOverride=%s"), *GetName(), *LoggingUtils::GetName(Focus), *PG::StringUtils::ToString(PositionOverride));
 
 	FocusActor = Focus;
 
-	ResetCameraForShotSetup();
+	ResetCameraForShotSetup(PositionOverride);
 }
 
 void APaperGolfPawn::OnRep_FocusActor()
@@ -254,7 +254,7 @@ void APaperGolfPawn::SnapToGround()
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
 
-	const auto& TraceStart = GetActorLocation();
+	const auto& TraceStart = GetPaperGolfPosition();
 
 	FHitResult HitResult;
 	
@@ -1143,7 +1143,7 @@ void APaperGolfPawn::ResetPhysicsState() const
 	UPaperGolfPawnUtilities::ResetPhysicsState(_PaperGolfMesh, PaperGolfMeshInitialTransform);
 }
 
-void APaperGolfPawn::ResetCameraForShotSetup()
+void APaperGolfPawn::ResetCameraForShotSetup(const TOptional<FVector>& PositionOverride)
 {
 	check(_CameraSpringArm);
 
@@ -1183,27 +1183,31 @@ void APaperGolfPawn::ResetCameraForShotSetup()
 	}
 
 	// Do not do this on simulated proxies as it will override net updates and we shouldn't be changing the position
-	if (IsLocallyControlled())
+	if (GetLocalRole() != ENetRole::ROLE_SimulatedProxy)
 	{
-		const auto LookAtRotationYaw = GetRotationYawToFocusActor(FocusActor);
+		const auto LookAtRotationYaw = GetRotationYawToFocusActor(FocusActor, PositionOverride);
 
-		UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: ResetCameraForShotSetup - FocusActor=%s; LookAtRotationYaw=%f; bEnableCameraRotationLag=%s; CameraRotationLagSpeed=%f"),
-			*GetName(), *LoggingUtils::GetName(FocusActor), LookAtRotationYaw, LoggingUtils::GetBoolString(bEnableCameraRotationLag), _CameraSpringArm->CameraRotationLagSpeed);
+		UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: ResetCameraForShotSetup - FocusActor=%s; PositionOverride=%s; LookAtRotationYaw=%f; bEnableCameraRotationLag=%s; CameraRotationLagSpeed=%f"),
+			*GetName(), *LoggingUtils::GetName(FocusActor), *PG::StringUtils::ToString(PositionOverride),
+			LookAtRotationYaw, LoggingUtils::GetBoolString(bEnableCameraRotationLag), _CameraSpringArm->CameraRotationLagSpeed);
 		UE_VLOG_LOCATION(this, LogPGPawn, Log, FocusActor->GetActorLocation(), 20.0, FColor::Turquoise, TEXT("Focus"));
 
 		const auto& ExistingRotation = GetActorRotation();
 
-		SetActorRotation(FRotator{ ExistingRotation.Pitch, LookAtRotationYaw, ExistingRotation.Roll });
+		if (HasAuthority())
+		{
+			SetActorRotation(FRotator{ ExistingRotation.Pitch, LookAtRotationYaw, ExistingRotation.Roll });
+		}
 
 		// InitialRotation is only affected by the look at yaw so don't use the other components
 		InitialRotation.Yaw = LookAtRotationYaw;
 	}
 }
 
-float APaperGolfPawn::GetRotationYawToFocusActor(AActor* InFocusActor) const
+float APaperGolfPawn::GetRotationYawToFocusActor(AActor* InFocusActor, const TOptional<FVector>& LocationOverride) const
 {
 	check(InFocusActor);
-	return UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), InFocusActor->GetActorLocation()).Yaw;
+	return UKismetMathLibrary::FindLookAtRotation(LocationOverride ? *LocationOverride : GetActorLocation(), InFocusActor->GetActorLocation()).Yaw;
 }
 
 void APaperGolfPawn::SampleState()

@@ -43,7 +43,8 @@ public:
 
 	void AddToShotHistory(APaperGolfPawn* PaperGolfPawn);
 
-	void SetPaperGolfPawnAimFocus();
+	// PositionOverride used by clients to avoid replication delay issues
+	void SetPaperGolfPawnAimFocus(const TOptional<FVector>& PositionOverride = {});
 
 	/*
 	* Gets the best focus actor based on the current pawn position. Optionally, returns all the scorings for the focus actors
@@ -52,7 +53,7 @@ public:
 	* @param OutFocusScores Optional output parameter to return the focus actors and their scores.
 	* @return The best focus actor based on the current pawn position.
 	*/
-	AActor* GetBestFocusActor(TArray<FShotFocusScores>* OutFocusScores = nullptr) const;
+	AActor* GetBestFocusActor(const TOptional<FVector>& PositionOverride = {}, TArray<FShotFocusScores>* OutFocusScores = nullptr) const;
 
 	TOptional<FShotHistory> GetLastShot() const;
 

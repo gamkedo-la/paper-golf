@@ -36,6 +36,20 @@ struct FSpectatorParams
 	TObjectPtr<AGolfPlayerState> PlayerState{};
 };
 
+USTRUCT()
+struct FTurnActivationClientParams
+{
+	GENERATED_BODY()
+
+	UPROPERTY(Transient)
+	FVector Position{ EForceInit::ForceInitToZero };
+
+	UPROPERTY(Transient)
+	FRotator WorldRotation{ EForceInit::ForceInitToZero };
+
+	UPROPERTY(Transient)
+	FRotator TotalRotation{ EForceInit::ForceInitToZero };
+};
 
 /**
  * 
@@ -52,7 +66,6 @@ public:
 	virtual void GrabDebugSnapshot(FVisualLogEntry* Snapshot) const override;
 #endif
 
-	UFUNCTION(BlueprintCallable)
 	virtual void ResetShot() override;
 
 	UFUNCTION(BlueprintPure)
@@ -75,7 +88,7 @@ public:
 	virtual void ActivateTurn() override;
 	virtual void Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState) override;
 
-	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
 
 	UFUNCTION(BlueprintPure)
 	virtual bool HasScored() const override;
@@ -160,6 +173,7 @@ protected:
 
 	virtual void SetSpectatorPawn(class ASpectatorPawn* NewSpectatorPawn) override;
 
+
 #if ENABLE_VISUAL_LOG
 	virtual bool ShouldCaptureDebugSnapshot() const override;
 #endif
@@ -211,7 +225,7 @@ private:
 	void ClientResetShotAfterOutOfBounds(const FVector_NetQuantize& Position);
 
 	UFUNCTION(Client, Reliable)
-	void ClientActivateTurn();
+	void ClientActivateTurn(const FTurnActivationClientParams& InTurnActivationClientParams);
 
 	UFUNCTION(Client, Reliable)
 	void ClientStartHole(AActor* InPlayerStart, EHoleStartType InHoleStartType);
@@ -225,10 +239,10 @@ private:
 	void ServerSetPaperGolfPawnRotation(const FRotator& InTotalRotation);
 
 	UFUNCTION(Server, Reliable)
-	void ServerResetShot();
+	void ServerProcessShootInput(const FRotator& InTotalRotation);
 
 	UFUNCTION(Server, Reliable)
-	void ServerProcessShootInput(const FRotator& InTotalRotation);
+	void ServerResetShot();
 
 	float GetAdjustedAccuracy(float Accuracy) const;
 
@@ -310,6 +324,11 @@ private:
 	float CalculateIdealPitchAngle() const;
 	void ApplyIdealPitchAngle(float PitchAngle);
 
+	void ApplyCurrentTurnActivationClientParams();
+
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Reset Shot"))
+	void ResetShotWithServerInvocation();
+
 private:
 
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
@@ -387,6 +406,8 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<AActor> PlayerStart{};
+
+	TOptional<FTurnActivationClientParams> TurnActivationClientParamsOptional{};
 
 	bool bCanFlick{ };
 	bool bTurnActivated{};
