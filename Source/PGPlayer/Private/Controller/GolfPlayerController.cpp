@@ -75,7 +75,7 @@ void AGolfPlayerController::DoReset()
 	bTurnActivated = false;
 	bTurnActivationRequested = false;
 	bCanFlick = false;
-	bOutOfBounds = false;
+	bInHazard = false;
 	bScored = false;
 	bInputEnabled = true; // this is the default constructor value
 	PreTurnState = EPlayerPreTurnState::None;
@@ -343,7 +343,7 @@ bool AGolfPlayerController::IsReadyForNextShot() const
 		return false;
 	}
 
-	if (bOutOfBounds)
+	if (bInHazard)
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, VeryVerbose,
 			TEXT("%s: IsReadyForNextShot - Skip - Out of Bounds"),
@@ -615,51 +615,51 @@ void AGolfPlayerController::ServerSetPaperGolfPawnRotation_Implementation(const 
 	}
 }
 
-bool AGolfPlayerController::HandleOutOfBounds()
+bool AGolfPlayerController::HandleHazard(EHazardType HazardType)
 {
 	// only called on server
 	check(HasAuthority());
 
-	if (bOutOfBounds)
+	if (bInHazard)
 	{
 		return false;
 	}
 
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: HandleOutOfBounds"), *GetName());
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: HandleHazard: %s"), *GetName(), *LoggingUtils::GetName(HazardType));
 
-	bOutOfBounds = true;
+	bInHazard = true;
 
 	// Make sure we don't process this is as a normal shot 
 	GolfControllerCommonComponent->EndTurn();
 
-	ClientHandleOutOfBounds();
+	ClientHandleHazard(HazardType);
 
 	if(auto World = GetWorld(); ensure(World))
 	{
 		FTimerHandle Handle;
-		World->GetTimerManager().SetTimer(Handle, this, &ThisClass::ResetShotAfterOutOfBounds, OutOfBoundsDelayTime);
+		World->GetTimerManager().SetTimer(Handle, this, &ThisClass::ResetShotAfterHazard, HazardDelayTime);
 	}
 
 	return true;
 }
 
-void AGolfPlayerController::ClientHandleOutOfBounds_Implementation()
+void AGolfPlayerController::ClientHandleHazard_Implementation(EHazardType HazardType)
 {
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientHandleOutOfBounds_Implementation"), *GetName());
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientHandleHazard: %s"), *GetName(), *LoggingUtils::GetName(HazardType));
 
-	bOutOfBounds = true;
+	bInHazard = true;
 	if (auto HUD = GetHUD<APGHUD>(); ensure(HUD))
 	{
-		HUD->DisplayMessageWidget(EMessageWidgetType::OutOfBounds);
+		HUD->DisplayHazardEntryWidget(HazardType);
 	}
 }
 
-void AGolfPlayerController::ResetShotAfterOutOfBounds()
+void AGolfPlayerController::ResetShotAfterHazard()
 {
 	// Only called on server
 	check(HasAuthority());
 
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ResetShotAfterOutOfBounds"), *GetName());
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ResetShotAfterHazard"), *GetName());
 
 	auto PaperGolfPawn = GetPaperGolfPawn();
 	if (!PaperGolfPawn)
@@ -669,13 +669,13 @@ void AGolfPlayerController::ResetShotAfterOutOfBounds()
 
 	PaperGolfPawn->SetUpForNextShot();
 
-	bOutOfBounds = false;
+	bInHazard = false;
 	bTurnActivated = false;
 
 	const auto& LastShotOptional = GolfControllerCommonComponent->GetLastShot();
 
 	// Set location to last in shot history
-	if(ensureMsgf(LastShotOptional, TEXT("%s-%s: ResetShotAfterOutOfBounds - ShotHistory is empty"),
+	if(ensureMsgf(LastShotOptional, TEXT("%s-%s: ResetShotAfterHazard - ShotHistory is empty"),
 		*GetName(), *PaperGolfPawn->GetName()))
 	{
 		const auto& ResetPosition = LastShotOptional->Position;
@@ -685,16 +685,16 @@ void AGolfPlayerController::ResetShotAfterOutOfBounds()
 			DoActivateTurn();
 		}
 
-		ClientResetShotAfterOutOfBounds(ResetPosition);
+		ClientResetShotAfterHazard(ResetPosition);
 	}
 	// TODO: What to do if we bail out early as user will still have the HUD message for out of bounds displaying
 }
 
-void AGolfPlayerController::ClientResetShotAfterOutOfBounds_Implementation(const FVector_NetQuantize& Position)
+void AGolfPlayerController::ClientResetShotAfterHazard_Implementation(const FVector_NetQuantize& Position)
 {
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientResetShotAfterOutOfBounds - Position=%s"), *GetName(), *Position.ToCompactString());
+	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientResetShotAfterHazard - Position=%s"), *GetName(), *Position.ToCompactString());
 
-	bOutOfBounds = false;
+	bInHazard = false;
 	bTurnActivated = false;
 
 	SetPositionTo(Position);
@@ -1832,7 +1832,7 @@ void AGolfPlayerController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 	Category.Add(TEXT("PreTurnState"), FString::Printf(TEXT("%d"), PreTurnState));
 	Category.Add(TEXT("GolfInputEnabled"), LoggingUtils::GetBoolString(bInputEnabled));
 	Category.Add(TEXT("ControllerInputEnabled"), LoggingUtils::GetBoolString(InputEnabled()));
-	Category.Add(TEXT("OutOfBounds"), LoggingUtils::GetBoolString(bOutOfBounds));
+	Category.Add(TEXT("In Hazard"), LoggingUtils::GetBoolString(bInHazard));
 	Category.Add(TEXT("Scored"), LoggingUtils::GetBoolString(bScored));
 	Category.Add(TEXT("TotalRotation"), TotalRotation.ToCompactString());
 	Category.Add(TEXT("FlickZ"), FString::Printf(TEXT("%.2f"), FlickZ));

@@ -7,6 +7,8 @@
 
 #include "PaperGolfTypes.h"
 
+#include "Subsystems/GolfEvents.h"
+
 #include "GolfController.generated.h"
 
 class APaperGolfPawn;
@@ -53,7 +55,7 @@ public:
 	virtual void ActivateTurn() = 0;
 	virtual void Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* PlayerState) = 0;
 
-	virtual bool HandleOutOfBounds() = 0;
+	virtual bool HandleHazard(EHazardType HazardType) = 0;
 
 	virtual bool HasPaperGolfPawn() const = 0;
 

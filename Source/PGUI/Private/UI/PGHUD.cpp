@@ -57,15 +57,29 @@ void APGHUD::DisplayMessageWidget(EMessageWidgetType MessageType)
 {
 	switch (MessageType)
 	{
-	case EMessageWidgetType::OutOfBounds:
-		DisplayMessageWidgetByClass(OutOfBoundsWidgetClass);
-		break;
 	case EMessageWidgetType::HoleFinished:
 		DisplayHoleFinishedMessage();
 		break;
 	case EMessageWidgetType::Tutorial:
 		DisplayMessageWidgetByClass(TutorialWidgetClass);
 		break;
+	default:
+		checkNoEntry();
+	}
+}
+
+void APGHUD::DisplayHazardEntryWidget(EHazardType HazardType)
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: DisplayHazardEntryWidget: HazardType=%s"), *GetName(),
+		*LoggingUtils::GetName(HazardType));
+
+	switch (HazardType)
+	{
+	case EHazardType::OutOfBounds:
+		DisplayMessageWidgetByClass(OutOfBoundsWidgetClass);
+		break;
+	case EHazardType::Water:
+		DisplayMessageWidgetByClass(WaterHazardWidgetClass);
 	default:
 		checkNoEntry();
 	}

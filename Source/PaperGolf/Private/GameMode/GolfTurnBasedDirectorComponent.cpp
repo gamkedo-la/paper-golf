@@ -447,9 +447,10 @@ void UGolfTurnBasedDirectorComponent::OnPaperGolfEnteredHazard(APaperGolfPawn* P
 		*GetName(), *LoggingUtils::GetName(PaperGolfPawn), *LoggingUtils::GetName(HazardType));
 	if (auto GolfController = Cast<IGolfController>(PaperGolfPawn->GetController()); ensure(GolfController))
 	{
-		if (GolfController->HandleOutOfBounds())
+		if (GolfController->HandleHazard(HazardType))
 		{
 			// One stroke penalty - TODO: May want to pull this up to another component or main game mode
+			// Right now assuming all hazards are penalties - can change this if we add a new hazard type enum that doesn't penalize
 			GolfController->AddStroke();
 		}
 	}

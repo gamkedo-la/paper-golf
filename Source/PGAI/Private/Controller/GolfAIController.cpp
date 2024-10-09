@@ -90,7 +90,7 @@ void AGolfAIController::Reset()
 
 	bTurnActivated = false;
 	bCanFlick = false;
-	bOutOfBounds = false;
+	bInHazard = false;
 	bScored = false;
 
 	check(GolfControllerCommonComponent);
@@ -136,7 +136,7 @@ bool AGolfAIController::IsReadyForNextShot() const
 		return false;
 	}
 
-	if (bOutOfBounds)
+	if (bInHazard)
 	{
 		UE_VLOG_UELOG(this, LogPGAI, VeryVerbose,
 			TEXT("%s: IsReadyForNextShot - Skip - Out of Bounds"),
@@ -217,16 +217,16 @@ void AGolfAIController::Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPla
 	GolfControllerCommonComponent->EndTurn();
 }
 
-bool AGolfAIController::HandleOutOfBounds()
+bool AGolfAIController::HandleHazard(EHazardType HazardType)
 {
-	if (bOutOfBounds)
+	if (bInHazard)
 	{
 		return false;
 	}
 
-	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: HandleOutOfBounds"), *GetName());
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: HandleHazard: %s"), *GetName(), *LoggingUtils::GetName(HazardType));
 
-	bOutOfBounds = true;
+	bInHazard = true;
 
 	// Make sure we don't process this is as a normal shot 
 	GolfControllerCommonComponent->EndTurn();
@@ -234,7 +234,7 @@ bool AGolfAIController::HandleOutOfBounds()
 	if (auto World = GetWorld(); ensure(World))
 	{
 		FTimerHandle Handle;
-		World->GetTimerManager().SetTimer(Handle, this, &ThisClass::ResetShotAfterOutOfBounds, OutOfBoundsDelayTime);
+		World->GetTimerManager().SetTimer(Handle, this, &ThisClass::ResetShotAfterHazard, HazardDelayTime);
 	}
 
 	return true;
@@ -560,9 +560,9 @@ void AGolfAIController::DetermineShotType()
 	}
 }
 
-void AGolfAIController::ResetShotAfterOutOfBounds()
+void AGolfAIController::ResetShotAfterHazard()
 {
-	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ResetShotAfterOutOfBounds"), *GetName());
+	UE_VLOG_UELOG(this, LogPGAI, Log, TEXT("%s: ResetShotAfterHazard"), *GetName());
 
 	auto PaperGolfPawn = GetPaperGolfPawn();
 	if (!PaperGolfPawn)
@@ -572,13 +572,13 @@ void AGolfAIController::ResetShotAfterOutOfBounds()
 
 	PaperGolfPawn->SetUpForNextShot();
 
-	bOutOfBounds = false;
+	bInHazard = false;
 	bTurnActivated = false;
 
 	const auto& LastShotOptional = GolfControllerCommonComponent->GetLastShot();
 
 	// Set location to last in shot history
-	if (ensureMsgf(LastShotOptional, TEXT("%s-%s: ResetShotAfterOutOfBounds - ShotHistory is empty"),
+	if (ensureMsgf(LastShotOptional, TEXT("%s-%s: ResetShotAfterHazard - ShotHistory is empty"),
 		*GetName(), *PaperGolfPawn->GetName()))
 	{
 		const auto& ResetPosition = LastShotOptional->Position;
@@ -618,7 +618,7 @@ void AGolfAIController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 
 	Category.Add(TEXT("TurnActivated"), LoggingUtils::GetBoolString(bTurnActivated));
 	Category.Add(TEXT("CanFlick"), LoggingUtils::GetBoolString(bCanFlick));
-	Category.Add(TEXT("OutOfBounds"), LoggingUtils::GetBoolString(bOutOfBounds));
+	Category.Add(TEXT("In Hazard"), LoggingUtils::GetBoolString(bInHazard));
 	Category.Add(TEXT("Scored"), LoggingUtils::GetBoolString(bScored));
 	Category.Add(TEXT("ShotType"), LoggingUtils::GetName(ShotType));
 	Category.Add(TEXT("TurnTimer"), LoggingUtils::GetBoolString(TurnTimerHandle.IsValid()));

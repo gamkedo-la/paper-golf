@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
 
+#include "Subsystems/GolfEvents.h"
+
 #include "PGHUD.generated.h"
 
 class UUserWidget;
@@ -19,7 +21,6 @@ class ULevelSequence;
 UENUM(BlueprintType)
 enum class EMessageWidgetType : uint8
 {
-	OutOfBounds,
 	HoleFinished,
 	Tutorial
 };
@@ -47,6 +48,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void DisplayMessageWidget(EMessageWidgetType MessageType);
+
+	UFUNCTION(BlueprintCallable)
+	void DisplayHazardEntryWidget(EHazardType HazardType);
 
 	UFUNCTION(BlueprintCallable)
 	void RemoveActiveMessageWidget();
@@ -189,6 +193,9 @@ protected:
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	TSoftClassPtr<UUserWidget> OutOfBoundsWidgetClass{};
+
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	TSoftClassPtr<UUserWidget> WaterHazardWidgetClass{};
 
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	TSoftClassPtr<UUserWidget> HoleFinishedWidgetClass{};

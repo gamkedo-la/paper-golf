@@ -58,7 +58,7 @@ public:
 
 	virtual void Spectate(APaperGolfPawn* InPawn, AGolfPlayerState* InPlayerState) override;
 
-	virtual bool HandleOutOfBounds() override;
+	virtual bool HandleHazard(EHazardType HazardType) override;
 
 	virtual EShotType GetShotType() const override;
 
@@ -95,7 +95,7 @@ private:
 	void DestroyPawn();
 	void SetupNextShot(bool bSetCanFlick);
 	void DetermineShotType();
-	void ResetShotAfterOutOfBounds();
+	void ResetShotAfterHazard();
 	void SetPositionTo(const FVector& Position, const TOptional<FRotator>& OptionalRotation = {});
 
 	UFUNCTION()
@@ -135,7 +135,7 @@ private:
 	float MaxFlickReactionTime{ 3.0f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
-	float OutOfBoundsDelayTime{ 3.0f };
+	float HazardDelayTime{ 3.0f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot Animation")
 	float ShotAnimationMinTime{ 0.5f };
@@ -173,7 +173,7 @@ private:
 	bool bCanFlick{ };
 	bool bScored{};
 	bool bTurnActivated{};
-	bool bOutOfBounds{};
+	bool bInHazard{};
 };
 
 #pragma region Inline Definitions

@@ -99,7 +99,7 @@ public:
 	UFUNCTION(BlueprintPure)
 	virtual bool IsActivePlayer() const override;
 
-	virtual bool HandleOutOfBounds() override;
+	virtual bool HandleHazard(EHazardType HazardType) override;
 
 	UFUNCTION(BlueprintPure)
 	virtual EShotType GetShotType() const override;
@@ -203,10 +203,10 @@ private:
 	void RegisterEvents();
 	void InitFromConsoleVariables();
 
-	void ResetShotAfterOutOfBounds();
+	void ResetShotAfterHazard();
 
 	UFUNCTION(Client, Reliable)
-	void ClientHandleOutOfBounds();
+	void ClientHandleHazard(EHazardType HazardType);
 
 	UFUNCTION()
 	void OnFellThroughFloor(APaperGolfPawn* InPaperGolfPawn);
@@ -222,7 +222,7 @@ private:
 	void ClientSetTransformTo(const FVector_NetQuantize& Position, const FRotator& Rotation);
 
 	UFUNCTION(Client, Reliable)
-	void ClientResetShotAfterOutOfBounds(const FVector_NetQuantize& Position);
+	void ClientResetShotAfterHazard(const FVector_NetQuantize& Position);
 
 	UFUNCTION(Client, Reliable)
 	void ClientActivateTurn(const FTurnActivationClientParams& InTurnActivationClientParams);
@@ -366,7 +366,7 @@ private:
 	float DefaultPitchAngle{ 45.0f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Timer")
-	float OutOfBoundsDelayTime{ 3.0f };
+	float HazardDelayTime{ 3.0f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Correction")
 	int32 FlickZNotUpdatedMaxRetries{ 2 };
@@ -418,7 +418,7 @@ private:
 	UPROPERTY(Transient, ReplicatedUsing = OnRep_Scored)
 	bool bScored{};
 
-	bool bOutOfBounds{};
+	bool bInHazard{};
 
 	bool bSpectatorFlicked{};
 	bool bStartedSpectating{};
