@@ -80,6 +80,7 @@ void APGHUD::DisplayHazardEntryWidget(EHazardType HazardType)
 		break;
 	case EHazardType::Water:
 		DisplayMessageWidgetByClass(WaterHazardWidgetClass);
+		break;
 	default:
 		checkNoEntry();
 	}

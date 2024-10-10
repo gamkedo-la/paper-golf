@@ -27,7 +27,7 @@ protected:
 	virtual void OnConditionTriggered(APaperGolfPawn& PaperGolfPawn, UGolfEventsSubsystem& GolfEvents) override;
 	virtual bool CheckEndCondition_Implementation(const APaperGolfPawn* PaperGolfPawn) const override;
 
-private:
+protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Hazard")
 	EHazardType HazardType{ EHazardType::OutOfBounds };
 };
