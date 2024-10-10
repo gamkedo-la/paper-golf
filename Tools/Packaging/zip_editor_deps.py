@@ -12,9 +12,9 @@ binary_paths = [
 
 include = [
     "UnrealEditor-PG\\w+(?!Debug)\\.dll"
+    , "UnrealEditor-PaperGolf\\w*(?!Debug)\\.dll"
     , "UnrealEditor\.modules"
     , "PaperGolfEditor\.target"
-    , "UnrealEditor-PaperGolf.dll"
     , "UnrealEditor-MultiplayerSessions.dll"
 ]
 
