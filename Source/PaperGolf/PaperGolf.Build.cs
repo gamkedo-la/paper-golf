@@ -45,6 +45,7 @@ public class PaperGolf : ModuleRules
         {
             PrivateDependencyModuleNames.AddRange(new string[] {
                 "UnrealEd",
+                "PaperGolfEditor",
             });
         }
     }

@@ -28,7 +28,7 @@ enum class EPaperGolfVolumeOverlapType : uint8
 /**
  * 
  */
-UCLASS(Abstract)
+UCLASS(Abstract, Blueprintable, BlueprintType, ShowCategories = (Brush))
 class PGGAMEPLAY_API ABasePaperGolfVolume : public ATriggerVolume
 {
 	GENERATED_BODY()
