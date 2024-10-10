@@ -1,5 +1,10 @@
 #!/bin/bash
 
+GAME=PaperGolf
+
+#TODO: Parameterize this with an input argument so can do for Linux as well
+platform=Windows
+
 version=$1
 directory=$2
 
@@ -13,6 +18,12 @@ if [ -z "$directory" ]; then
    directory="Shipping"
 fi
 
-python Tools/Packaging/zip_staging.py "s" "Build/$directory/Windows" "Build/PaperGolf-$version.zip"
+# Copy steam_appid.txt to the game binaries directory
+# This is necessary for non-LAN (i.e. steam) multiplayer to work in shipping builds
+
+cp Tools/Packaging/steam_appid.txt "Build/$directory/$platform/$GAME/Binaries/"*
+echo "cp Tools/Packaging/steam_appid.txt Build/$directory/$platform/$GAME/Binaries/*"
+
+python Tools/Packaging/zip_staging.py "s" "Build/$directory/$platform" "Build/$GAME-$version.zip"
 printf "\n\n"
-python Tools/Packaging/zip_staging.py "d" "Build/$directory/Windows" "Build/PaperGolf-$version-symbols.zip"
+python Tools/Packaging/zip_staging.py "d" "Build/$directory/$platform" "Build/$GAME-$version-symbols.zip"
