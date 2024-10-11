@@ -17,16 +17,10 @@ class PGGAMEPLAY_API AWaterHazardBoundsVolume : public AHazardBoundsVolume
 public:
 	AWaterHazardBoundsVolume();
 
-protected:
-	virtual void OnConditionTriggered(APaperGolfPawn& PaperGolfPawn, UGolfEventsSubsystem& GolfEvents) override;
-
 private:
 	UPROPERTY(EditAnywhere, Category = "Mesh")
 	TObjectPtr<UStaticMeshComponent> Mesh{};
 
 	UPROPERTY(EditAnywhere, Category = "Mesh")
 	TObjectPtr<UStaticMeshComponent> WaterTableMesh{};
-
-	UPROPERTY(EditAnywhere, Category = "Audio")
-	TObjectPtr<USoundBase> SplashSound{};
 };

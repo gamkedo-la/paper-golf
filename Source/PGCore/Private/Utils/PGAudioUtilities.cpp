@@ -59,6 +59,51 @@ UAudioComponent* UPGAudioUtilities::PlaySfxAtActorLocation(const AActor* Actor, 
 	return SpawnedAudioComponent;
 }
 
+UAudioComponent* UPGAudioUtilities::PlaySfxAtLocation(const AActor* ContextObject, const FVector& Location, USoundBase* Sound)
+{
+	if (!ensure(Sound))
+	{
+		return nullptr;
+	}
+
+	if (!ensure(ContextObject))
+	{
+		return nullptr;
+	}
+
+	if (ContextObject->GetNetMode() == NM_DedicatedServer)
+	{
+		UE_VLOG_UELOG(ContextObject, LogPGCore, Log,
+			TEXT("%s-PGAudioUtilities: PlaySfxAtLocation - Not playing sfx=%s on dedicated server"),
+			*ContextObject->GetName(), *Sound->GetName());
+		return nullptr;
+	}
+
+	// The owner of the audio component is derived from the world context object and this will control the sound concurrency
+	auto SpawnedAudioComponent = UGameplayStatics::SpawnSoundAtLocation(
+		ContextObject,
+		Sound,
+		Location
+	);
+
+	if (!SpawnedAudioComponent)
+	{
+		// This is not an error condition as the component may not spawn if the sound is not audible, for example it attenuates below a threshold based on distance
+		UE_VLOG_UELOG(ContextObject, LogPGCore, Log,
+			TEXT("%s-PGAudioUtilities: PlaySfxAtLocation - Unable to spawn audio component for sfx=%s"),
+			*ContextObject->GetName(), *Sound->GetName());
+		return nullptr;
+	}
+
+	UE_VLOG_UELOG(ContextObject, LogPGCore, Log,
+		TEXT("%s-PGAudioUtilities: PlaySfxAtLocation - Playing sfx=%s"),
+		*ContextObject->GetName(), *Sound->GetName());
+
+	SpawnedAudioComponent->bAutoDestroy = true;
+
+	return SpawnedAudioComponent;
+}
+
 UAudioComponent* UPGAudioUtilities::PlaySfxAttached(const AActor* Actor, USoundBase* Sound)
 {
 	if (!ensure(Sound))

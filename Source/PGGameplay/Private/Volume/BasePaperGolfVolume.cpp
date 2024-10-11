@@ -19,7 +19,9 @@
 
 ABasePaperGolfVolume::ABasePaperGolfVolume()
 {
-	GetBrushComponent()->SetCollisionProfileName(PG::CollisionProfile::OverlapOnlyPawn);
+	auto OverlapComponent = GetBrushComponent();
+	OverlapComponent->SetCollisionProfileName(PG::CollisionProfile::OverlapOnlyPawn);
+	OverlapComponent->SetGenerateOverlapEvents(true);
 
 	OverlapConditionComponent = CreateDefaultSubobject<UOverlapConditionComponent>(TEXT("Overlap Condition"));
 }
@@ -29,6 +31,20 @@ void ABasePaperGolfVolume::PostInitializeComponents()
 	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: PostInitializeComponents"), *GetName());
 
 	Super::PostInitializeComponents();
+
+	// Events only fire on server and the overlaps are server authoritative
+	if (!HasAuthority())
+	{
+		UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: PostInitializeComponents - Disable collision and overlaps on client"), *GetName());
+
+		if (auto OverlapComponent = GetBrushComponent(); ensure(OverlapComponent))
+		{
+			OverlapComponent->SetCollisionProfileName(PG::CollisionProfile::NoCollision);
+			OverlapComponent->SetGenerateOverlapEvents(false);
+		}
+
+		return;
+	}
 
 	if (Type == EPaperGolfVolumeOverlapType::End)
 	{

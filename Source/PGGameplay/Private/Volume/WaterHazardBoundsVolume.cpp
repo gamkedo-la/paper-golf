@@ -30,10 +30,3 @@ AWaterHazardBoundsVolume::AWaterHazardBoundsVolume()
 	WaterTableMesh->SetCollisionProfileName("BlockAll");
 	Mesh->SetGenerateOverlapEvents(false);
 }
-
-void AWaterHazardBoundsVolume::OnConditionTriggered(APaperGolfPawn& PaperGolfPawn, UGolfEventsSubsystem& GolfEvents)
-{
-	Super::OnConditionTriggered(PaperGolfPawn, GolfEvents);
-
-	UPGAudioUtilities::PlaySfxAtActorLocation(&PaperGolfPawn, SplashSound);
-}

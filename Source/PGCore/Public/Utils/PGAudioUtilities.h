@@ -23,6 +23,9 @@ public:
 	static UAudioComponent* PlaySfxAtActorLocation(const AActor* Actor, USoundBase* Sound);
 
 	UFUNCTION(BlueprintCallable, Category = "Audio")
+	static UAudioComponent* PlaySfxAtLocation(const AActor* ContextObject, const FVector& Location, USoundBase* Sound);
+
+	UFUNCTION(BlueprintCallable, Category = "Audio")
 	static UAudioComponent* PlaySfxAttached(const AActor* Actor, USoundBase* Sound);
 
 	UFUNCTION(BlueprintCallable, Category = "Audio", meta = (DefaultToSelf = "WorldContextObject"))

@@ -27,7 +27,15 @@ protected:
 	virtual void OnConditionTriggered(APaperGolfPawn& PaperGolfPawn, UGolfEventsSubsystem& GolfEvents) override;
 	virtual bool CheckEndCondition_Implementation(const APaperGolfPawn* PaperGolfPawn) const override;
 
+private:
+	// Used to trigger SFX
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastConditionTriggered(const FVector_NetQuantize& Location);
+
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Hazard")
 	EHazardType HazardType{ EHazardType::OutOfBounds };
+
+	UPROPERTY(EditAnywhere, Category = "Audio")
+	TObjectPtr<USoundBase> HazardSound{};
 };
