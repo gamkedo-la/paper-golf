@@ -322,7 +322,7 @@ void AGolfPlayerController::AddPaperGolfPawnRelativeRotationNoInterp(const FRota
 
 	auto ClampedRotationToApply = RotationToApply;
 
-	UPaperGolfPawnUtilities::ClampDeltaRotation(RotationMax, ClampedRotationToApply, TotalRotation);
+	UPaperGolfPawnUtilities::ClampDeltaRotation(RotationMin, RotationMax, ClampedRotationToApply, TotalRotation);
 
 	UE_VLOG_UELOG(this, LogPGPlayer, VeryVerbose,
 		TEXT("%s: AddPaperGolfPawnRelativeRotation - RotationToApply=%s; ClampedRotationToApply=%s; TotalRotation=%s"),

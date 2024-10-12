@@ -72,8 +72,9 @@ namespace
 	}
 }
 
-void UPaperGolfPawnUtilities::ClampDeltaRotation(const FRotator& MaxRotationExtent, FRotator& DeltaRotation, FRotator& TotalRotation)
+void UPaperGolfPawnUtilities::ClampDeltaRotation(const FRotator& MinRotationExtent, const FRotator& MaxRotationExtent, FRotator& DeltaRotation, FRotator& TotalRotation)
 {
+	const auto MinRotatorAngles = ToConstRotatorArray(MinRotationExtent);
 	const auto MaxRotatorAngles = ToConstRotatorArray(MaxRotationExtent);
 
 	auto DeltaRotationAngles = ToRotatorArray(DeltaRotation);
@@ -83,15 +84,17 @@ void UPaperGolfPawnUtilities::ClampDeltaRotation(const FRotator& MaxRotationExte
 	{
 		auto DeltaRotationAngle = DeltaRotationAngles[i];
 		auto TotalRotationAngle = TotalRotationAngles[i];
+
+		const auto MinRotationAngle = MinRotatorAngles[i];
 		const auto MaxRotationAngle = MaxRotatorAngles[i];
 
 		const auto RawSum = *DeltaRotationAngle + *TotalRotationAngle;
-		const auto RawSumAbs = FMath::Abs(RawSum);
-		const auto MaxRotationDiff = MaxRotationAngle - RawSumAbs;
+		const auto ClampedSum = FMath::Clamp(RawSum, MinRotationAngle, MaxRotationAngle);
 
-		if (MaxRotationDiff >= 0)
+		// If the total rotation is within the min and max rotation extents, then we can just add the delta rotation
+		if (FMath::IsNearlyEqual(RawSum, ClampedSum, KINDA_SMALL_NUMBER))
 		{
-			*TotalRotationAngle = RawSum;
+			*TotalRotationAngle = ClampedSum;
 		}
 		else if (MaxRotationAngle >= AxisFullRotation[i] && AxisSupportsFullRotation[i])
 		{
@@ -100,12 +103,10 @@ void UPaperGolfPawnUtilities::ClampDeltaRotation(const FRotator& MaxRotationExte
 		}
 		else
 		{
-			// Add in value up to the clamping to max rotation
-
-			const auto RawSumSign = FMath::Sign(RawSum);
-			*TotalRotationAngle = RawSumSign * MaxRotationAngle;
+			// Add in value up to the clamping to min/max rotation
+			*TotalRotationAngle = ClampedSum;
 			// Adding here since the difference will always be negative and want to reduce the delta rotation by the overshoot
-			*DeltaRotationAngle = *DeltaRotationAngle + RawSumSign * MaxRotationDiff;
+			*DeltaRotationAngle = *DeltaRotationAngle + (ClampedSum - RawSum);
 		}
 	}
 }

@@ -18,7 +18,7 @@ class PGPAWN_API UPaperGolfPawnUtilities : public UBlueprintFunctionLibrary
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Math")
-	static void ClampDeltaRotation(const FRotator& MaxRotationExtent, UPARAM(ref) FRotator& DeltaRotation, UPARAM(ref) FRotator& TotalRotation);
+	static void ClampDeltaRotation(const FRotator& MinRotationExtent, const FRotator& MaxRotationExtent, UPARAM(ref) FRotator& DeltaRotation, UPARAM(ref) FRotator& TotalRotation);
 
 	static void ResetPhysicsState(class UPrimitiveComponent* PhysicsComponent, const FTransform& RelativeTransform = {});
 

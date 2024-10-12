@@ -338,7 +338,10 @@ private:
 	TObjectPtr<UGolfControllerCommonComponent> GolfControllerCommonComponent{};
 
 	UPROPERTY(EditDefaultsOnly, Category = "Shot")
-	FRotator RotationMax{ 75.0, 180.0, 90.0 };
+	FRotator RotationMin{ -75.0, -180.0, -90.0 };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot")
+	FRotator RotationMax{ 30.0, 180.0, 90.0 };
 
 	FRotator TotalRotation{ EForceInit::ForceInitToZero };
 
