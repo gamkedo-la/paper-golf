@@ -26,8 +26,15 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Controls")
 	bool IsGamepadAvailable() const;
 
+	virtual void ReturnToMainMenu() override;
+
+protected:
+	virtual void OnWorldChanged(UWorld* OldWorld, UWorld* NewWorld) override;
+
 private:
 	void InitLoadingScreen();
+
+	void DestroyAnyActiveOnlineSession();
 
 	UFUNCTION()
 	void BeginLoadingScreen(const FString& MapName);
@@ -53,6 +60,9 @@ private:
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Audio")
 	TObjectPtr<UPGAudioOptionSettings> AudioOptionSettings{};
+
+	UPROPERTY(EditDefaultsOnly, Category = "Menu")
+	FString MainMenuMapName{ TEXT("MainMenu")};
 };
 
 #pragma region Inline Definitions

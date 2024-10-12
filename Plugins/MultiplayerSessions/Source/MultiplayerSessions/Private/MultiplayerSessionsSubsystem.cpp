@@ -42,9 +42,10 @@ void UMultiplayerSessionsSubsystem::Initialize(FSubsystemCollectionBase& Collect
 
 void UMultiplayerSessionsSubsystem::Configure(const FSessionsConfiguration& InConfiguration)
 {
-	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: Configure: bIsLanMatch=%s"),
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: Configure: bIsLanMatch=%s; bClearAllState=%s"),
 		*GetName(),
-		InConfiguration.bIsLanMatch ? TEXT("TRUE") : TEXT("FALSE")
+		InConfiguration.bIsLanMatch ? TEXT("TRUE") : TEXT("FALSE"),
+		InConfiguration.bClearAllState ? TEXT("TRUE") : TEXT("FALSE")
 	);
 
 #if WITH_EDITOR
@@ -53,10 +54,10 @@ void UMultiplayerSessionsSubsystem::Configure(const FSessionsConfiguration& InCo
 	const FName& DesiredSubsystem = InConfiguration.bIsLanMatch ? NULL_SUBSYSTEM : STEAM_SUBSYSTEM;
 #endif
 
-	const bool bChangingSubsystems = DesiredSubsystem != LastSubsystemName;
+	const bool bDestroyPreviousSubsystem = InConfiguration.bClearAllState || DesiredSubsystem != LastSubsystemName;
 
-	// If we are switching subsystems based on LAN flag then we need to deinitialize the current subsystem
-	if (bChangingSubsystems && OnlineSessionInterface.IsValid())
+	// If we are switching subsystems based on LAN flag or need to completely clear out any previous partial state then we need to deinitialize the current subsystem
+	if (bDestroyPreviousSubsystem && OnlineSessionInterface.IsValid())
 	{
 		DestroyOnlineSubsystem();
 	}
@@ -95,25 +96,31 @@ void UMultiplayerSessionsSubsystem::Deinitialize()
 
 void UMultiplayerSessionsSubsystem::DestroyOnlineSubsystem()
 {
-	if (!OnlineSessionInterface.IsValid())
+	if (!OnlineSessionInterface.IsValid() && LastSubsystemName.IsNone())
 	{
 		return;
 	}
 
-	UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: DestroyOnlineSubsystem=%s"), *GetName(), *LastSubsystemName.ToString());
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: DestroyOnlineSubsystem=%s; OnlineSessionInterface valid = %s"),
+		*GetName(), *LastSubsystemName.ToString(), OnlineSessionInterface.IsValid() ? TEXT("TRUE") : TEXT("FALSE"));
 
-	SetSubsystemEnabled(LastSubsystemName, false);
-
-	OnlineSessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegateHandle);
-	OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(FindSessionsCompleteDelegateHandle);
-	OnlineSessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegateHandle);
-	OnlineSessionInterface->ClearOnStartSessionCompleteDelegate_Handle(StartSessionCompleteDelegateHandle);
-	OnlineSessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(DestroySessionCompleteDelegateHandle);
+	if (OnlineSessionInterface.IsValid())
+	{
+		OnlineSessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegateHandle);
+		OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(FindSessionsCompleteDelegateHandle);
+		OnlineSessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegateHandle);
+		OnlineSessionInterface->ClearOnStartSessionCompleteDelegate_Handle(StartSessionCompleteDelegateHandle);
+		OnlineSessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(DestroySessionCompleteDelegateHandle);
+	}
 
 	OnlineSessionInterface.Reset();
 
-	//IOnlineSubsystem::Destroy(LastSubsystemName);
-	LastSubsystemName = NAME_None;
+	if (!LastSubsystemName.IsNone())
+	{
+		SetSubsystemEnabled(LastSubsystemName, false);
+		//IOnlineSubsystem::Destroy(LastSubsystemName);
+		LastSubsystemName = NAME_None;
+	}
 }
 
 void UMultiplayerSessionsSubsystem::SetSubsystemEnabled(const FName& SubsystemName, bool bIsEnabled)
@@ -488,7 +495,7 @@ void UMultiplayerSessionsSubsystem::DestroySession()
 
 	if (!OnlineSessionInterface.IsValid())
 	{
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: DestroySession - OnlineSessionInterface is not valid"), *GetName());
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: DestroySession - OnlineSessionInterface is not valid"), *GetName());
 
 		MultiplayerOnDestroySessionComplete.Broadcast(false);
 		return;
@@ -510,6 +517,16 @@ void UMultiplayerSessionsSubsystem::DestroySession()
 		OnlineSessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(DestroySessionCompleteDelegateHandle);
 		MultiplayerOnDestroySessionComplete.Broadcast(false);
 	}
+}
+
+bool UMultiplayerSessionsSubsystem::IsSessionActive() const
+{
+	if (!OnlineSessionInterface.IsValid())
+	{
+		return false;
+	}
+
+	return OnlineSessionInterface->GetNamedSession(NAME_GameSession) != nullptr;
 }
 
 void UMultiplayerSessionsSubsystem::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)

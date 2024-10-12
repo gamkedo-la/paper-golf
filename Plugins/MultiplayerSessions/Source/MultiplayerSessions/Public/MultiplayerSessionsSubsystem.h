@@ -30,6 +30,7 @@ public:
 	struct FSessionsConfiguration
 	{
 		bool bIsLanMatch{};
+		bool bClearAllState{};
 	};
 
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
@@ -47,6 +48,7 @@ public:
 
 	void StartSession();
 	void DestroySession();
+	bool IsSessionActive() const;
 
 	IOnlineSessionPtr GetOnlineSessionInterface() const;
 

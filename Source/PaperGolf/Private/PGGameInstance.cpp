@@ -257,3 +257,54 @@ void UPGGameInstance::InitMultiplayerSessionsSubsystem()
 
 	Subsystem->SetBuildId(BuildUniqueId);
 }
+
+void UPGGameInstance::ReturnToMainMenu()
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: ReturnToMainMenu"), *GetName());
+
+	Super::ReturnToMainMenu();
+
+	// Redundant with OnWorldChanged but we cannot rely on just destroying the session here as ReturnToMainMenu only called if server ends the game
+	// If we quit from the pause menu then the MainMenu world is just loaded and so this function never gets called
+	// To handle all cases, we need to check if the MainMenu world is loading
+	// DestroyAnyActiveOnlineSession();
+}
+
+void UPGGameInstance::OnWorldChanged(UWorld* OldWorld, UWorld* NewWorld)
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnWorldChanged: OldWorldMap=%s;NewWorldMap=%s"), *GetName(), 
+		OldWorld ? *OldWorld->GetMapName() : TEXT("NULL"),
+		NewWorld ? *NewWorld->GetMapName() : TEXT("NULL"));
+
+	Super::OnWorldChanged(OldWorld, NewWorld);
+
+	if (!NewWorld)
+	{
+		return;
+	}
+
+	// Hack: Ensure that the multiplayer session subsystem is properly destroyed when we return to the main menu
+
+	FString MapName = NewWorld->GetMapName();
+	MapName.RemoveFromStart(GetWorld()->StreamingLevelsPrefix); // Remove any prefix if necessary
+
+	// How to strip off the name of the map from the path?
+	if (MapName == MainMenuMapName)
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: Detected change to MainMenu map=%s - Destroying any active online session"), *GetName(), *MainMenuMapName);
+
+		DestroyAnyActiveOnlineSession();
+	}
+}
+
+void UPGGameInstance::DestroyAnyActiveOnlineSession()
+{
+	// Make sure we clean up any active game session when a multiplayer game ends before potentially joining a new one
+	// Technically there is a race condition between when the session is actually destroyed and when we can join/host another game; however, it will take time for player to make a decisino
+	// so this will rarely happen in practice
+	// If it is still an issue we can revisit this later
+	if (auto Subsystem = GetSubsystem<UMultiplayerSessionsSubsystem>(); Subsystem && Subsystem->IsSessionActive())
+	{
+		Subsystem->DestroySession();
+	}
+}

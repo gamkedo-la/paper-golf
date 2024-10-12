@@ -91,7 +91,7 @@ void UMenu::MenuSetup(const TMap<FString, FString>& MatchTypesToDisplayMap, cons
 		return;
 	}
 
-	MultiplayerSessionsSubsystem->Configure({ bDefaultLANMatch });
+	MultiplayerSessionsSubsystem->Configure({ bDefaultLANMatch, true });
 
 	MultiplayerSessionsSubsystem->MultiplayerOnCreateSessionComplete.AddDynamic(this, &ThisClass::OnCreateSessionComplete);
 	MultiplayerSessionsSubsystem->MultiplayerOnDestroySessionComplete.AddDynamic(this, &ThisClass::OnDestroySessionComplete);
@@ -357,8 +357,8 @@ const FOnlineSessionSearchResult* UMenu::MatchSessionResult(const TArray<FOnline
 		FString SettingsValue;
 		const bool FoundMatchType = Result.Session.SessionSettings.Get(UMultiplayerSessionsSubsystem::SessionMatchTypeName, SettingsValue);
 
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Verbose, TEXT("%s: MatchSessionResult - CHECKING - Result %d/%d - Id=%s; User=%s; MatchType=%s"),
-			*GetName(), Index + 1, SessionResults.Num(), *Id, *User, FoundMatchType ? *SettingsValue : TEXT("NULL"));
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Verbose, TEXT("%s: MatchSessionResult - CHECKING - Result %d/%d - Id=%s; User=%s; MatchType=%s; NumOpenConnections=%d"),
+			*GetName(), Index + 1, SessionResults.Num(), *Id, *User, FoundMatchType ? *SettingsValue : TEXT("NULL"), Result.Session.NumOpenPublicConnections);
 
 		if (FoundMatchType && (AllowedMatchTypes.IsEmpty() || AllowedMatchTypes.Contains(SettingsValue)))
 		{
@@ -382,8 +382,8 @@ const FOnlineSessionSearchResult* UMenu::MatchSessionResult(const TArray<FOnline
 			}
 #endif
 
-			UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: MatchSessionResult - MATCHED - Result %d/%d - Id=%s; User=%s; MatchType=%s"),
-				*GetName(), Index + 1, SessionResults.Num(), *Id, *User, FoundMatchType ? *SettingsValue : TEXT("NULL"));
+			UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: MatchSessionResult - MATCHED - Result %d/%d - Id=%s; User=%s; MatchType=%s; NumOpenConnections=%d"),
+				*GetName(), Index + 1, SessionResults.Num(), *Id, *User, FoundMatchType ? *SettingsValue : TEXT("NULL"), Result.Session.NumOpenPublicConnections);
 
 			return &Result;
 		}
