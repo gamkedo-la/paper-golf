@@ -31,7 +31,8 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
 
 #if ENABLE_VISUAL_LOG
-	virtual void GrabDebugSnapshot(FVisualLogEntry* Snapshot) const override;
+	virtual void GrabDebugSnapshot(FVisualLogEntry* Snapshot) const override { DoGrabDebugSnapshot(Snapshot, nullptr); }
+	void GrabDebugSnapshotAsChildCategory(FVisualLogEntry* Snapshot, FVisualLogStatusCategory& ParentCategory) const { DoGrabDebugSnapshot(Snapshot, &ParentCategory); }
 #endif
 
 	UFUNCTION(BlueprintCallable, meta = (BlueprintAuthorityOnly) )
@@ -133,6 +134,10 @@ private:
 	void OnRep_Shots();
 
 	void UpdateShotCount(int32 DeltaCount);
+
+#if ENABLE_VISUAL_LOG
+	void DoGrabDebugSnapshot(FVisualLogEntry* Snapshot, FVisualLogStatusCategory* ParentCategory) const;
+#endif
 
 protected:
 

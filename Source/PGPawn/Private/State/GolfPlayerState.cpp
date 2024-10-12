@@ -165,7 +165,7 @@ void AGolfPlayerState::OnRep_Shots()
 
 #if ENABLE_VISUAL_LOG
 
-void AGolfPlayerState::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
+void AGolfPlayerState::DoGrabDebugSnapshot(FVisualLogEntry* Snapshot, FVisualLogStatusCategory* ParentCategory) const
 {
 	FVisualLogStatusCategory PlayerStateCategory;
 	PlayerStateCategory.Category = FString::Printf(TEXT("PlayerState"));
@@ -188,7 +188,14 @@ void AGolfPlayerState::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 		}
 	}
 
-	Snapshot->Status.Add(PlayerStateCategory);
+	if (ParentCategory)
+	{
+		ParentCategory->AddChild(PlayerStateCategory);
+	}
+	else
+	{
+		Snapshot->Status.Add(PlayerStateCategory);
+	}
 }
 
 #endif

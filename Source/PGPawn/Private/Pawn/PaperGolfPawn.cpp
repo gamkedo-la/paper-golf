@@ -1333,15 +1333,15 @@ void APaperGolfPawn::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 
 	auto GolfPlayerState = GetPlayerState<AGolfPlayerState>();
 
-	if (GolfPlayerState)
-	{
-		GolfPlayerState->GrabDebugSnapshot(Snapshot);
-	}
-
 	// Draw with player state color if available
 	const auto PawnColor = GolfPlayerState ? GolfPlayerState->GetPlayerColor().ToFColor(true) : FColor::Blue;
 
 	DrawPawn(PawnColor, Snapshot);
+
+	if (GolfPlayerState)
+	{
+		GolfPlayerState->GrabDebugSnapshotAsChildCategory(Snapshot, Category);
+	}
 
 	Snapshot->Status.Add(Category);
 }
