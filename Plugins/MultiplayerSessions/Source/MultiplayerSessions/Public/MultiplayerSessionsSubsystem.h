@@ -31,6 +31,7 @@ public:
 	{
 		bool bIsLanMatch{};
 		bool bClearAllState{};
+		bool bAllowJoinFullSessions{};
 	};
 
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;

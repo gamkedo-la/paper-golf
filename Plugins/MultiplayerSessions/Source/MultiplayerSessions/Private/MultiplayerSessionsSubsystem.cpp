@@ -167,6 +167,15 @@ TArray<FOnlineSessionSearchResult> UMultiplayerSessionsSubsystem::FilterSessionS
 			}
 		}
 
+		// Optionally filter out sessions that are full
+		if (!SessionsConfiguration.bAllowJoinFullSessions && Result.Session.NumOpenPublicConnections <= 0)
+		{
+			UE_VLOG_UELOG(this, LogMultiplayerSessions, Verbose,
+				TEXT("%s: FilterSessionSearchResults - Skipping %d/%d due to full session: NumOpenPublicConnections=%d"),
+				*GetName(), Index + 1, Results.Num(), Result.Session.NumOpenPublicConnections);
+			continue;
+		}
+
 		FilteredResults.Add(Result);
 	}
 
