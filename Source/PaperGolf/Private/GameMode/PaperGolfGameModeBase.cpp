@@ -1026,9 +1026,27 @@ void APaperGolfGameModeBase::ReplacePlayer(AController* LeavingPlayer, AControll
 	{
 		// Copy player state data from leaving player to new player
 		const auto NewPlayerState = NewPlayer->GetPlayerState<AGolfPlayerState>();
-		const auto LeavingPlayerState = LeavingPlayer->GetPlayerState<const AGolfPlayerState>();
+		const auto LeavingPlayerState = LeavingPlayer->GetPlayerState<AGolfPlayerState>();
 		if (NewPlayerState && LeavingPlayerState)
 		{
+			// Check for shot in progress and if so, undo the stroke since the replacing player will start back
+			// from the beginning of the shot
+			if (auto LeavingPlayerGolfController = Cast<IGolfController>(LeavingPlayer); 
+				ensure(LeavingPlayerGolfController))
+			{
+				if (LeavingPlayerGolfController->IsActiveShotInProgress())
+				{
+					UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s:  LeavingPlayer=%s - Undoing shot as replacing player when shot was in progress for NewPlayer=%s"),
+						*GetName(), *LoggingUtils::GetName(LeavingPlayer), *LoggingUtils::GetName(NewPlayer));
+					LeavingPlayerState->UndoShot();
+				}
+			}
+			else
+			{
+				UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s:  LeavingPlayer=%s - Cannot undo check for undo stroke as cannot cast to IGolfController"),
+					*GetName(), *LoggingUtils::GetName(LeavingPlayer));
+			}
+
 			NewPlayerState->CopyGameStateProperties(LeavingPlayerState);
 		}
 		else

@@ -110,6 +110,11 @@ void AGolfAIController::MarkScored()
 	DestroyPawn();
 }
 
+bool AGolfAIController::HasPaperGolfPawn() const
+{
+	return IsValid(PlayerPawn);
+}
+
 bool AGolfAIController::IsReadyForNextShot() const
 {
 	if (bCanFlick)

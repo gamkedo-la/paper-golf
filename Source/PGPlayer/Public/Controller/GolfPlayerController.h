@@ -95,9 +95,11 @@ public:
 
 	virtual void MarkScored() override;
 
-	// TODO: pull up variable to IGolfController as protected
 	UFUNCTION(BlueprintPure)
 	virtual bool IsActivePlayer() const override;
+
+	UFUNCTION(BlueprintPure)
+	virtual bool IsActiveShotInProgress() const override;
 
 	virtual bool HandleHazard(EHazardType HazardType) override;
 
@@ -471,6 +473,11 @@ FORCEINLINE bool AGolfPlayerController::IsActivePlayer() const
 	return bTurnActivated;
 }
 
+FORCEINLINE bool AGolfPlayerController::IsActiveShotInProgress() const
+{
+	return IsActivePlayer() && !CanFlick();
+}
+
 FORCEINLINE EShotType AGolfPlayerController::GetShotType() const
 {
 	return ShotType;
@@ -499,11 +506,6 @@ FORCEINLINE bool AGolfPlayerController::IsLocalServer() const
 FORCEINLINE bool AGolfPlayerController::IsRemoteServer() const
 {
 	return HasAuthority() && !IsLocalController();
-}
-
-FORCEINLINE bool AGolfPlayerController::HasPaperGolfPawn() const
-{
-	return PlayerPawn != nullptr;
 }
 
 #pragma endregion Inline Definitions

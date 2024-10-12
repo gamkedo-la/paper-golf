@@ -37,6 +37,11 @@ public:
 	UFUNCTION(BlueprintCallable, meta = (BlueprintAuthorityOnly) )
 	void AddShot();
 
+	/*
+	* Called if player drops out in middle of shot after flicking and turn needs to be reset so that new player is not penalized.
+	*/
+	void UndoShot();
+
 	UFUNCTION(BlueprintPure)
 	int32 GetShots() const { return Shots; }
 
@@ -127,6 +132,8 @@ private:
 	UFUNCTION()
 	void OnRep_Shots();
 
+	void UpdateShotCount(int32 DeltaCount);
+
 protected:
 
 	// TODO: Cannot implement GetScoreByHole since this is assuming always start at hole 1 at index 0 and that might not be case
@@ -184,4 +191,15 @@ FORCEINLINE  bool AGolfPlayerState::HasPawnTransformSet() const
 {
 	return bPositionAndRotationSet;
 }
+
+FORCEINLINE void AGolfPlayerState::AddShot()
+{
+	UpdateShotCount(1);
+}
+
+FORCEINLINE void AGolfPlayerState::UndoShot()
+{
+	UpdateShotCount(-1);
+}
+
 #pragma endregion Inline Definitions

@@ -50,6 +50,8 @@ public:
 
 	virtual bool IsActivePlayer() const override;
 
+	virtual bool IsActiveShotInProgress() const override;
+
 	virtual bool IsReadyForNextShot() const override;
 
 	virtual void StartHole(EHoleStartType InHoleStartType) override;
@@ -193,14 +195,14 @@ FORCEINLINE bool AGolfAIController::IsActivePlayer() const
 	return bTurnActivated;
 }
 
+FORCEINLINE bool AGolfAIController::IsActiveShotInProgress() const
+{
+	return IsActivePlayer() && !bCanFlick;
+}
+
 FORCEINLINE UGolfControllerCommonComponent* AGolfAIController::GetGolfControllerCommonComponent()
 {
 	return GolfControllerCommonComponent;
-}
-
-FORCEINLINE bool AGolfAIController::HasPaperGolfPawn() const
-{
-	return PlayerPawn != nullptr;
 }
 
 #pragma endregion Inline Definitions

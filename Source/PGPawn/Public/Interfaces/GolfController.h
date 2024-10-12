@@ -37,6 +37,11 @@ public:
 	virtual bool IsActivePlayer() const = 0;
 	virtual bool IsReadyForNextShot() const = 0;
 
+	/*
+	* Player is active player and already flicked but the paper golf pawn is still in motion.
+	*/
+	virtual bool IsActiveShotInProgress() const = 0;
+
 
 	/*
 	* Receive the player start that is used for the starting location for this player.  In the sequence of start actions, the following order occurs.

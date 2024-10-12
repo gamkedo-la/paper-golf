@@ -44,9 +44,12 @@ int32 AGolfPlayerState::GetTotalShots() const
 	return Total;
 }
 
-void AGolfPlayerState::AddShot()
+void AGolfPlayerState::UpdateShotCount(int32 DeltaCount)
 {
-	++Shots;
+	check(DeltaCount != 0);
+
+	Shots += DeltaCount;
+
 	// Broadcast immediately on the server
 	OnHoleShotsUpdated.Broadcast(*this);
 

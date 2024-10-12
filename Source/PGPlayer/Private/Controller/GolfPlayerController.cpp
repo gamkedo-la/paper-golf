@@ -333,6 +333,11 @@ void AGolfPlayerController::AddPaperGolfPawnRelativeRotationNoInterp(const FRota
 	ServerSetPaperGolfPawnRotation(PaperGolfPawn->GetActorRotation());
 }
 
+bool AGolfPlayerController::HasPaperGolfPawn() const
+{
+	return IsValid(PlayerPawn);
+}
+
 bool AGolfPlayerController::IsReadyForNextShot() const
 {
 	if (!IsFlickedAtRest())
