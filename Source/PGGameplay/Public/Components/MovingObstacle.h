@@ -27,7 +27,7 @@ public:
 	UPROPERTY(EditAnywhere)
 	float distance;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float speed = 1;
 
 protected:
