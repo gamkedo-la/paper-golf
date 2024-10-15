@@ -721,11 +721,13 @@ void APGHUD::CheckNotifyHoleShotsUpdate(const APaperGolfGameStateBase& GameState
 	{
 		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: CheckNotifyHoleShotsUpdate - %s - Not enough players to show scores"),
 			*GetName(), *LoggingUtils::GetName<APlayerState>(GolfPlayerScores[0]));
+		HideCurrentHoleScoresHUD();
 		return;
 	}
 
+	// Start showing the next shot when the turn activates, not after the actual shot is recorded to be consistent with the golf strokes HUD
 	const bool bAllPlayersOneShot = !GolfPlayerScores.ContainsByPredicate([](const AGolfPlayerState* Player) { return !Player || Player->GetShots() == 0; }) &&
-		GolfPlayerScores.ContainsByPredicate([](const AGolfPlayerState* Player) { return Player->GetShots() > 1; });
+		GolfPlayerScores.ContainsByPredicate([](const AGolfPlayerState* Player) { return Player->GetShotsIncludingCurrent() > 1; });
 
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: CheckNotifyHoleShotsUpdate - %s - Based on all player conditions"),
 		*GetName(), LoggingUtils::GetBoolString(bAllPlayersOneShot));
@@ -739,6 +741,10 @@ void APGHUD::CheckNotifyHoleShotsUpdate(const APaperGolfGameStateBase& GameState
 		}
 
 		ShowCurrentHoleScoresHUD(GolfPlayerScores);
+	}
+	else
+	{
+		HideCurrentHoleScoresHUD();
 	}
 }
 

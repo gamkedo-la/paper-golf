@@ -78,9 +78,9 @@ FString UPlayerIndicatorComponent::GetPlayerIndicatorString(const AGolfPlayerSta
 	return Player.GetPlayerName();
 }
 
-void UPlayerIndicatorComponent::OnHoleShotsUpdated(AGolfPlayerState& Player)
+void UPlayerIndicatorComponent::OnHoleShotsUpdated(AGolfPlayerState& Player, int32 PreviousShots)
 {
-	UE_VLOG_UELOG(GetOwner(), LogPGUI, Log, TEXT("%s-%s: OnHoleShotsUpdated - Player=%s"), *LoggingUtils::GetName(GetOwner()), *GetName(), *Player.GetPlayerName());
+	UE_VLOG_UELOG(GetOwner(), LogPGUI, Log, TEXT("%s-%s: OnHoleShotsUpdated - Player=%s; PreviousShots=%d"), *LoggingUtils::GetName(GetOwner()), *GetName(), *Player.GetPlayerName(), PreviousShots);
 
 	UpdatePlayerIndicatorText(Player);
 }

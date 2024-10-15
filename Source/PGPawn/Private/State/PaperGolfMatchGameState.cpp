@@ -43,6 +43,7 @@ void APaperGolfMatchGameState::RemovePlayerState(APlayerState* PlayerState)
 	{
 		// Remove sync listener
 		GolfPlayerState->OnDisplayScoreUpdated.RemoveAll(this);
+		UpdatedMatchPlayerStates.Remove(GolfPlayerState);
 	}
 
 	Super::RemovePlayerState(PlayerState);

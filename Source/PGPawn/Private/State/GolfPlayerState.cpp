@@ -51,7 +51,20 @@ void AGolfPlayerState::UpdateShotCount(int32 DeltaCount)
 	Shots += DeltaCount;
 
 	// Broadcast immediately on the server
-	OnHoleShotsUpdated.Broadcast(*this);
+	OnHoleShotsUpdated.Broadcast(*this, Shots - DeltaCount);
+
+	ForceNetUpdate();
+}
+
+void AGolfPlayerState::SetReadyForShot(bool bReady)
+{
+	if (bReadyForShot == bReady)
+	{
+		return;
+	}
+
+	bReadyForShot = bReady;
+	OnReadyForShotUpdated.Broadcast(*this);
 
 	ForceNetUpdate();
 }
@@ -68,12 +81,14 @@ void AGolfPlayerState::FinishHole()
 
 void AGolfPlayerState::StartHole()
 {
+	const auto PreviousShots = Shots;
+
 	Shots = 0;
 	bScored = false;
 	bPositionAndRotationSet = false;
 
 	// Broadcast immediately on the server
-	OnHoleShotsUpdated.Broadcast(*this);
+	OnHoleShotsUpdated.Broadcast(*this, PreviousShots);
 
 	ForceNetUpdate();
 }
@@ -142,11 +157,11 @@ bool AGolfPlayerState::CompareByScore(const AGolfPlayerState& Other) const
 		   std::make_tuple(Other.GetTotalShots(), Other.IsABot(), Other.GetPlayerName());
 }
 
-bool AGolfPlayerState::CompareByCurrentHoleShots(const AGolfPlayerState& Other) const
+bool AGolfPlayerState::CompareByCurrentHoleShots(const AGolfPlayerState& Other, bool bIncludeTurnActivation) const
 {
 	// Sort bots last
-	return std::make_tuple(GetShots(), IsABot(), GetPlayerName()) <
-		std::make_tuple(Other.GetShots(), Other.IsABot(), Other.GetPlayerName());
+	return std::make_tuple(bIncludeTurnActivation ? GetShotsIncludingCurrent() : GetShots(), IsABot(), GetPlayerName()) <
+		std::make_tuple(bIncludeTurnActivation ? Other.GetShotsIncludingCurrent() : GetShots(), Other.IsABot(), Other.GetPlayerName());
 }
 
 void AGolfPlayerState::OnRep_ScoreByHole()
@@ -155,10 +170,16 @@ void AGolfPlayerState::OnRep_ScoreByHole()
 	OnTotalShotsUpdated.Broadcast(*this);
 }
 
-void AGolfPlayerState::OnRep_Shots()
+void AGolfPlayerState::OnRep_Shots(uint8 PreviousShots)
 {
-	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_Shots - Shots=%d"), *GetName(), Shots);
-	OnHoleShotsUpdated.Broadcast(*this);
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_Shots - Shots=%d; PreviousShots=%d"), *GetName(), Shots, PreviousShots);
+	OnHoleShotsUpdated.Broadcast(*this, PreviousShots);
+}
+
+void AGolfPlayerState::OnRep_ReadyForShot()
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_ReadyForShot - bReadyForShot=%s"), *GetName(), LoggingUtils::GetBoolString(bReadyForShot));
+	OnReadyForShotUpdated.Broadcast(*this);
 }
 
 #pragma region Visual Logger

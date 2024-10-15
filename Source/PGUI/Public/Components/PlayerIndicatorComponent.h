@@ -39,7 +39,7 @@ private:
 
 	FString GetPlayerIndicatorString(const AGolfPlayerState& Player) const;
 
-	void OnHoleShotsUpdated(AGolfPlayerState& Player);
+	void OnHoleShotsUpdated(AGolfPlayerState& Player, int32 PreviousShots);
 
 private:
 	TWeakObjectPtr<AGolfPlayerState> VisiblePlayer{};

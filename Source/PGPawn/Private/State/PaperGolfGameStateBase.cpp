@@ -65,6 +65,11 @@ void APaperGolfGameStateBase::AddPlayerState(APlayerState* PlayerState)
 			GolfPlayerState->OnHoleShotsUpdated.AddUObject(this, &APaperGolfGameStateBase::OnCurrentHoleShotsUpdated);
 		}
 
+		if (!GolfPlayerState->OnReadyForShotUpdated.IsBoundToObject(this))
+		{
+			GolfPlayerState->OnReadyForShotUpdated.AddUObject(this, &APaperGolfGameStateBase::OnReadyForShotUpdated);
+		}
+
 		OnPlayersChanged.Broadcast(*this, *GolfPlayerState, true);
 	}
 }
@@ -80,7 +85,10 @@ void APaperGolfGameStateBase::RemovePlayerState(APlayerState* PlayerState)
 		// Remove sync listeners
 		GolfPlayerState->OnTotalShotsUpdated.RemoveAll(this);
 		GolfPlayerState->OnHoleShotsUpdated.RemoveAll(this);
+		GolfPlayerState->OnReadyForShotUpdated.RemoveAll(this);
 
+		UpdatedPlayerStates.Remove(GolfPlayerState);
+		CheckScoreSyncState();
 	}
 
 	Super::RemovePlayerState(PlayerState);
@@ -148,13 +156,13 @@ TArray<AGolfPlayerState*> APaperGolfGameStateBase::GetSortedPlayerStatesByScore(
 	return GolfPlayerStates;
 }
 
-TArray<AGolfPlayerState*> APaperGolfGameStateBase::GetSortedPlayerStatesByCurrentHoleScore() const
+TArray<AGolfPlayerState*> APaperGolfGameStateBase::GetSortedPlayerStatesByCurrentHoleScore(bool bAddStrokeOnTurnActivation) const
 {
 	TArray<AGolfPlayerState*> GolfPlayerStates = GetActiveGolfPlayerStates();
 
-	GolfPlayerStates.StableSort([](const AGolfPlayerState& A, const AGolfPlayerState& B)
+	GolfPlayerStates.StableSort([bAddStrokeOnTurnActivation](const AGolfPlayerState& A, const AGolfPlayerState& B)
 	{
-		return A.CompareByCurrentHoleShots(B);
+		return A.CompareByCurrentHoleShots(B, bAddStrokeOnTurnActivation);
 	});
 
 	return GolfPlayerStates;
@@ -264,10 +272,18 @@ void APaperGolfGameStateBase::OnTotalShotsUpdated(AGolfPlayerState& PlayerState)
 	CheckScoreSyncState();
 }
 
-void APaperGolfGameStateBase::OnCurrentHoleShotsUpdated(AGolfPlayerState& PlayerState)
+void APaperGolfGameStateBase::OnCurrentHoleShotsUpdated(AGolfPlayerState& PlayerState, int32 PreviousShots)
 {
-	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnCurrentHoleShotsUpdated - PlayerState=%s"), *GetName(), *PlayerState.GetName());
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnCurrentHoleShotsUpdated - PlayerState=%s; PreviousShots=%d"), *GetName(), *PlayerState.GetName(), PreviousShots);
 
+	OnPlayerShotsUpdated.Broadcast(*this, PlayerState);
+}
+
+void APaperGolfGameStateBase::OnReadyForShotUpdated(AGolfPlayerState& PlayerState)
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnReadyForShotUpdated - PlayerState=%s; bReadyForShot=%s"), *GetName(), *PlayerState.GetName(), LoggingUtils::GetBoolString(PlayerState.IsReadyForShot()));
+
+	// Since both ready for shot and shots updated affect how the hole shots display - fire this on both cases
 	OnPlayerShotsUpdated.Broadcast(*this, PlayerState);
 }
 

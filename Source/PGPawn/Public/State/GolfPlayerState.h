@@ -21,12 +21,14 @@ class PGPAWN_API AGolfPlayerState : public APlayerState, public IVisualLoggerDeb
 public:
 
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnTotalShotsUpdated, AGolfPlayerState& /*PlayerState*/);
-	DECLARE_MULTICAST_DELEGATE_OneParam(FOnHoleShotsUpdated, AGolfPlayerState& /*PlayerState*/);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnHoleShotsUpdated, AGolfPlayerState& /*PlayerState*/, int32 PreviousValue);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnReadyForShotUpdated, AGolfPlayerState& /*PlayerState*/);
 
 	AGolfPlayerState();
 
 	FOnTotalShotsUpdated OnTotalShotsUpdated{};
 	FOnHoleShotsUpdated OnHoleShotsUpdated{};
+	FOnReadyForShotUpdated OnReadyForShotUpdated{};
 	
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
 
@@ -47,6 +49,9 @@ public:
 	int32 GetShots() const { return Shots; }
 
 	UFUNCTION(BlueprintPure)
+	int32 GetShotsIncludingCurrent() const { return bReadyForShot ? Shots + 1 : Shots; }
+
+	UFUNCTION(BlueprintPure)
 	int32 GetNumCompletedHoles() const { return ScoreByHole.Num(); }
 
 	UFUNCTION(BlueprintPure)	
@@ -64,11 +69,7 @@ public:
 	virtual int32 GetDisplayScore() const;
 
 	UFUNCTION(BlueprintCallable, meta = (BlueprintAuthorityOnly))
-	void SetReadyForShot(bool bReady)
-	{ 
-		bReadyForShot = bReady;
-		ForceNetUpdate(); 
-	}
+	void SetReadyForShot(bool bReady);
 
 	UFUNCTION(BlueprintPure)
 	bool IsReadyForShot() const { return bReadyForShot; }
@@ -106,7 +107,7 @@ public:
 
 	virtual bool CompareByScore(const AGolfPlayerState& Other) const;
 
-	bool CompareByCurrentHoleShots(const AGolfPlayerState& Other) const;
+	bool CompareByCurrentHoleShots(const AGolfPlayerState& Other, bool bIncludeTurnActivation = true) const;
 
 	UFUNCTION(BlueprintPure)
 	FLinearColor GetPlayerColor() const;
@@ -131,7 +132,10 @@ private:
 	void OnRep_ScoreByHole();
 
 	UFUNCTION()
-	void OnRep_Shots();
+	void OnRep_Shots(uint8 PreviousShots);
+
+	UFUNCTION()
+	void OnRep_ReadyForShot();
 
 	void UpdateShotCount(int32 DeltaCount);
 
@@ -151,7 +155,7 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRep_Shots)
 	uint8 Shots{};
 
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing = OnRep_ReadyForShot)
 	bool bReadyForShot{};
 
 	UPROPERTY(Replicated)

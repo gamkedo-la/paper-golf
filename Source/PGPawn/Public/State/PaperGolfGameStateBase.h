@@ -62,7 +62,7 @@ public:
 	TArray<AGolfPlayerState*> GetSortedPlayerStatesByScore(TArray<int32>* OutPlayerRanks) const;
 
 	UFUNCTION(BlueprintPure)
-	TArray<AGolfPlayerState*> GetSortedPlayerStatesByCurrentHoleScore() const;
+	TArray<AGolfPlayerState*> GetSortedPlayerStatesByCurrentHoleScore(bool bAddStrokeOnTurnActivation = true) const;
 	
 	virtual bool IsHoleComplete() const;
 
@@ -95,7 +95,8 @@ private:
 	void OnRep_CurrentHoleNumber();
 
 	void OnTotalShotsUpdated(AGolfPlayerState& PlayerState);
-	void OnCurrentHoleShotsUpdated(AGolfPlayerState& PlayerState);
+	void OnCurrentHoleShotsUpdated(AGolfPlayerState& PlayerState, int32 PreviousShots);
+	void OnReadyForShotUpdated(AGolfPlayerState& PlayerState);
 
 	void SubscribeToGolfEvents();
 
