@@ -130,6 +130,7 @@ private:
 	void OnScoresSynced(APaperGolfGameStateBase& GameState);
 	void OnCurrentHoleScoreUpdate(APaperGolfGameStateBase& GameState, const AGolfPlayerState& PlayerState);
 	void OnPlayersChanged(APaperGolfGameStateBase& GameState, const AGolfPlayerState& PlayerState, bool bPlayerAdded);
+	void OnPlayerGameStateSetScored(APaperGolfGameStateBase& GameState, const AGolfPlayerState& PlayerState);
 
 	UFUNCTION()
 	void OnPlayerScored(APaperGolfPawn* PaperGolfPawn);

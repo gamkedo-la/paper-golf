@@ -621,6 +621,7 @@ void APGHUD::Init()
 			GolfGameState->OnScoresSynced.AddUObject(this, &ThisClass::OnScoresSynced);
 			GolfGameState->OnPlayerShotsUpdated.AddUObject(this, &ThisClass::OnCurrentHoleScoreUpdate);
 			GolfGameState->OnPlayersChanged.AddUObject(this, &ThisClass::OnPlayersChanged);
+			GolfGameState->OnPlayerScored.AddUObject(this, &ThisClass::OnPlayerGameStateSetScored);
 
 			CheckForInitialDeferredState(*GolfGameState);
 		}
@@ -711,6 +712,15 @@ void APGHUD::OnPlayersChanged(APaperGolfGameStateBase& GameState, const AGolfPla
 	{
 		CheckShowScoresOrFinalResults(GameState);
 	}
+}
+
+void APGHUD::OnPlayerGameStateSetScored(APaperGolfGameStateBase& GameState, const AGolfPlayerState& PlayerState)
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnPlayerGameStateSetScored: PlayerState=%s"),
+		*GetName(), *LoggingUtils::GetName<APlayerState>(PlayerState));
+
+	// Need to update the player shots as an "F" is displayed next to the current shots if the player has scored
+	OnCurrentHoleScoreUpdate(GameState, PlayerState);
 }
 
 void APGHUD::CheckNotifyHoleShotsUpdate(const APaperGolfGameStateBase& GameState)

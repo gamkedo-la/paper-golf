@@ -25,11 +25,17 @@ public:
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnScoresSynced, APaperGolfGameStateBase& /*GameState*/);
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPlayerShotsUpdated, APaperGolfGameStateBase& /*GameState*/, const AGolfPlayerState& /*PlayerState*/);
 	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnPlayersChanged, APaperGolfGameStateBase& /*GameState*/, const AGolfPlayerState& /*PlayerState*/, bool /*bAdded*/);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPlayerScored, APaperGolfGameStateBase& /*GameState*/, const AGolfPlayerState& /*PlayerState*/);
 
 	FOnHoleChanged OnHoleChanged{};
 	FOnScoresSynced OnScoresSynced{};
 	FOnPlayerShotsUpdated OnPlayerShotsUpdated{};
 	FOnPlayersChanged OnPlayersChanged{};
+
+	/*
+	* Unlike the paper golf game events version, this one fires when the player state scored flag is set to true.
+	*/
+	FOnPlayerScored OnPlayerScored{};
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 

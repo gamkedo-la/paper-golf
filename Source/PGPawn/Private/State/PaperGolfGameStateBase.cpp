@@ -297,8 +297,11 @@ void APaperGolfGameStateBase::OnScoredUpdated(AGolfPlayerState& PlayerState)
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnScoredUpdated - PlayerState=%s; bScored=%s"), *GetName(), *PlayerState.GetName(), LoggingUtils::GetBoolString(PlayerState.HasScored()));
 
-	// Since scored affects how the hole shots display - fire this in this case as well
-	OnPlayerShotsUpdated.Broadcast(*this, PlayerState);
+	// Only fire if bScored is true
+	if (PlayerState.HasScored())
+	{
+		OnPlayerScored.Broadcast(*this, PlayerState);
+	}
 }
 
 void APaperGolfGameStateBase::CheckScoreSyncState()
