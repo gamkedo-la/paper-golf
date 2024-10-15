@@ -243,6 +243,7 @@ private:
 
 	bool bScoresSynced{};
 	bool bScoresEverSynced{};
+	bool bHoleComplete{};
 	bool bCourseComplete{};
 	bool bShotUpdatesReceived{};
 };

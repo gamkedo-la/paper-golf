@@ -676,6 +676,14 @@ void APGHUD::OnCurrentHoleScoreUpdate(APaperGolfGameStateBase& GameState, const 
 		return;
 	}
 
+	// This happens when the hole score update comes in due to players scoring - See APaperGolfGameStateBase
+	if (bHoleComplete)
+	{
+		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnCurrentHoleScoreUpdate: Hole already complete - PlayerState=%s"),
+			*GetName(), *LoggingUtils::GetName<APlayerState>(PlayerState));
+		return;
+	}
+
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnCurrentHoleScoreUpdate: PlayerState=%s - Shots=%d"),
 		*GetName(), *LoggingUtils::GetName<APlayerState>(PlayerState), PlayerState.GetShots());
 
@@ -786,7 +794,7 @@ void APGHUD::OnStartHole(int32 HoleNumber)
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: OnStartHole: HoleNumber=%d"), *GetName(), HoleNumber);
 
-	bScoresSynced = bCourseComplete = false;
+	bScoresSynced = bHoleComplete = bCourseComplete = false;
 }
 
 void APGHUD::OnCourseComplete()
@@ -811,6 +819,7 @@ void APGHUD::OnHoleComplete()
 
 	ActivePlayer.Reset();
 	bShotUpdatesReceived = false;
+	bHoleComplete = true;
 
 	HideCurrentHoleScoresHUD();
 }

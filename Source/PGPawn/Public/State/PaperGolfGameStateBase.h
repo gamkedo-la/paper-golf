@@ -97,6 +97,7 @@ private:
 	void OnTotalShotsUpdated(AGolfPlayerState& PlayerState);
 	void OnCurrentHoleShotsUpdated(AGolfPlayerState& PlayerState, int32 PreviousShots);
 	void OnReadyForShotUpdated(AGolfPlayerState& PlayerState);
+	void OnScoredUpdated(AGolfPlayerState& PlayerState);
 
 	void SubscribeToGolfEvents();
 

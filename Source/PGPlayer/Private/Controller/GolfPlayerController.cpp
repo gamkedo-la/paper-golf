@@ -155,11 +155,7 @@ void AGolfPlayerController::MarkScored()
 	// Rep notifies are not called on the server so we need to invoke the function manually if the server is also a client
 	if (HasAuthority())
 	{
-		if (IsLocalController())
-		{
-			OnScored();
-		}
-
+		OnScored();
 		DestroyPawn();
 	}
 }

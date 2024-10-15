@@ -70,6 +70,11 @@ void APaperGolfGameStateBase::AddPlayerState(APlayerState* PlayerState)
 			GolfPlayerState->OnReadyForShotUpdated.AddUObject(this, &APaperGolfGameStateBase::OnReadyForShotUpdated);
 		}
 
+		if (!GolfPlayerState->OnScoredUpdated.IsBoundToObject(this))
+		{
+			GolfPlayerState->OnScoredUpdated.AddUObject(this, &APaperGolfGameStateBase::OnScoredUpdated);
+		}
+
 		OnPlayersChanged.Broadcast(*this, *GolfPlayerState, true);
 	}
 }
@@ -86,6 +91,7 @@ void APaperGolfGameStateBase::RemovePlayerState(APlayerState* PlayerState)
 		GolfPlayerState->OnTotalShotsUpdated.RemoveAll(this);
 		GolfPlayerState->OnHoleShotsUpdated.RemoveAll(this);
 		GolfPlayerState->OnReadyForShotUpdated.RemoveAll(this);
+		GolfPlayerState->OnScoredUpdated.RemoveAll(this);
 
 		UpdatedPlayerStates.Remove(GolfPlayerState);
 		CheckScoreSyncState();
@@ -284,6 +290,14 @@ void APaperGolfGameStateBase::OnReadyForShotUpdated(AGolfPlayerState& PlayerStat
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnReadyForShotUpdated - PlayerState=%s; bReadyForShot=%s"), *GetName(), *PlayerState.GetName(), LoggingUtils::GetBoolString(PlayerState.IsReadyForShot()));
 
 	// Since both ready for shot and shots updated affect how the hole shots display - fire this on both cases
+	OnPlayerShotsUpdated.Broadcast(*this, PlayerState);
+}
+
+void APaperGolfGameStateBase::OnScoredUpdated(AGolfPlayerState& PlayerState)
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnScoredUpdated - PlayerState=%s; bScored=%s"), *GetName(), *PlayerState.GetName(), LoggingUtils::GetBoolString(PlayerState.HasScored()));
+
+	// Since scored affects how the hole shots display - fire this in this case as well
 	OnPlayerShotsUpdated.Broadcast(*this, PlayerState);
 }
 

@@ -23,13 +23,15 @@ public:
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnTotalShotsUpdated, AGolfPlayerState& /*PlayerState*/);
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnHoleShotsUpdated, AGolfPlayerState& /*PlayerState*/, int32 PreviousValue);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnReadyForShotUpdated, AGolfPlayerState& /*PlayerState*/);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnScoredUpdated, AGolfPlayerState& /*PlayerState*/);
 
 	AGolfPlayerState();
 
 	FOnTotalShotsUpdated OnTotalShotsUpdated{};
 	FOnHoleShotsUpdated OnHoleShotsUpdated{};
 	FOnReadyForShotUpdated OnReadyForShotUpdated{};
-	
+	FOnScoredUpdated OnScoredUpdated{};
+
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
 
 #if ENABLE_VISUAL_LOG
@@ -95,14 +97,12 @@ public:
 		ForceNetUpdate();
 	}
 
+	UFUNCTION(BlueprintPure)
 	bool IsSpectatorOnly() const { return bSpectatorOnly; }
 
-	void SetHasScored(bool bInScored) 
-	{ 
-		bScored = bInScored;
-		ForceNetUpdate();
-	}
-
+	void SetHasScored(bool bInScored);
+		
+	UFUNCTION(BlueprintPure)
 	bool HasScored() const { return bScored; }
 
 	virtual bool CompareByScore(const AGolfPlayerState& Other) const;
@@ -137,6 +137,9 @@ private:
 	UFUNCTION()
 	void OnRep_ReadyForShot();
 
+	UFUNCTION()
+	void OnRep_Scored();
+
 	void UpdateShotCount(int32 DeltaCount);
 
 #if ENABLE_VISUAL_LOG
@@ -147,26 +150,26 @@ protected:
 
 	// TODO: Cannot implement GetScoreByHole since this is assuming always start at hole 1 at index 0 and that might not be case
 	// So would need an array of structs here that track which hole the score is for
-	UPROPERTY(ReplicatedUsing = OnRep_ScoreByHole)
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_ScoreByHole)
 	TArray<uint8> ScoreByHole{};
 
 private:
 
-	UPROPERTY(ReplicatedUsing = OnRep_Shots)
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_Shots)
 	uint8 Shots{};
 
 	UPROPERTY(ReplicatedUsing = OnRep_ReadyForShot)
 	bool bReadyForShot{};
 
-	UPROPERTY(Replicated)
+	UPROPERTY(Transient, Replicated)
 	bool bSpectatorOnly{};
 
-	UPROPERTY(Replicated)
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_Scored)
 	bool bScored{};
 
 	bool bPositionAndRotationSet{};
 
-	UPROPERTY(Replicated)
+	UPROPERTY(Transient, Replicated)
 	FLinearColor PlayerColor{FLinearColor::White};
 
 	// Not Replicated - used by server to set initial position during late join

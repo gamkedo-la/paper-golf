@@ -69,6 +69,19 @@ void AGolfPlayerState::SetReadyForShot(bool bReady)
 	ForceNetUpdate();
 }
 
+void AGolfPlayerState::SetHasScored(bool bInScored)
+{
+	if (bScored == bInScored)
+	{
+		return;
+	}
+
+	bScored = bInScored;
+	OnScoredUpdated.Broadcast(*this);
+
+	ForceNetUpdate();
+}
+
 void AGolfPlayerState::FinishHole()
 {
 	ScoreByHole.Add(Shots);
@@ -180,6 +193,12 @@ void AGolfPlayerState::OnRep_ReadyForShot()
 {
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_ReadyForShot - bReadyForShot=%s"), *GetName(), LoggingUtils::GetBoolString(bReadyForShot));
 	OnReadyForShotUpdated.Broadcast(*this);
+}
+
+void AGolfPlayerState::OnRep_Scored()
+{
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: OnRep_Scored - bScored=%s"), *GetName(), LoggingUtils::GetBoolString(bScored));
+	OnScoredUpdated.Broadcast(*this);
 }
 
 #pragma region Visual Logger
