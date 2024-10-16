@@ -17,6 +17,7 @@ class USpringArmComponent;
 class UCameraComponent;
 class UPaperGolfPawnAudioComponent;
 class UPawnCameraLookComponent;
+class UCollisionDampeningComponent;
 
 struct FPredictProjectilePathResult;
 class UCurveFloat;
@@ -329,6 +330,9 @@ private:
 
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UPawnCameraLookComponent> CameraLookComponent{};
+
+	UPROPERTY(VisibleDefaultsOnly, Category = "Components")
+	TObjectPtr<UCollisionDampeningComponent> CollisionDampeningComponent{};
 };
 
 #pragma region Inline Definitions

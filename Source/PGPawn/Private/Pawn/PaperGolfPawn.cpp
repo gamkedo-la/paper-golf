@@ -26,9 +26,8 @@
 #include "Subsystems/GolfEventsSubsystem.h"
 
 #include "Components/PaperGolfPawnAudioComponent.h"
-
 #include "Components/PawnCameraLookComponent.h"
-
+#include "Components/CollisionDampeningComponent.h"
 #include "VisualLogger/VisualLogger.h"
 #include "Logging/LoggingUtils.h"
 #include "Utils/StringUtils.h"
@@ -70,6 +69,7 @@ APaperGolfPawn::APaperGolfPawn()
 
 	PawnAudioComponent = CreateDefaultSubobject<UPaperGolfPawnAudioComponent>(TEXT("Audio"));
 	CameraLookComponent = CreateDefaultSubobject<UPawnCameraLookComponent>(TEXT("CameraLook"));
+	CollisionDampeningComponent = CreateDefaultSubobject<UCollisionDampeningComponent>(TEXT("CollisionDampening"));
 }
 
 void APaperGolfPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -381,6 +381,8 @@ void APaperGolfPawn::ShotFinished()
 
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: ShotFinished"), *GetName());
 
+	CollisionDampeningComponent->OnShotFinished();
+
 	ResetPhysicsState();
 	SetCollisionEnabled(false);
 
@@ -505,6 +507,11 @@ void APaperGolfPawn::DoFlick(FFlickParams FlickParams)
 
 	// Turn off physics at first so can move the actor
 	_PaperGolfMesh->SetSimulatePhysics(true);
+
+	if (HasAuthority())
+	{
+		CollisionDampeningComponent->OnFlick();
+	}
 
 	const auto& Impulse = GetFlickForce(FlickParams.ShotType, FlickParams.Accuracy, FlickParams.PowerFraction);
 	const auto& Location = GetFlickLocation(FlickParams.LocalZOffset, FlickParams.Accuracy, FlickParams.PowerFraction);
