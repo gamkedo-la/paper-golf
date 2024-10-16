@@ -1,9 +1,10 @@
 // Copyright 2024 Game Salutes and HomeTeam GameDev contributors under GPL-3.0-only.
 
-#if ENABLE_VISUAL_LOG
-
 #include "Utils/VisualLoggerUtils.h"
 
+#include UE_INLINE_GENERATED_CPP_BY_NAME(VisualLoggerUtils)
+
+#if ENABLE_VISUAL_LOG
 #include "PhysicsEngine/BodySetup.h"
 #include "Utils/CollisionUtils.h"
 
@@ -200,4 +201,47 @@ void PG::VisualLoggerUtils::StopAutomaticRecording(const UObject* Context)
 	}
 #endif
 }
+
+bool UVisualLoggerUtils::IsRecording() { return FVisualLogger::Get().IsRecording(); }
+void UVisualLoggerUtils::StartRecording()
+{
+	if (IsRecording())
+	{
+		return;
+	}
+
+	// Equivalent to console command "vislog record"
+	if (GIsEditor)
+	{
+		FVisualLogger::Get().SetIsRecording(true);
+	}
+	else
+	{
+		FVisualLogger::Get().SetIsRecordingToFile(true);
+	}
+}
+void UVisualLoggerUtils::StopRecording()
+{
+	if (!IsRecording())
+	{
+		return;
+	}
+
+	// Equivalent to console command "vislog stop"
+	if (GIsEditor)
+	{
+		FVisualLogger::Get().SetIsRecording(false);
+	}
+	else
+	{
+		FVisualLogger::Get().SetIsRecordingToFile(false);
+	}
+
+#if PG_DEBUG_ENABLED
+	// Clear out any automatic recording context
+	bStartedAutomaticVisualLoggerRecording = false;
+	RecordingContext = nullptr;
+#endif
+}
+
 #endif
