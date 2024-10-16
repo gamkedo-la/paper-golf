@@ -356,6 +356,13 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Difficulty", meta = (ClampMin = "1.0"))
 	float AccuracyAdjustmentExponent{ 1.0f };
 
+	UPROPERTY(EditDefaultsOnly, Category = "Difficulty", meta = (ClampMin = "0.0"))
+	float SpinAccuracyPenaltyFactor{ 0.0f };
+
+	/* Max flick Z displacement. Used for spin accuracy penalty calculations */
+	UPROPERTY(EditDefaultsOnly, Category = "Difficulty")
+	float MaxFlickZ{ 50.0f };
+
 	/*
 	* Decrease to make penalty of worst possible shots less severe.
 	*/

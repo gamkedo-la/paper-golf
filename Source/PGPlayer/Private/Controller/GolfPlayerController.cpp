@@ -571,7 +571,11 @@ void AGolfPlayerController::ProcessShootInput()
 
 float AGolfPlayerController::GetAdjustedAccuracy(float Accuracy) const
 {
-	const float AdjustedAccuracy = FMath::Sign(Accuracy) * FMath::Min(MaxAccuracy, FMath::Pow(FMath::Abs(Accuracy), AccuracyAdjustmentExponent));
+	const auto SpinFactor = 1 + FMath::Abs(FlickZ) / MaxFlickZ;
+	const auto SpinAccuracyMultiplier = FMath::Max(FMath::Pow(SpinFactor, SpinAccuracyPenaltyFactor), 1.0f);
+
+	const float AdjustedAccuracy = FMath::Sign(Accuracy) * FMath::Clamp(SpinAccuracyMultiplier * 
+		FMath::Min(MaxAccuracy, FMath::Pow(FMath::Abs(Accuracy), AccuracyAdjustmentExponent)), -1.0f, 1.0f);
 
 	UE_VLOG_UELOG(this, LogPGPlayer, Log,
 		TEXT("%s: GetAdjustedAccuracy: %f -> %f"),
@@ -790,6 +794,12 @@ void AGolfPlayerController::InitFromConsoleVariables()
 		UE_VLOG_UELOG(this, LogPGPlayer, Log,  TEXT("%s: InitFromConsoleVariables - Overriding PlayerMaxAccuracy %f -> %f"),
 			*GetName(), MaxAccuracy, OverridePlayerMaxAccuracy);
 		MaxAccuracy = OverridePlayerMaxAccuracy;
+	}
+	if (const auto OverrideSpinAccuracyPenalty = PG::CPlayerSpinAccuracyPenalty.GetValueOnGameThread(); OverrideSpinAccuracyPenalty >= 0.0f)
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: InitFromConsoleVariables - Overriding SpinAccuracyPenalty %f -> %f"),
+			*GetName(), SpinAccuracyPenaltyFactor, OverrideSpinAccuracyPenalty);
+		SpinAccuracyPenaltyFactor = OverrideSpinAccuracyPenalty;
 	}
 #endif
 }

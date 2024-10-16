@@ -15,6 +15,7 @@ namespace PG
 
 	extern PGCORE_API TAutoConsoleVariable<float> CPlayerAccuracyExponent;
 	extern PGCORE_API TAutoConsoleVariable<float> CPlayerMaxAccuracy;
+	extern PGCORE_API TAutoConsoleVariable<float> CPlayerSpinAccuracyPenalty;
 	extern PGCORE_API TAutoConsoleVariable<float> CGlobalPowerAccuracyDampenExponent;
 	extern PGCORE_API TAutoConsoleVariable<float> CGlobalMinPowerMultiplier;
 	extern PGCORE_API TAutoConsoleVariable<float> CGlobalPowerAccuracyExponent;

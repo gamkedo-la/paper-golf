@@ -40,7 +40,13 @@ namespace PG
 	TAutoConsoleVariable<float> CPlayerAccuracyExponent(
 		TEXT("pg.diff.pAccExp"),
 		-1.0f,
-		TEXT("Adjust client player shot accuracy exponent >= 1"),
+		TEXT("Adjust client player shot accuracy exponent >= 0"),
+		ECVF_Scalability | ECVF_RenderThreadSafe);
+
+	TAutoConsoleVariable<float> CPlayerSpinAccuracyPenalty(
+		TEXT("pg.diff.pSpinAccPen"),
+		-1.0f,
+		TEXT("Adjust client player shot spin accuracy penalty >= 0. Higher is harder"),
 		ECVF_Scalability | ECVF_RenderThreadSafe);
 
 	TAutoConsoleVariable<float> CPlayerMaxAccuracy(
