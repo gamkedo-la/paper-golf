@@ -8,7 +8,7 @@ import re
 # Exclude these staging output manifest files
 # See https://forums.unrealengine.com/t/what-is-manifest-nonufsfiles-win64-for/135806
 # TODO: In future can also read the Manifest_DebugFiles_Win64.txt to see which debug files to exclude
-includeExclude = ["Manifest_.*\.txt", ".*\.pdb",".*\.tps",".*\.ttf",
+includeExclude = ["Manifest_.*\.txt", ".*\.pdb",".*\.tps",".*\.ttf",".*\.sym",".*\.debug",
                    ".*GPUDumpViewer.*"] # Outputed in development builds
 
 # Outputed in development builds but not needed even in the debug symobls as we are using DirectX
