@@ -7,6 +7,8 @@
 
 #include "Subsystems/GolfEvents.h"
 
+#include <memory>
+
 #include "PGHUD.generated.h"
 
 class UUserWidget;
@@ -48,6 +50,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void DisplayMessageWidget(EMessageWidgetType MessageType);
+
+	UFUNCTION(BlueprintCallable)
+	void DisplayMessageWidgetWithText(const FText& Message);
 
 	UFUNCTION(BlueprintCallable)
 	void DisplayHazardEntryWidget(EHazardType HazardType);
@@ -123,7 +128,7 @@ private:
 
 	void CheckExecuteDeferredSpectatorAction(const AGolfPlayerState& AddedPlayerState);
 
-	void DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& WidgetClass);
+	void DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& WidgetClass, FText MessageToSet = {});
 
 	void Init();
 
@@ -212,6 +217,9 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Config", meta = (MustImplement = "/Script/PGUI.TextDisplayingWidget"))
 	TSoftClassPtr<UUserWidget> SpectatingWidgetClass{};
+
+	UPROPERTY(EditDefaultsOnly, Category = "Config", meta = (MustImplement = "/Script/PGUI.TextDisplayingWidget"))
+	TSoftClassPtr<UUserWidget> GenericMessagingWidgetClass{};
 
 	UPROPERTY(Transient)
 	TObjectPtr<UUserWidget> ActiveMessageWidget{};

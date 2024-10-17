@@ -331,6 +331,8 @@ private:
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Reset Shot"))
 	void ResetShotWithServerInvocation();
 
+	void CancelAndHideActiveTutorial();
+
 private:
 
 	UPROPERTY(Category = "Components", VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
@@ -401,10 +403,14 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Camera")
 	float SpectatorShotCameraCutExponent{ 1.0f };
 
+	UPROPERTY(EditDefaultsOnly, Category = "Tutorial")
+	float TutorialDisplayTurnDelayTime{ 1.5f };
+
 	EShotType ShotType{ EShotType::Default };
 
 	FTimerHandle NextShotTimerHandle{};
 	FTimerHandle CameraIntroductionStartTimerHandle{};
+	FTimerHandle TutorialDisplayTurnDelayTimerHandle{};
 
 	FDelegateHandle OnFlickSpectateShotHandle{};
 

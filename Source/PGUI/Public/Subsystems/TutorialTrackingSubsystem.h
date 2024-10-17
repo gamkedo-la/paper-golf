@@ -6,6 +6,9 @@
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "TutorialTrackingSubsystem.generated.h"
 
+class UTutorialAction;
+class APlayerController;
+
 /* Callback for when the hole fly by is complete or canceled.
    Should be bound to the triggering code and then executed from blueprints where the flyby is executed */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnHoleFlybyComplete);
@@ -16,15 +19,22 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnHoleFlybyComplete);
 UCLASS()
 class PGUI_API UTutorialTrackingSubsystem : public UGameInstanceSubsystem
 {
-	GENERATED_BODY()
-
-	UTutorialTrackingSubsystem();
-	
+	GENERATED_BODY()	
 
 public:
+
+	UTutorialTrackingSubsystem();
+
+	/** Implement this for initialization of instances of the system */
+	virtual void Initialize(FSubsystemCollectionBase& Collection);
 	
 	UPROPERTY(BlueprintAssignable, BlueprintCallable)
 	FOnHoleFlybyComplete OnHoleFlybyComplete{};
+
+	void InitializeTutorialActions(APlayerController* PlayerController);
+	void DisplayNextTutorial(APlayerController* PlayerController);
+	void HideActiveTutorial();
+	void DestroyTutorialActions();
 
 	UFUNCTION(BlueprintPure)
 	bool IsOnHoleFlybyCompleteBound() const;
@@ -46,12 +56,16 @@ public:
 
 private:
 
-private:
-
 	inline static constexpr int32 MaxHoles = 18;
 
 	bool bTutorialSeen{};
 	TArray<bool> HoleFlybySeen{};
+
+	UPROPERTY(Transient)
+	TArray<UTutorialAction*> TutorialActions;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTutorialAction> CurrentTutorialAction{};
 };
 
 #pragma region Inline Definitions

@@ -286,7 +286,7 @@ void UPGGameInstance::OnWorldChanged(UWorld* OldWorld, UWorld* NewWorld)
 	// Hack: Ensure that the multiplayer session subsystem is properly destroyed when we return to the main menu
 
 	FString MapName = NewWorld->GetMapName();
-	MapName.RemoveFromStart(GetWorld()->StreamingLevelsPrefix); // Remove any prefix if necessary
+	MapName.RemoveFromStart(NewWorld->StreamingLevelsPrefix); // Remove any prefix if necessary
 
 	// How to strip off the name of the map from the path?
 	if (MapName == MainMenuMapName)

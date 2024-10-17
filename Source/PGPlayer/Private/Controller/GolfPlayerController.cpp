@@ -547,6 +547,8 @@ void AGolfPlayerController::ProcessShootInput()
 		return;
 	}
 
+	CancelAndHideActiveTutorial();
+
 	HUD->BeginShot();
 
 	UE_VLOG_UELOG(this, LogPGPlayer, Log,
@@ -755,9 +757,18 @@ void AGolfPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: EndPlay - %s"), *GetName(), *LoggingUtils::GetName(EndPlayReason));
 
-	Super::EndPlay(EndPlayReason);
-
 	UnregisterHoleFlybyComplete();
+
+	if (IsLocalController())
+	{
+		GetWorldTimerManager().ClearTimer(TutorialDisplayTurnDelayTimerHandle);
+		if (auto TutorialTrackingSubsystem = GetTutorialTrackingSubsystem(); TutorialTrackingSubsystem)
+		{
+			TutorialTrackingSubsystem->DestroyTutorialActions();
+		}
+	}
+
+	Super::EndPlay(EndPlayReason);
 }
 
 void AGolfPlayerController::Init()
@@ -767,6 +778,14 @@ void AGolfPlayerController::Init()
 
 	InitFromConsoleVariables();
 	RegisterEvents();
+
+	if (IsLocalController())
+	{
+		if (auto TutorialTrackingSubsystem = GetTutorialTrackingSubsystem(); TutorialTrackingSubsystem)
+		{
+			TutorialTrackingSubsystem->InitializeTutorialActions(this);
+		}
+	}
 }
 
 void AGolfPlayerController::RegisterEvents()
@@ -1056,6 +1075,7 @@ void AGolfPlayerController::OnHoleComplete()
 	}
 
 	SpectateCurrentGolfHole();
+	CancelAndHideActiveTutorial();
 }
 
 void AGolfPlayerController::SpectateCurrentGolfHole()
@@ -1305,6 +1325,14 @@ void AGolfPlayerController::ShowActivateTurnHUD()
 	{
 		HUD->BeginTurn();
 	}
+
+	GetWorldTimerManager().SetTimer(TutorialDisplayTurnDelayTimerHandle, FTimerDelegate::CreateWeakLambda(this, [this]
+	{
+		if (auto TutorialTrackingSubsystem = GetTutorialTrackingSubsystem(); TutorialTrackingSubsystem)
+		{
+			TutorialTrackingSubsystem->DisplayNextTutorial(this);
+		}
+	}), TutorialDisplayTurnDelayTime, false);
 }
 
 bool AGolfPlayerController::ShouldEnableInputForActivateTurn() const
@@ -1762,6 +1790,16 @@ void AGolfPlayerController::ResetShotWithServerInvocation()
 	}
 }
 
+void AGolfPlayerController::CancelAndHideActiveTutorial()
+{
+	if (auto TutorialTrackingSubsystem = GetTutorialTrackingSubsystem(); TutorialTrackingSubsystem)
+	{
+		TutorialTrackingSubsystem->HideActiveTutorial();
+	}
+
+	GetWorldTimerManager().ClearTimer(TutorialDisplayTurnDelayTimerHandle);
+}
+
 void AGolfPlayerController::OnRep_SpectatorParams()
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnRep_SpectatorParams: Pawn=%s; PlayerState=%s"),
@@ -1783,6 +1821,8 @@ void AGolfPlayerController::ClientSpectate_Implementation(APaperGolfPawn* InPawn
 			.PlayerState = InPlayerState
 		};
 	}
+
+	CancelAndHideActiveTutorial();
 
 	DoSpectate(InPawn, InPlayerState);
 }

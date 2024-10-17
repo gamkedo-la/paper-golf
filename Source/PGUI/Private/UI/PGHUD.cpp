@@ -68,6 +68,12 @@ void APGHUD::DisplayMessageWidget(EMessageWidgetType MessageType)
 	}
 }
 
+void APGHUD::DisplayMessageWidgetWithText(const FText& Message)
+{
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: DisplayMessageWidgetWithText: Message=%s"), *GetName(), *Message.ToString());
+	DisplayMessageWidgetByClass(GenericMessagingWidgetClass, Message);
+}
+
 void APGHUD::DisplayHazardEntryWidget(EHazardType HazardType)
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: DisplayHazardEntryWidget: HazardType=%s"), *GetName(),
@@ -330,19 +336,19 @@ void APGHUD::CheckExecuteDeferredSpectatorAction(const AGolfPlayerState& AddedPl
 	}
 }
 
-void APGHUD::DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& WidgetClass)
+void APGHUD::DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& WidgetClass, FText MessageToSet)
 {
 	if (!ensure(!WidgetClass.IsNull()))
 	{
 		return;
 	}
 
-	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: DisplayMessageWidgetByClass: %s"), *GetName(), *LoggingUtils::GetName(WidgetClass));
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: DisplayMessageWidgetByClass: %s - MessageToSet=%s"), *GetName(), *LoggingUtils::GetName(WidgetClass), *MessageToSet.ToString());
 
 	ActiveMessageWidgetClass = WidgetClass;
 
 	// Request to load the asset asynchronously
-	PG::ObjectUtils::LoadClassAsync<UUserWidget>(WidgetClass, [this, WeakThis = TWeakObjectPtr<APGHUD>(this), WidgetClass](UClass* LoadedClass)
+	PG::ObjectUtils::LoadClassAsync<UUserWidget>(WidgetClass, [this, WeakThis = TWeakObjectPtr<APGHUD>(this), WidgetClass, MessageToSet = MoveTemp(MessageToSet)](UClass* LoadedClass)
 	{
 		if (auto StrongThis = WeakThis.Get(); !StrongThis)
 		{
@@ -384,10 +390,28 @@ void APGHUD::DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& Widge
 			return;
 		}
 
+		if (!MessageToSet.IsEmpty())
+		{
+			if (NewWidget->GetClass()->ImplementsInterface(UTextDisplayingWidget::StaticClass()))
+			{
+				ITextDisplayingWidget::Execute_SetText(NewWidget, MessageToSet);
+			}
+			else
+			{
+				UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Warning, TEXT("%s: DisplayMessageWidgetByClass: WidgetClass=%s; MessageToSet=%s - Widget does not implement ITextDisplayingWidget"),
+					*GetName(), *LoggingUtils::GetName(LoadedClass), *MessageToSet.ToString());
+				return;
+			}
+		}
+
 		RemoveActiveMessageWidget();
 
 		ActiveMessageWidget = NewWidget;
-		ActiveMessageWidget->AddToViewport();
+
+		if (!ActiveMessageWidget->IsInViewport())
+		{
+			ActiveMessageWidget->AddToViewport();
+		}
 	});
 }
 
