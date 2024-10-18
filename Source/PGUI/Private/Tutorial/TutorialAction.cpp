@@ -7,6 +7,8 @@
 
 #include "UI/PGHUD.h"
 
+#include "Pawn/PaperGolfPawn.h"
+
 #include "GameFramework/PlayerController.h"
 #include "VisualLogger/VisualLogger.h"
 
@@ -107,6 +109,17 @@ APlayerController* UTutorialAction::GetPlayerController() const
 	}
 
 	return GameInstance->GetFirstLocalPlayerController();
+}
+
+APaperGolfPawn* UTutorialAction::GetPlayerPawn() const
+{
+	auto PC = GetPlayerController();
+	if (!PC)
+	{
+		return nullptr;
+	}
+
+	return Cast<APaperGolfPawn>(PC->GetPawn());
 }
 
 APGHUD* UTutorialAction::GetHUD() const

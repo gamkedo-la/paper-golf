@@ -80,7 +80,7 @@ public:
 	FVector GetFlickDirection() const;
 
 	UFUNCTION(BlueprintPure)
-	FVector GetFlickLocation(float LocationZ, float Accuracy = 0.0f, float Power = 1.0f) const;
+	FVector GetFlickLocation(float LocationZ) const;
 
 	UFUNCTION(BlueprintPure)
 	FVector GetFlickForce(EShotType ShotType, float Accuracy, float Power) const;
@@ -89,10 +89,16 @@ public:
 	float GetFlickMaxSpeed(EShotType ShotType) const;
 
 	UFUNCTION(BlueprintPure)
+	float GetFlickSpeed(EShotType ShotType, float Accuracy, float Power) const;
+
+	UFUNCTION(BlueprintPure)
 	FVector GetLinearVelocity() const;
 
 	UFUNCTION(BlueprintPure)
 	FVector GetAngularVelocity() const;
+
+	UFUNCTION(BlueprintPure)
+	FRotator GetDeltaRotation() const;
 
 	UFUNCTION(BlueprintPure)
 	bool IsAtRest() const;
@@ -374,6 +380,16 @@ FORCEINLINE float APaperGolfPawn::GetMass() const
 FORCEINLINE float APaperGolfPawn::GetFlickMaxSpeed(EShotType ShotType) const
 {
 	return GetFlickMaxForce(ShotType) / GetMass();
+}
+
+FORCEINLINE float APaperGolfPawn::GetFlickSpeed(EShotType ShotType, float Accuracy, float Power) const
+{
+	return GetFlickForce(ShotType, Accuracy, Power).Size() / GetMass();
+}
+
+FORCEINLINE FRotator APaperGolfPawn::GetDeltaRotation() const
+{
+	return (GetActorRotation() - InitialRotation).GetNormalized();
 }
 
 #pragma endregion Inline Definitions

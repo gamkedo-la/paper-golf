@@ -8,6 +8,7 @@
 
 class APlayerController;
 class APGHUD;
+class APaperGolfPawn;
 
 /**
  * 
@@ -27,6 +28,7 @@ public:
 protected:
 	void ShowMessages(const TArray<FText>& Messages, float MessageDuration = -1.0f);
 	APlayerController* GetPlayerController() const;
+	APaperGolfPawn* GetPlayerPawn() const;
 	APGHUD* GetHUD() const;
 
 	// TODO: Save game state

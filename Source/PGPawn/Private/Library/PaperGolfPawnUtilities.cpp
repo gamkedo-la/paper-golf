@@ -244,3 +244,31 @@ bool UPaperGolfPawnUtilities::TraceShotAngle(const UObject* WorldContextObject, 
 
 	return bPass;
 }
+
+bool UPaperGolfPawnUtilities::TraceCurrentShotWithParameters(const UObject* WorldContextObject, const APaperGolfPawn* PlayerPawn, const FFlickParams& FlickParams, float FlickAngleDegrees, float MinTraceDistance)
+{
+	if (!ensure(WorldContextObject))
+	{
+		return false;
+	}
+
+	if (!ensure(PlayerPawn))
+	{
+		return false;
+	}
+
+	const auto TraceStart = PlayerPawn->GetFlickLocation(FlickParams.LocalZOffset);
+	const auto& FlickDirection = PlayerPawn->GetFlickDirection();
+	const auto FlickSpeed = [&]()
+	{
+		if (FMath::IsNearlyEqual(FlickParams.PowerFraction, 1.0f, KINDA_SMALL_NUMBER) && 
+			FMath::IsNearlyZero(FlickParams.Accuracy, KINDA_SMALL_NUMBER))
+		{
+			return PlayerPawn->GetFlickMaxSpeed(FlickParams.ShotType);
+		}
+		return PlayerPawn->GetFlickSpeed(FlickParams.ShotType, FlickParams.Accuracy, FlickParams.PowerFraction);
+	}();
+
+	return UPaperGolfPawnUtilities::TraceShotAngle(
+		WorldContextObject, PlayerPawn, TraceStart, FlickDirection, FlickSpeed, FlickAngleDegrees);
+}

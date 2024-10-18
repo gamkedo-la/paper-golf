@@ -329,7 +329,7 @@ FVector APaperGolfPawn::GetFlickDirection() const
 	return GetActorRotation().Vector();
 }
 
-FVector APaperGolfPawn::GetFlickLocation(float LocationZ, float Accuracy, float Power) const
+FVector APaperGolfPawn::GetFlickLocation(float LocationZ) const
 {
 	check(_FlickReference);
 
@@ -514,7 +514,7 @@ void APaperGolfPawn::DoFlick(FFlickParams FlickParams)
 	}
 
 	const auto& Impulse = GetFlickForce(FlickParams.ShotType, FlickParams.Accuracy, FlickParams.PowerFraction);
-	const auto& Location = GetFlickLocation(FlickParams.LocalZOffset, FlickParams.Accuracy, FlickParams.PowerFraction);
+	const auto& Location = GetFlickLocation(FlickParams.LocalZOffset);
 
 #if ENABLE_VISUAL_LOG
 

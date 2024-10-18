@@ -1730,12 +1730,12 @@ float AGolfPlayerController::CalculateIdealPitchAngle() const
 		return DefaultPitchAngle;
 	}
 
-	const auto TraceStart = PaperGolfPawn->GetFlickLocation(0.0f);
-	const auto& FlickDirection = PaperGolfPawn->GetFlickDirection();
-	const auto FlickMaxSpeed = PaperGolfPawn->GetFlickMaxSpeed(ShotType);
-
-	const auto bPassed = UPaperGolfPawnUtilities::TraceShotAngle(
-		this, PaperGolfPawn, TraceStart, FlickDirection, FlickMaxSpeed, DefaultPitchAngle);
+	const auto bPassed = UPaperGolfPawnUtilities::TraceCurrentShotWithParameters(
+		this, PaperGolfPawn,
+		FFlickParams {
+			.ShotType = ShotType
+		},
+		DefaultPitchAngle);
 
 	const float IdealPitchAngle = bPassed ? DefaultPitchAngle : 0.0f;
 

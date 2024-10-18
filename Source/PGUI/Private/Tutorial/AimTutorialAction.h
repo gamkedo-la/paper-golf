@@ -3,18 +3,18 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Tutorial/TutorialAction.h"
+#include "Tutorial/MessageOrientedTutorialAction.h"
 #include "AimTutorialAction.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class UAimTutorialAction : public UTutorialAction
+class UAimTutorialAction : public UMessageOrientedTutorialAction
 {
 	GENERATED_BODY()
 	
 public:
+	UAimTutorialAction();
 	virtual bool IsRelevant() const override;
-	virtual void Execute() override;
 };

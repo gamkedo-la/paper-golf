@@ -3,6 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
+#include "PaperGolfTypes.h"
+
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "PaperGolfPawnUtilities.generated.h"
 
@@ -36,6 +39,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Math")
 	static bool TraceShotAngle(const UObject* WorldContextObject, const APaperGolfPawn* PlayerPawn,
 		const FVector& TraceStart, const FVector& FlickDirection, float FlickSpeed, float FlickAngleDegrees, float MinTraceDistance = 1000.0f);
+
+	UFUNCTION(BlueprintCallable, Category = "Math")
+	static bool TraceCurrentShotWithParameters(const UObject* WorldContextObject, const APaperGolfPawn* PlayerPawn,
+		const FFlickParams& FlickParams, float FlickAngleDegrees, float MinTraceDistance = 1000.0f);
 
 private:
 	// UFUNCTION does not allow default parameters for non-primitive types so add overload specifically for blueprints
