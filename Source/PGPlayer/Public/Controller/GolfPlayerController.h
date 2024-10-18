@@ -404,7 +404,7 @@ private:
 	float SpectatorShotCameraCutExponent{ 1.0f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Tutorial")
-	float TutorialDisplayTurnDelayTime{ 1.5f };
+	float TutorialDisplayTurnDelayTime{ 1.0f };
 
 	EShotType ShotType{ EShotType::Default };
 

@@ -15,9 +15,17 @@ class UShotTutorialAction : public UTutorialAction
 	
 public:
 	virtual void Execute() override;
+	virtual void Abort() override;
 
+protected:
+	virtual void OnMessageShown(int32 Index, int32 NumMessages) override;
 
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Tutorial")
 	float MessageDuration{ 1.5f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Tutorial")
+	int32 MaxMessagePresentations{ 3 };
+
+	int32 MessagePresentationCount{};
 };

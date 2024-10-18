@@ -78,15 +78,19 @@ void UTutorialAction::ShowMessages(const TArray<FText>& Messages, float MessageD
 					LastMessageIndex + 1, Messages.Num(), *Messages[LastMessageIndex].ToString());
 
 				HUD->DisplayMessageWidgetWithText(Messages[LastMessageIndex]);
+				OnMessageShown(LastMessageIndex, Messages.Num());
 
 				++LastMessageIndex;
 			}
 			else
 			{
 				UE_VLOG_UELOG(GetOuter(), LogPGUI, Log, TEXT("%s: ShowMessages: All messages shown"), *GetName());
-
-				MarkCompleted();
 				HUD->GetWorldTimerManager().ClearTimer(MessageTimerHandle);
+
+				if (ShouldMarkCompletedOnLastMessageDismissed())
+				{
+					MarkCompleted();
+				}
 			}
 		}
 	}), MessageDuration, true, 0.0f);
@@ -115,4 +119,11 @@ APGHUD* UTutorialAction::GetHUD() const
 	}
 
 	return Cast<APGHUD>(PC->GetHUD());
+}
+
+void UTutorialAction::MarkCompleted()
+{
+	UE_VLOG_UELOG(GetOuter(), LogPGUI, Log, TEXT("%s: Marked as completed"), *GetName());
+
+	bIsCompleted = true;
 }

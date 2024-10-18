@@ -28,8 +28,12 @@ protected:
 	void ShowMessages(const TArray<FText>& Messages, float MessageDuration = -1.0f);
 	APlayerController* GetPlayerController() const;
 	APGHUD* GetHUD() const;
+
 	// TODO: Save game state
-	virtual void MarkCompleted() { bIsCompleted = true;  }
+
+	virtual void OnMessageShown(int32 Index, int32 NumMessages) {};
+	virtual void MarkCompleted();
+	virtual bool ShouldMarkCompletedOnLastMessageDismissed() const { return true; }
 
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Tutorial")
