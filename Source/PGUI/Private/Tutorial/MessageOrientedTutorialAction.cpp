@@ -16,6 +16,7 @@ void UMessageOrientedTutorialAction::Execute()
 {
 	if (ensure(!Messages.IsEmpty()))
 	{
+		Super::Execute();
 		ShowMessages(Messages);
 	}
 	else

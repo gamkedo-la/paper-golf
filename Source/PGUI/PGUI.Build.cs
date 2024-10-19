@@ -23,7 +23,8 @@ public class PGUI : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"UMG",
-		};
+            "EnhancedInput",
+        };
 
 		PublicDependencyModuleNames.AddRange(enginePublicDependencyModuleNames);
 		PublicDependencyModuleNames.AddRange(modulePublicDependencyModuleNames);

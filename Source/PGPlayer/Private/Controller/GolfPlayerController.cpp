@@ -783,7 +783,7 @@ void AGolfPlayerController::Init()
 	{
 		if (auto TutorialTrackingSubsystem = GetTutorialTrackingSubsystem(); TutorialTrackingSubsystem)
 		{
-			TutorialTrackingSubsystem->InitializeTutorialActions(this);
+			TutorialTrackingSubsystem->InitializeTutorialActions(TutorialConfigDataAsset, this);
 		}
 	}
 }

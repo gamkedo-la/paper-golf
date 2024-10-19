@@ -11,6 +11,7 @@
 
 #include "GameFramework/PlayerController.h"
 
+#include "Tutorial/TutorialConfigDataAsset.h"
 #include "Tutorial/ShotTutorialAction.h"
 #include "Tutorial/AimTutorialAction.h"
 #include "Tutorial/ShotPreviewTutorialAction.h"
@@ -37,9 +38,10 @@ void UTutorialTrackingSubsystem::MarkAllHoleFlybysSeen(bool bSeen)
 	}
 }
 
-void UTutorialTrackingSubsystem::InitializeTutorialActions(APlayerController* PlayerController)
+void UTutorialTrackingSubsystem::InitializeTutorialActions(UTutorialConfigDataAsset* TutorialConfig, APlayerController* PlayerController)
 {
-	UE_VLOG_UELOG(this, LogPGUI, Log, TEXT("%s: InitializeTutorialActions: PlayerController=%s"), *GetName(), *LoggingUtils::GetName(PlayerController));
+	UE_VLOG_UELOG(this, LogPGUI, Log, TEXT("%s: InitializeTutorialActions: TutorialConfig=%s; PlayerController=%s")
+		, *GetName(), *LoggingUtils::GetName(TutorialConfig), *LoggingUtils::GetName(PlayerController));
 
 	if (!ensure(PlayerController))
 	{
@@ -50,10 +52,20 @@ void UTutorialTrackingSubsystem::InitializeTutorialActions(APlayerController* Pl
 	CurrentTutorialAction = nullptr;
 	TutorialActions.Reset();
 
-	TutorialActions.Add(NewObject<UShotTutorialAction>(PlayerController));
-	TutorialActions.Add(NewObject<UAimTutorialAction>(PlayerController));
-	TutorialActions.Add(NewObject<UShotPreviewTutorialAction>(PlayerController));
-	TutorialActions.Add(NewObject<UShotSpinTutorialAction>(PlayerController));
+	RegisterTutorialAction<UShotTutorialAction>(TutorialConfig, PlayerController);
+	RegisterTutorialAction<UAimTutorialAction>(TutorialConfig, PlayerController);
+	RegisterTutorialAction<UShotPreviewTutorialAction>(TutorialConfig, PlayerController);
+	RegisterTutorialAction<UShotSpinTutorialAction>(TutorialConfig, PlayerController);
+}
+
+template<std::derived_from<UTutorialAction> T>
+void UTutorialTrackingSubsystem::RegisterTutorialAction(UTutorialConfigDataAsset* TutorialConfig, APlayerController* PlayerController)
+{
+	if (auto Tutorial = NewObject<T>(PlayerController); ensure(Tutorial))
+	{
+		Tutorial->Initialize(TutorialConfig);
+		TutorialActions.Add(Tutorial);
+	}
 }
 
 void UTutorialTrackingSubsystem::DisplayNextTutorial(APlayerController* PlayerController)

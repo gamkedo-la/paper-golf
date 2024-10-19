@@ -11,6 +11,8 @@
 
 #include "Interfaces/GolfController.h"
 
+#include "Tutorial/TutorialConfigDataAsset.h"
+
 #include "GameFramework/PlayerController.h"
 #include "VisualLogger/VisualLogger.h"
 
@@ -20,12 +22,42 @@
 
 #include "PGUILogging.h"
 
+// Input bindings
+#include "InputTriggers.h"
+#include "InputAction.h"
+#include "EnhancedInputComponent.h"
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(TutorialAction)
+
+void UTutorialAction::Initialize(UTutorialConfigDataAsset* ConfigAsset)
+{
+	if (!ensure(ConfigAsset))
+	{
+		return;
+	}
+
+	SkipTutorialAction = ConfigAsset->SkipTutorialAction;
+
+	if (!ensure(SkipTutorialAction))
+	{
+		UE_VLOG_UELOG(GetOuter(), LogPGUI, Error, TEXT("%s: Initialize: SkipTutorialAction is NULL - unable to bind skip input"), *GetName());
+		return;
+	}
+}
+
+void UTutorialAction::Execute()
+{
+	UE_VLOG_UELOG(GetOuter(), LogPGUI, Log, TEXT("%s: Execute"), *GetName());
+
+	RegisterInputBindings();
+}
 
 void UTutorialAction::Abort()
 {
 	UE_VLOG_UELOG(GetOuter(), LogPGUI, Log, TEXT("%s: Aborted"), *GetName());
 	
+	UnregisterInputBindings();
+
 	if (!MessageTimerHandle.IsValid())
 	{
 		return;
@@ -141,9 +173,63 @@ APGHUD* UTutorialAction::GetHUD() const
 	return Cast<APGHUD>(PC->GetHUD());
 }
 
+UEnhancedInputComponent* UTutorialAction::GetInputComponent() const
+{
+	auto PlayerController = GetPlayerController();
+	if (!PlayerController)
+	{
+		return nullptr;
+	}
+
+	return CastChecked<UEnhancedInputComponent>(PlayerController->InputComponent);
+}
+
+void UTutorialAction::RegisterInputBindings()
+{
+	UE_VLOG_UELOG(GetOuter(), LogPGUI, Log, TEXT("%s: RegisterInputBindings"), *GetName());
+
+	if (!SkipTutorialAction)
+	{
+		return;
+	}
+
+	if (auto InputComponent = GetInputComponent(); ensure(InputComponent))
+	{
+		SkipTutorialBindingHandle = InputComponent->BindAction(SkipTutorialAction, ETriggerEvent::Triggered, this, &ThisClass::OnPlayerSkipped).GetHandle();
+		UE_VLOG_UELOG(GetOuter(), LogPGUI, Verbose, TEXT("%s: RegisterInputBindings - Registered SkipTutorialAction"), *GetName());
+	}
+	else
+	{
+		UE_VLOG_UELOG(GetOuter(), LogPGUI, Error, TEXT("%s: RegisterInputBindings - Failed to get input component"), *GetName());
+	}
+}
+
+void UTutorialAction::UnregisterInputBindings()
+{
+	UE_VLOG_UELOG(GetOuter(), LogPGUI, Log, TEXT("%s: UnregisterInputBindings"), *GetName());
+
+	if (auto InputComponent = GetInputComponent(); SkipTutorialBindingHandle > 0 && InputComponent)
+	{
+		InputComponent->RemoveBindingByHandle(SkipTutorialBindingHandle);
+		SkipTutorialBindingHandle = 0;
+		UE_VLOG_UELOG(GetOuter(), LogPGUI, Verbose, TEXT("%s: UnregisterInputBindings - Unregistered SkipTutorialAction"), *GetName());
+	}
+}
+
+void UTutorialAction::OnPlayerSkipped()
+{
+	UE_VLOG_UELOG(GetOuter(), LogPGUI, Log, TEXT("%s: OnPlayerSkipped"), *GetName());
+
+	Abort();
+
+	bIsCompleted = true;
+}
+
 void UTutorialAction::MarkCompleted()
 {
 	UE_VLOG_UELOG(GetOuter(), LogPGUI, Log, TEXT("%s: Marked as completed"), *GetName());
 
 	bIsCompleted = true;
+
+	UnregisterInputBindings();
 }

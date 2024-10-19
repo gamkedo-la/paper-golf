@@ -22,6 +22,7 @@ class UGolfControllerCommonComponent;
 class APaperGolfGameStateBase;
 class IPawnCameraLook;
 class UTutorialTrackingSubsystem;
+class UTutorialConfigDataAsset;
 
 
 USTRUCT()
@@ -405,6 +406,9 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Tutorial")
 	float TutorialDisplayTurnDelayTime{ 1.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Tutorial")
+	TObjectPtr<UTutorialConfigDataAsset> TutorialConfigDataAsset{};
 
 	EShotType ShotType{ EShotType::Default };
 

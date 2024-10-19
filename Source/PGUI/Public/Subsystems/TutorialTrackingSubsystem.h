@@ -4,10 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
+
+#include <concepts>
+
 #include "TutorialTrackingSubsystem.generated.h"
 
 class UTutorialAction;
 class APlayerController;
+class UTutorialConfigDataAsset;
 
 /* Callback for when the hole fly by is complete or canceled.
    Should be bound to the triggering code and then executed from blueprints where the flyby is executed */
@@ -31,7 +35,7 @@ public:
 	UPROPERTY(BlueprintAssignable, BlueprintCallable)
 	FOnHoleFlybyComplete OnHoleFlybyComplete{};
 
-	void InitializeTutorialActions(APlayerController* PlayerController);
+	void InitializeTutorialActions(UTutorialConfigDataAsset* TutorialConfig, APlayerController* PlayerController);
 	void DisplayNextTutorial(APlayerController* PlayerController);
 	void HideActiveTutorial();
 	void DestroyTutorialActions();
@@ -53,6 +57,10 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void MarkAllHoleFlybysSeen(bool bSeen);
+
+private:
+	template<std::derived_from<UTutorialAction> T>
+	void RegisterTutorialAction(UTutorialConfigDataAsset* TutorialConfig, APlayerController* PlayerController);
 
 private:
 
