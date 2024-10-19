@@ -9,6 +9,8 @@
 
 #include "Pawn/PaperGolfPawn.h"
 
+#include "Interfaces/GolfController.h"
+
 #include "GameFramework/PlayerController.h"
 #include "VisualLogger/VisualLogger.h"
 
@@ -111,15 +113,20 @@ APlayerController* UTutorialAction::GetPlayerController() const
 	return GameInstance->GetFirstLocalPlayerController();
 }
 
+IGolfController* UTutorialAction::GetGolfController() const
+{
+	return Cast<IGolfController>(GetPlayerController());
+}
+
 APaperGolfPawn* UTutorialAction::GetPlayerPawn() const
 {
-	auto PC = GetPlayerController();
-	if (!PC)
+	auto GolfController = GetGolfController();
+	if (!GolfController)
 	{
 		return nullptr;
 	}
 
-	return Cast<APaperGolfPawn>(PC->GetPawn());
+	return GolfController->GetPaperGolfPawn();
 }
 
 APGHUD* UTutorialAction::GetHUD() const

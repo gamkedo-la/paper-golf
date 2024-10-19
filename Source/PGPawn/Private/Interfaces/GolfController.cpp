@@ -41,6 +41,14 @@ const AGolfPlayerState* IGolfController::GetGolfPlayerState() const
 	return AsController()->GetPlayerState<const AGolfPlayerState>();
 }
 
+AActor* IGolfController::GetCurrentGolfHole() const
+{
+	auto Component = GetGolfControllerCommonComponent();
+	check(Component);
+
+	return Component->GetCurrentGolfHole();
+}
+
 void IGolfController::RegisterGolfSubsystemEvents(const TFunction<void(UGolfEventsSubsystem&)>& ClippedThroughWorldRegistrator)
 {
 	auto Controller = AsController();

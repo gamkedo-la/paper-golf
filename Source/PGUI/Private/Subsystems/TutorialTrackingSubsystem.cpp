@@ -14,6 +14,7 @@
 #include "Tutorial/ShotTutorialAction.h"
 #include "Tutorial/AimTutorialAction.h"
 
+#include "Tutorial/ShotPreviewTutorialAction.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(TutorialTrackingSubsystem)
 
@@ -51,6 +52,7 @@ void UTutorialTrackingSubsystem::InitializeTutorialActions(APlayerController* Pl
 
 	TutorialActions.Add(NewObject<UShotTutorialAction>(PlayerController));
 	TutorialActions.Add(NewObject<UAimTutorialAction>(PlayerController));
+	TutorialActions.Add(NewObject<UShotPreviewTutorialAction>(PlayerController));
 }
 
 void UTutorialTrackingSubsystem::DisplayNextTutorial(APlayerController* PlayerController)

@@ -9,6 +9,7 @@
 class APlayerController;
 class APGHUD;
 class APaperGolfPawn;
+class IGolfController;
 
 /**
  * 
@@ -28,6 +29,7 @@ public:
 protected:
 	void ShowMessages(const TArray<FText>& Messages, float MessageDuration = -1.0f);
 	APlayerController* GetPlayerController() const;
+	IGolfController* GetGolfController() const;
 	APaperGolfPawn* GetPlayerPawn() const;
 	APGHUD* GetHUD() const;
 

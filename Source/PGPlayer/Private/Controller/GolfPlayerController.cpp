@@ -979,7 +979,7 @@ void AGolfPlayerController::TriggerHoleFlybyAndPlayerCameraIntroduction()
 
 	if (!IsHoleFlybySeen())
 	{
-		const auto GolfHole = AGolfHole::GetCurrentHole(this);
+		const auto GolfHole = Cast<AGolfHole>(GetCurrentGolfHole());
 		if (ensure(GolfHole))
 		{
 			TriggerHoleFlyby(*GolfHole);
@@ -1083,7 +1083,7 @@ void AGolfPlayerController::SpectateCurrentGolfHole()
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SpectateCurrentGolfHole"), *GetName());
 
 	// Fine to re-target the golf hole as the camera manager doesn't interrupt a transition to the same target
-	if (auto GolfHole = AGolfHole::GetCurrentHole(this); GolfHole)
+	if (auto GolfHole = Cast<AGolfHole>(GetCurrentGolfHole()); GolfHole)
 	{
 		SetViewTargetWithBlend(GolfHole, HoleCameraCutTime, EViewTargetBlendFunction::VTBlend_EaseInOut, HoleCameraCutExponent);
 	}

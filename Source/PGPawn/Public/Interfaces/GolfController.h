@@ -84,6 +84,8 @@ public:
 
 	virtual void ResetShot() = 0;
 
+	AActor* GetCurrentGolfHole() const;
+
 protected:
 	void DoBeginPlay(const TFunction<void(UGolfEventsSubsystem&)>& ClippedThroughWorldRegistrator);
 
