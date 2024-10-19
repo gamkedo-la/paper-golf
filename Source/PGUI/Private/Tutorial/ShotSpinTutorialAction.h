@@ -4,17 +4,17 @@
 
 #include "CoreMinimal.h"
 #include "Tutorial/MessageOrientedTutorialAction.h"
-#include "ShotPreviewTutorialAction.generated.h"
+#include "ShotSpinTutorialAction.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class UShotPreviewTutorialAction : public UMessageOrientedTutorialAction
+class UShotSpinTutorialAction : public UMessageOrientedTutorialAction
 {
 	GENERATED_BODY()
 
 public:
-	UShotPreviewTutorialAction();
+	UShotSpinTutorialAction();
 	virtual bool IsRelevant() const override;
 };

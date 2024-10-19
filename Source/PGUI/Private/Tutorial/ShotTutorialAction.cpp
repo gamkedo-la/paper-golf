@@ -18,7 +18,7 @@ namespace
 	const TArray<FText> Messages = {
 		NSLOCTEXT("ShotTutorialAction", "Message1", "Press LMB to start the shot meter"),
 		NSLOCTEXT("ShotTutorialAction", "Message2", "Press LMB again to set the power"),
-		NSLOCTEXT("ShotTutorialAction", "Message3", "Press LMB a third time to set accuracy at the black line"),
+		NSLOCTEXT("ShotTutorialAction", "Message3", "Press LMB a third time to set accuracy at the black line between the white bars"),
 	};
 }
 

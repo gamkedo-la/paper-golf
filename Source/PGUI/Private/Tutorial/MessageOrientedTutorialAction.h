@@ -25,13 +25,12 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Tutorial")
 	TArray<FText> Messages;
 
-private:
 	UPROPERTY(EditDefaultsOnly, Category = "Tutorial")
 	float MessageDuration{ 1.5f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Tutorial")
 	int32 MaxMessagePresentations{ 3 };
 
+private:
 	int32 MessagePresentationCount{};
-	
 };
