@@ -5,30 +5,29 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 
-#include "Interfaces/OnlineSessionInterface.h"
+#include "Interfaces/MultiplayerMenu.h"
 
 #include "Menu.generated.h"
+
+
+class UMultiplayerMenuHelper;
 
 class UButton;
 class UCheckBox;
 class UEditableText;
 class UComboBoxString;
-
-class UMultiplayerSessionsSubsystem;
-class FOnlineSessionSearchResult;
 /**
  * 
  */
 UCLASS()
-class MULTIPLAYERSESSIONS_API UMenu : public UUserWidget
+class MULTIPLAYERSESSIONS_API UMenu : public UUserWidget, public IMultiplayerMenu
 {
 	GENERATED_BODY()
 
 public:
 
-	UFUNCTION(BlueprintCallable, Category = "Menu")
-	void MenuSetup(const TMap<FString,FString>& MatchTypesToDisplayMap, const TArray<FString>& Maps, const FString& LobbyPath,
-		int32 MinPlayers = 2, int32 MaxPlayers = 4, int32 DefaultNumPlayers = 2, bool bDefaultLANMatch = true, bool bDefaultAllowBots = false);
+	virtual void MenuSetup_Implementation(const TMap<FString, FString>& MatchTypesToDisplayMap, const TArray<FString>& Maps, const FString& LobbyPath,
+		int32 MinPlayers = 2, int32 MaxPlayers = 4, int32 DefaultNumPlayers = 2, bool bDefaultLANMatch = true, bool bDefaultAllowBots = false) override;
 
 protected:
 
@@ -37,57 +36,19 @@ protected:
 	// OnLevelRemovedFromWorld was removed in Unreal 5.1, we can use "NativeDestruct" instead to do the equivalent cleanup
 	virtual void NativeDestruct() override;
 
-	//
-	// Callbacks for the custom delegates on the MultiplayerSessionSubsystem
-	// 
-	UFUNCTION()
-	virtual void OnCreateSessionComplete(bool bWasSuccessful);
+	virtual void HostButtonClicked_Implementation() override;
 
-	virtual void OnFindSessionsComplete(const TArray<FOnlineSessionSearchResult>& SessionResults, bool bWasSuccessful);
+	virtual void JoinButtonClicked_Implementation() override;
 
-	virtual void OnJoinSessionComplete(EOnJoinSessionCompleteResult::Type Result);
-	
-	UFUNCTION()
-	virtual void OnDestroySessionComplete(bool bWasSuccessful);
-
-	UFUNCTION()
-	virtual void OnStartSessionComplete(bool bWasSuccessful);
+	virtual void LanMatchChanged_Implementation(bool bIsChecked) override;
 
 private:
-
-	void InitNumberOfPlayersComboBox(int32 MinPlayers, int32 MaxPlayers);
-	void InitMatchTypesComboBox(const TMap<FString, FString>& MatchTypesToDisplayMap);
-	void InitMapsComboBox(const TArray<FString>& Maps);
-
-	// Allow invoking from blueprint for Gamepad support
-	UFUNCTION(BlueprintCallable)
-	void HostButtonClicked();
-
-	UFUNCTION(BlueprintCallable)
-	void JoinButtonClicked();
-
-	UFUNCTION(BlueprintCallable)
-	void OnLanMatchChanged(bool bIsChecked);
-
 	void MenuTeardown();
 
-	void HostDiscoverableMatch();
-	void HostDirectLanMatch();
-
-	void SubsystemFindMatch();
-	void IpConnectLanMatch();
-
-	bool IsDirectIpLanMatch() const;
-
-	FString GetPreferredMatchType() const;
-	FString GetPreferredMap() const;
-	int32 GetMaxNumberOfPlayers() const;
-
-
-	const FOnlineSessionSearchResult* FindBestSessionResult(const TArray<FOnlineSessionSearchResult>& SessionResults) const;
-	const FOnlineSessionSearchResult* MatchSessionResult(const TArray<FOnlineSessionSearchResult>& SessionResults, const TArray<FString> AllowedMatchTypes) const;
-
 private:
+
+	UPROPERTY(Transient)
+	TObjectPtr<UMultiplayerMenuHelper> MenuHelper{};
 
 	// Button variable in widget blueprint is bound also in C++ - name needs to match exactly
 	UPROPERTY(Category = "Menu", BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
@@ -113,14 +74,4 @@ private:
 
 	UPROPERTY(Category = "Menu", BlueprintReadOnly, meta = (BindWidget, AllowPrivateAccess = "true"))
 	TObjectPtr<UComboBoxString> CboAvailableMaps{};
-
-	// Subsystem to handle all online functionality
-	UPROPERTY(Transient)
-	UMultiplayerSessionsSubsystem* MultiplayerSessionsSubsystem {};
-
-	TMap<FString,FString> MatchDisplayNamesToMatchTypes{};
-	TArray<FString> AvailableMaps{};
-
-	FString PathToLobby{};
-	int32 DefaultNumPlayers{};
 };
