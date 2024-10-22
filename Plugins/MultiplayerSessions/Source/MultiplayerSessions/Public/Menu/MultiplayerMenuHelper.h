@@ -9,44 +9,10 @@
 
 #include "MultiplayerMenuHelper.generated.h"
 
-class UButton;
-class UCheckBox;
-class UEditableText;
-class UComboBoxString;
-
 class UMultiplayerSessionsSubsystem;
 class FOnlineSessionSearchResult;
 class APlayerController;
-
-USTRUCT(BlueprintType)
-struct MULTIPLAYERSESSIONS_API FMultiplayerMenuWidgets
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	TObjectPtr<UButton> BtnHost{};
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	TObjectPtr<UButton> BtnJoin{};
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	TObjectPtr<UCheckBox> ChkLanMatch{};
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	TObjectPtr<UCheckBox> ChkAllowBots{};
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	TObjectPtr<UEditableText> TxtLanIpAddress{};
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	TObjectPtr<UComboBoxString> CboAvailableMatchTypes{};
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	TObjectPtr<UComboBoxString> CboMaxNumberOfPlayers{};
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	TObjectPtr<UComboBoxString> CboAvailableMaps{};
-};
+class IMultiplayerMenuWidget;
 
 /**
  * 
@@ -57,15 +23,14 @@ class MULTIPLAYERSESSIONS_API UMultiplayerMenuHelper : public UObject, public IM
 	GENERATED_BODY()
 	
 public:
-
-	UFUNCTION(BlueprintCallable, Category = "Menu")
-	virtual bool Initialize(const FMultiplayerMenuWidgets& MenuWidgets);
-
-	virtual void MenuSetup_Implementation(const TMap<FString, FString>& MatchTypesToDisplayMap, const TArray<FString>& Maps, const FString& LobbyPath,
-		int32 MinPlayers = 2, int32 MaxPlayers = 4, int32 DefaultNumPlayers = 2, bool bDefaultLANMatch = true, bool bDefaultAllowBots = false) override;
+    UFUNCTION(BlueprintCallable)
+    void Initialize(const TScriptInterface<IMultiplayerMenuWidget>& InMenuWidget);
 
 protected:
 
+    virtual void MenuSetup_Implementation(const TMap<FString, FString>& MatchTypesToDisplayMap, const TArray<FString>& Maps, const FString& LobbyPath,
+        int32 MinPlayers = 2, int32 MaxPlayers = 4, int32 DefaultNumPlayers = 2, bool bDefaultLANMatch = true, bool bDefaultAllowBots = false) override;
+    
 	virtual void HostButtonClicked_Implementation() override;
 
 	virtual void JoinButtonClicked_Implementation() override;
@@ -92,19 +57,6 @@ protected:
 
 private:
 
-	UFUNCTION()
-	void OnHostButtonClicked();
-
-	UFUNCTION()
-	void OnJoinButtonClicked();
-
-	UFUNCTION()
-	void OnLanMatchChanged(bool bIsChecked);
-
-	void InitNumberOfPlayersComboBox(int32 MinPlayers, int32 MaxPlayers);
-	void InitMatchTypesComboBox(const TMap<FString, FString>& MatchTypesToDisplayMap);
-	void InitMapsComboBox(const TArray<FString>& Maps);
-
 	void HostDiscoverableMatch();
 	void HostDirectLanMatch();
 
@@ -113,46 +65,25 @@ private:
 
 	bool IsDirectIpLanMatch() const;
 
-	FString GetPreferredMatchType() const;
-	FString GetPreferredMap() const;
-	int32 GetMaxNumberOfPlayers() const;
-
 	const FOnlineSessionSearchResult* FindBestSessionResult(const TArray<FOnlineSessionSearchResult>& SessionResults) const;
 	const FOnlineSessionSearchResult* MatchSessionResult(const TArray<FOnlineSessionSearchResult>& SessionResults, const TArray<FString> AllowedMatchTypes) const;
+    
+    void SetHostEnabled(bool bEnabled);
+    void SetJoinEnabled(bool bEnabled);
+    FString GetPreferredMatchType() const;
+    FString GetPreferredMap() const;
+    int32 GetMaxNumberOfPlayers() const;
 
 protected:
 
-	UPROPERTY(Transient, Category = "Menu", BlueprintReadOnly)
-	TObjectPtr<UButton> BtnHost{};
-
-	UPROPERTY(Transient, Category = "Menu", BlueprintReadOnly)
-	TObjectPtr<UButton> BtnJoin{};
-
-	UPROPERTY(Transient, Category = "Menu", BlueprintReadOnly)
-	TObjectPtr<UCheckBox> ChkLanMatch{};
-
-	UPROPERTY(Transient, Category = "Menu", BlueprintReadOnly)
-	TObjectPtr<UCheckBox> ChkAllowBots{};
-
-	UPROPERTY(Transient, Category = "Menu", BlueprintReadOnly)
-	TObjectPtr<UEditableText> TxtLanIpAddress{};
-
-	UPROPERTY(Transient, Category = "Menu", BlueprintReadOnly)
-	TObjectPtr<UComboBoxString> CboAvailableMatchTypes{};
-
-	UPROPERTY(Transient, Category = "Menu", BlueprintReadOnly)
-	TObjectPtr<UComboBoxString> CboMaxNumberOfPlayers{};
-
-	UPROPERTY(Transient, Category = "Menu", BlueprintReadOnly)
-	TObjectPtr<UComboBoxString> CboAvailableMaps{};
-
 	// Subsystem to handle all online functionality
 	UPROPERTY(Transient, Category = "Multiplayer", BlueprintReadOnly)
-	UMultiplayerSessionsSubsystem* MultiplayerSessionsSubsystem{};
+	TObjectPtr<UMultiplayerSessionsSubsystem> MultiplayerSessionsSubsystem{};
 
-	TMap<FString, FString> MatchDisplayNamesToMatchTypes{};
-	TArray<FString> AvailableMaps{};
+    UPROPERTY(Transient)
+    TObjectPtr<UObject> MultiplayerWidget;
 
+    TArray<FString> AllAvailableMatchTypes{};
 	FString PathToLobby{};
-	int32 DefaultNumPlayers{};
+    int32 DefaultNumPlayers{};
 };

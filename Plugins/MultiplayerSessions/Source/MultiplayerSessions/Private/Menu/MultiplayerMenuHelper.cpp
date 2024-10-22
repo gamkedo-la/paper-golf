@@ -7,7 +7,7 @@
 
 #include "MultiplayerSessionsLogging.h"
 #include "MultiplayerSessionsSubsystem.h"
-
+#include "Interfaces/MultiplayerMenuWidget.h"
 #include "Components/Button.h"
 #include "Components/CheckBox.h"
 
@@ -27,77 +27,20 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MultiplayerMenuHelper)
 
-bool UMultiplayerMenuHelper::Initialize(const FMultiplayerMenuWidgets& MenuWidgets)
+
+void UMultiplayerMenuHelper::Initialize(const TScriptInterface<IMultiplayerMenuWidget>& InMenuWidget)
 {
-	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: Initialize"), *GetName());
-
-	BtnHost = MenuWidgets.BtnHost;
-	BtnJoin = MenuWidgets.BtnJoin;
-	ChkLanMatch = MenuWidgets.ChkLanMatch;
-	ChkAllowBots = MenuWidgets.ChkAllowBots;
-	TxtLanIpAddress = MenuWidgets.TxtLanIpAddress;
-	CboAvailableMatchTypes = MenuWidgets.CboAvailableMatchTypes;
-	CboMaxNumberOfPlayers = MenuWidgets.CboMaxNumberOfPlayers;
-	CboAvailableMaps = MenuWidgets.CboAvailableMaps;
-
-	// Make sure all are defined
-
-	if (ensureMsgf(BtnHost, TEXT("%s: BtnHost is NULL"), *GetName()))
-	{
-		BtnHost->OnClicked.AddDynamic(this, &ThisClass::OnHostButtonClicked);
-	}
-	else
-	{
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: BtnHost NULL!"), *GetName());
-		return false;
-	}
-
-	if (ensureMsgf(BtnJoin, TEXT("%s: BtnJoin is NULL"), *GetName()))
-	{
-		BtnJoin->OnClicked.AddDynamic(this, &ThisClass::OnJoinButtonClicked);
-	}
-	else
-	{
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: BtnJoin NULL!"), *GetName());
-		return false;
-	}
-
-	if (ensureMsgf(ChkLanMatch, TEXT("%s: ChkLanMatch is NULL"), *GetName()))
-	{
-		ChkLanMatch->OnCheckStateChanged.AddDynamic(this, &ThisClass::OnLanMatchChanged);
-	}
-	else
-	{
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: ChkLanMatch NULL!"), *GetName());
-		return false;
-	}
-
-	if (!ensureMsgf(TxtLanIpAddress, TEXT("%s: TxtLanIpAddress is NULL"), *GetName()))
-	{
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: TxtLanIpAddress NULL!"), *GetName());
-		return false;
-	}
-
-	if (!ensureMsgf(CboAvailableMatchTypes, TEXT("%s: CboAvailableMatchTypes is NULL"), *GetName()))
-	{
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: CboAvailableMatchTypes NULL!"), *GetName());
-		return false;
-	}
-
-	if (!ensureMsgf(CboAvailableMaps, TEXT("%s: CboAvailableMaps is NULL"), *GetName()))
-	{
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: CboAvailableMaps NULL!"), *GetName());
-		return false;
-	}
-
-	if (!ensureMsgf(CboMaxNumberOfPlayers, TEXT("%s: CboMaxNumberOfPlayers is NULL"), *GetName()))
-	{
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: CboMaxNumberOfPlayers NULL!"), *GetName());
-		return false;
-	}
-
-	return true;
+    UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: Initialize"), *GetName());
+    
+    if(!ensure(InMenuWidget))
+    {
+        UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: Initialize - InMenuWidget is NULL"), *GetName());
+        return;
+    }
+    
+    MultiplayerWidget = InMenuWidget.GetObject();
 }
+
 
 void UMultiplayerMenuHelper::MenuSetup_Implementation(const TMap<FString, FString>& MatchTypesToDisplayMap, const TArray<FString>& Maps, const FString& LobbyPath, int32 MinPlayers, int32 MaxPlayers, int32 InDefaultNumPlayers, bool bDefaultLANMatch, bool bDefaultAllowBots)
 {
@@ -108,7 +51,8 @@ void UMultiplayerMenuHelper::MenuSetup_Implementation(const TMap<FString, FStrin
 		MatchTypesToDisplayMap.Num(), Maps.Num(), *LobbyPath);
 
 	PathToLobby = LobbyPath;
-	DefaultNumPlayers = InDefaultNumPlayers;
+    MatchTypesToDisplayMap.GenerateKeyArray(AllAvailableMatchTypes);
+    DefaultNumPlayers = InDefaultNumPlayers;
 
 	APlayerController* PlayerController = GetLocalPlayerController();
 
@@ -117,21 +61,7 @@ void UMultiplayerMenuHelper::MenuSetup_Implementation(const TMap<FString, FStrin
 		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: No PlayerController found - unable to change input mode"), *GetName());
 		return;
 	}
-
-	InitNumberOfPlayersComboBox(MinPlayers, MaxPlayers);
-	InitMatchTypesComboBox(MatchTypesToDisplayMap);
-	InitMapsComboBox(Maps);
-
-	if (ChkLanMatch)
-	{
-		ChkLanMatch->SetIsChecked(bDefaultLANMatch);
-	}
-
-	if (ChkAllowBots)
-	{
-		ChkAllowBots->SetIsChecked(bDefaultAllowBots);
-	}
-
+	
 	UGameInstance* GameInstance = UGameplayStatics::GetGameInstance(this);
 	if (!GameInstance)
 	{
@@ -156,98 +86,6 @@ void UMultiplayerMenuHelper::MenuSetup_Implementation(const TMap<FString, FStrin
 	MultiplayerSessionsSubsystem->MultiplayerOnJoinSessionComplete.AddUObject(this, &ThisClass::OnJoinSessionComplete);
 }
 
-void UMultiplayerMenuHelper::InitNumberOfPlayersComboBox(int32 MinPlayers, int32 MaxPlayers)
-{
-	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: InitNumberOfPlayersComboBox: MinPlayers=%d; MaxPlayers=%d; DefaultNumPlayers=%d"), *GetName(), MinPlayers, MaxPlayers, DefaultNumPlayers);
-
-	if (!CboMaxNumberOfPlayers)
-	{
-		return;
-	}
-
-	if (MinPlayers <= 0)
-	{
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: InitNumberOfPlayersComboBox - MinPlayers=%d <= 0; defaulting to 1"), *GetName(), MinPlayers);
-		MinPlayers = 1;
-	}
-	if (MaxPlayers < MinPlayers)
-	{
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: InitNumberOfPlayersComboBox - MaxPlayers=%d < MinPlayers=%d; defaulting to MinPlayers"), *GetName(), MaxPlayers, MinPlayers);
-		MaxPlayers = MinPlayers;
-	}
-
-	if (DefaultNumPlayers < MinPlayers || DefaultNumPlayers > MaxPlayers)
-	{
-		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: InitNumberOfPlayersComboBox - DefaultNumPlayers=%d not in range [%d, %d]; defaulting to MinPlayers"),
-			*GetName(), DefaultNumPlayers, MinPlayers, MaxPlayers);
-		DefaultNumPlayers = MinPlayers;
-	}
-
-	CboMaxNumberOfPlayers->ClearOptions();
-	for (int32 Index = MinPlayers; Index <= MaxPlayers; ++Index)
-	{
-		CboMaxNumberOfPlayers->AddOption(FString::FromInt(Index));
-	}
-
-	// Set initial selected option to DefaultNumPlayers
-	CboMaxNumberOfPlayers->SetSelectedOption(FString::FromInt(DefaultNumPlayers));
-}
-
-void UMultiplayerMenuHelper::InitMatchTypesComboBox(const TMap<FString, FString>& MatchTypesToDisplayMap)
-{
-	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: InitMatchTypesComboBox: MatchTypesToDisplayMap=%d"), *GetName(), MatchTypesToDisplayMap.Num());
-
-	if (!CboAvailableMatchTypes)
-	{
-		return;
-	}
-
-	// Map keys to the display name
-
-	CboAvailableMatchTypes->ClearOptions();
-	for (int32 Index = 0; const auto & [_, MatchDisplayName] : MatchTypesToDisplayMap)
-	{
-		CboAvailableMatchTypes->AddOption(MatchDisplayName);
-
-		if (Index == 0)
-		{
-			CboAvailableMatchTypes->SetSelectedOption(MatchDisplayName);
-		}
-		++Index;
-	}
-
-	MatchDisplayNamesToMatchTypes.Reset();
-
-	// Reverse the input map in order to get the match type for given display name
-	// since UMG doesn't have concept of option keys like an HTML combobox
-	for (const auto& Entry : MatchTypesToDisplayMap)
-	{
-		MatchDisplayNamesToMatchTypes.Add(Entry.Value, Entry.Key);
-	}
-}
-
-void UMultiplayerMenuHelper::InitMapsComboBox(const TArray<FString>& Maps)
-{
-	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: InitMapsComboBox: Maps=%d"), *GetName(), Maps.Num());
-
-	if (!CboAvailableMaps)
-	{
-		return;
-	}
-
-	CboAvailableMaps->ClearOptions();
-	for (int32 Index = 0; const auto & Map : Maps)
-	{
-		CboAvailableMaps->AddOption(Map);
-
-		if (Index == 0)
-		{
-			CboAvailableMaps->SetSelectedOption(Map);
-		}
-		++Index;
-	}
-}
-
 void UMultiplayerMenuHelper::OnCreateSessionComplete(bool bWasSuccessful)
 {
 	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: OnCreateSessionComplete: bWasSuccessful=%s"), *GetName(), bWasSuccessful ? TEXT("TRUE") : TEXT("FALSE"));
@@ -266,19 +104,20 @@ void UMultiplayerMenuHelper::OnCreateSessionComplete(bool bWasSuccessful)
 	}
 	else
 	{
-		BtnHost->SetIsEnabled(true);
+        SetHostEnabled(true);
 	}
 }
 
 void UMultiplayerMenuHelper::OnFindSessionsComplete(const TArray<FOnlineSessionSearchResult>& SessionResults, bool bWasSuccessful)
 {
-	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: OnFindSessionsComplete: bWasSuccessful=%s; SessionResultsSize=%d;  PreferredMatchType=%s; MatchDisplayNamesToMatchTypes=%d"),
-		*GetName(), bWasSuccessful ? TEXT("TRUE") : TEXT("FALSE"), SessionResults.Num(), *GetPreferredMatchType(), MatchDisplayNamesToMatchTypes.Num());
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: OnFindSessionsComplete: bWasSuccessful=%s; SessionResultsSize=%d;  PreferredMatchType=%s; AllAvailableMatchTypes=%d"),
+		*GetName(), bWasSuccessful ? TEXT("TRUE") : TEXT("FALSE"), SessionResults.Num(), *GetPreferredMatchType(), AllAvailableMatchTypes.Num());
 
 	if (!MultiplayerSessionsSubsystem)
 	{
 		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: OnFindSessionsComplete - MultiplayerSessionsSubsystem is NULL"), *GetName());
-		BtnJoin->SetIsEnabled(true);
+        SetJoinEnabled(true);
+        
 		return;
 	}
 
@@ -292,12 +131,12 @@ void UMultiplayerMenuHelper::OnFindSessionsComplete(const TArray<FOnlineSessionS
 	UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: OnFindSessionsComplete - Could not find a viable session to join out of %d results"),
 		*GetName(), SessionResults.Num());
 
-	BtnJoin->SetIsEnabled(true);
+    SetJoinEnabled(true);
 }
 
 const FOnlineSessionSearchResult* UMultiplayerMenuHelper::FindBestSessionResult(const TArray<FOnlineSessionSearchResult>& SessionResults) const
 {
-	const auto& PreferredMatchType = GetPreferredMatchType();
+    const auto& PreferredMatchType = GetPreferredMatchType();
 
 	// First try and join preferred match type
 	TArray<FString> AvailableMatchTypes;
@@ -315,7 +154,7 @@ const FOnlineSessionSearchResult* UMultiplayerMenuHelper::FindBestSessionResult(
 	}
 
 	AvailableMatchTypes.Reset();
-	MatchDisplayNamesToMatchTypes.GenerateValueArray(AvailableMatchTypes);
+    AvailableMatchTypes.Append(AllAvailableMatchTypes);
 
 	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: FindBestSessionResult - Trying to join %s"), *GetName(), !AvailableMatchTypes.IsEmpty()
 		? *FString::Printf(TEXT("any of %d supported match types"), AvailableMatchTypes.Num()) : TEXT("Any Match Type"));
@@ -382,8 +221,8 @@ void UMultiplayerMenuHelper::OnJoinSessionComplete(EOnJoinSessionCompleteResult:
 	if (!MultiplayerSessionsSubsystem)
 	{
 		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: OnJoinSessionComplete - MultiplayerSessionsSubsystem is NULL"), *GetName());
-		BtnJoin->SetIsEnabled(true);
-
+        SetJoinEnabled(true);
+        
 		return;
 	}
 
@@ -394,8 +233,8 @@ void UMultiplayerMenuHelper::OnJoinSessionComplete(EOnJoinSessionCompleteResult:
 	if (!OnlineSessionInterface)
 	{
 		UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: OnJoinSessionComplete - OnlineSessionInterface is NULL"), *GetName());
-		BtnJoin->SetIsEnabled(true);
-
+        SetJoinEnabled(true);
+        
 		return;
 	}
 
@@ -427,13 +266,13 @@ void UMultiplayerMenuHelper::OnJoinSessionComplete(EOnJoinSessionCompleteResult:
 		else
 		{
 			UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: OnJoinSessionComplete - No Local player controller to travel to ip address = %s!"), *GetName(), *IpAddress);
-			BtnJoin->SetIsEnabled(true);
-		}
+            SetJoinEnabled(true);
+        }
 	}
 	else
 	{
-		BtnJoin->SetIsEnabled(true);
-	}
+        SetJoinEnabled(true);
+    }
 }
 
 APlayerController* UMultiplayerMenuHelper::GetLocalPlayerController() const
@@ -448,21 +287,7 @@ APlayerController* UMultiplayerMenuHelper::GetLocalPlayerController() const
 	return GameInstance->GetFirstLocalPlayerController();
 }
 
-void UMultiplayerMenuHelper::OnHostButtonClicked()
-{
-	// Forwarding functions to interface since must use the Execute_ variant
-	IMultiplayerMenu::Execute_HostButtonClicked(this);
-}
 
-void UMultiplayerMenuHelper::OnJoinButtonClicked()
-{
-	IMultiplayerMenu::Execute_JoinButtonClicked(this);
-}
-
-void UMultiplayerMenuHelper::OnLanMatchChanged(bool bIsChecked)
-{
-	IMultiplayerMenu::Execute_LanMatchChanged(this, bIsChecked);
-}
 
 void UMultiplayerMenuHelper::OnDestroySessionComplete(bool bWasSuccessful)
 {
@@ -472,7 +297,8 @@ void UMultiplayerMenuHelper::OnDestroySessionComplete(bool bWasSuccessful)
 void UMultiplayerMenuHelper::OnStartSessionComplete(bool bWasSuccessful)
 {
 	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: OnStartSessionComplete: bWasSuccessful=%s"), *GetName(), bWasSuccessful ? TEXT("TRUE") : TEXT("FALSE"));
-	BtnHost->SetIsEnabled(true);
+	
+    SetHostEnabled(true);
 }
 
 void UMultiplayerMenuHelper::HostButtonClicked_Implementation()
@@ -483,9 +309,9 @@ void UMultiplayerMenuHelper::HostButtonClicked_Implementation()
 		return;
 	}
 
-	BtnHost->SetIsEnabled(false);
-
-	const bool bAllowBots = ChkAllowBots ? ChkAllowBots->IsChecked() : false;
+    SetHostEnabled(false);
+    
+	const bool bAllowBots = IMultiplayerMenuWidget::Execute_AllowBots(MultiplayerWidget);
 
 	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: HostButtonClicked - MaxNumPlayers=%d; MatchType=%s; AllowBots=%s"),
 		*GetName(), GetMaxNumberOfPlayers(), *GetPreferredMatchType(),
@@ -511,8 +337,8 @@ void UMultiplayerMenuHelper::JoinButtonClicked_Implementation()
 		return;
 	}
 
-	BtnJoin->SetIsEnabled(false);
-
+    SetJoinEnabled(false);
+    
 	// If lan mode and we specified an IP - just client travel directly there
 	if (IsDirectIpLanMatch())
 	{
@@ -561,18 +387,17 @@ void UMultiplayerMenuHelper::SubsystemFindMatch()
 
 void UMultiplayerMenuHelper::IpConnectLanMatch()
 {
-	check(ChkLanMatch);
-	check(TxtLanIpAddress);
-
 	const auto PlayerController = GetLocalPlayerController();
 	if (!ensure(PlayerController))
 	{
 		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: IpConnectLanMatch - PlayerController is NULL"), *GetName());
-		BtnHost->SetIsEnabled(true);
-		return;
+        
+        SetHostEnabled(true);
+        
+        return;
 	}
 
-	const auto& IpAddress = TxtLanIpAddress->GetText().ToString();
+    const auto& IpAddress = IMultiplayerMenuWidget::Execute_GetLanIpAddress(MultiplayerWidget);
 
 	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: IpConnectLanMatch - %s"), *GetName(), *IpAddress);
 
@@ -581,36 +406,36 @@ void UMultiplayerMenuHelper::IpConnectLanMatch()
 
 bool UMultiplayerMenuHelper::IsDirectIpLanMatch() const
 {
-	if (!ChkLanMatch || !TxtLanIpAddress)
-	{
-		return false;
-	}
+    return MultiplayerWidget ? IMultiplayerMenuWidget::Execute_IsDirectIpLanMatch(MultiplayerWidget) : false;
+}
 
-	return ChkLanMatch->IsChecked() && !TxtLanIpAddress->GetText().IsEmpty();
+void UMultiplayerMenuHelper::SetHostEnabled(bool bEnabled)
+{
+    if(MultiplayerWidget)
+    {
+        IMultiplayerMenuWidget::Execute_SetHostEnabled(MultiplayerWidget, bEnabled);
+    }
+}
+
+void UMultiplayerMenuHelper::SetJoinEnabled(bool bEnabled)
+{
+    if(MultiplayerWidget)
+    {
+        IMultiplayerMenuWidget::Execute_SetJoinEnabled(MultiplayerWidget, bEnabled);
+    }
 }
 
 FString UMultiplayerMenuHelper::GetPreferredMatchType() const
 {
-	if (!CboAvailableMatchTypes)
-	{
-		return {};
-	}
-
-	if (const auto MatchResult = MatchDisplayNamesToMatchTypes.Find(CboAvailableMatchTypes->GetSelectedOption()); MatchResult)
-	{
-		return *MatchResult;
-	}
-
-	UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: GetPreferredMatchType - Could not find match type for display name %s"), *GetName(), *CboAvailableMatchTypes->GetSelectedOption());
-	return {};
+    return MultiplayerWidget ? IMultiplayerMenuWidget::Execute_GetPreferredMatchType(MultiplayerWidget) : FString{};
 }
 
 FString UMultiplayerMenuHelper::GetPreferredMap() const
 {
-	return CboAvailableMaps ? CboAvailableMaps->GetSelectedOption() : FString{};
+    return MultiplayerWidget ? IMultiplayerMenuWidget::Execute_GetPreferredMap(MultiplayerWidget) : FString{};
 }
 
 int32 UMultiplayerMenuHelper::GetMaxNumberOfPlayers() const
 {
-	return CboMaxNumberOfPlayers ? FCString::Atoi(*CboMaxNumberOfPlayers->GetSelectedOption()) : DefaultNumPlayers;
+    return MultiplayerWidget ? IMultiplayerMenuWidget::Execute_GetMaxNumberOfPlayers(MultiplayerWidget) : DefaultNumPlayers;
 }

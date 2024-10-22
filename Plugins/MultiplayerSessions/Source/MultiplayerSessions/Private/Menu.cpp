@@ -30,10 +30,26 @@ void UMenu::MenuSetup_Implementation(const TMap<FString, FString>& MatchTypesToD
 	{
 		return;
 	}
+    
+    DefaultNumPlayers = InDefaultNumPlayers;
 
 	IMultiplayerMenu::Execute_MenuSetup(MenuHelper,
 		MatchTypesToDisplayMap, Maps, LobbyPath, MinPlayers, MaxPlayers, InDefaultNumPlayers, bDefaultLANMatch, bDefaultAllowBots
 	);
+    
+    InitNumberOfPlayersComboBox(MinPlayers, MaxPlayers);
+    InitMatchTypesComboBox(MatchTypesToDisplayMap);
+    InitMapsComboBox(Maps);
+
+    if (ChkLanMatch)
+    {
+        ChkLanMatch->SetIsChecked(bDefaultLANMatch);
+    }
+
+    if (ChkAllowBots)
+    {
+        ChkAllowBots->SetIsChecked(bDefaultAllowBots);
+    }
 
 	AddToViewport();
 	SetVisibility(ESlateVisibility::Visible);
@@ -78,18 +94,182 @@ bool UMenu::Initialize()
 			*GetName());
 		return false;
 	}
+    
+    MenuHelper->Initialize(this);
 
-	return MenuHelper->Initialize(FMultiplayerMenuWidgets
-	{ 
-		.BtnHost = BtnHost,
-		.BtnJoin = BtnJoin,
-		.ChkLanMatch = ChkLanMatch,
-		.ChkAllowBots = ChkAllowBots,
-		.TxtLanIpAddress = TxtLanIpAddress,
-		.CboAvailableMatchTypes = CboAvailableMatchTypes,
-		.CboMaxNumberOfPlayers = CboMaxNumberOfPlayers,
-		.CboAvailableMaps = CboAvailableMaps 
-	});
+    if (ensureMsgf(BtnHost, TEXT("%s: BtnHost is NULL"), *GetName()))
+    {
+        BtnHost->OnClicked.AddDynamic(this, &ThisClass::OnHostButtonClicked);
+    }
+    else
+    {
+        UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: BtnHost NULL!"), *GetName());
+        return false;
+    }
+
+    if (ensureMsgf(BtnJoin, TEXT("%s: BtnJoin is NULL"), *GetName()))
+    {
+        BtnJoin->OnClicked.AddDynamic(this, &ThisClass::OnJoinButtonClicked);
+    }
+    else
+    {
+        UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: BtnJoin NULL!"), *GetName());
+        return false;
+    }
+
+    if (ensureMsgf(ChkLanMatch, TEXT("%s: ChkLanMatch is NULL"), *GetName()))
+    {
+        ChkLanMatch->OnCheckStateChanged.AddDynamic(this, &ThisClass::OnLanMatchChanged);
+    }
+    else
+    {
+        UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: ChkLanMatch NULL!"), *GetName());
+        return false;
+    }
+
+    if (!ensureMsgf(TxtLanIpAddress, TEXT("%s: TxtLanIpAddress is NULL"), *GetName()))
+    {
+        UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: TxtLanIpAddress NULL!"), *GetName());
+        return false;
+    }
+
+    if (!ensureMsgf(CboAvailableMatchTypes, TEXT("%s: CboAvailableMatchTypes is NULL"), *GetName()))
+    {
+        UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: CboAvailableMatchTypes NULL!"), *GetName());
+        return false;
+    }
+
+    if (!ensureMsgf(CboAvailableMaps, TEXT("%s: CboAvailableMaps is NULL"), *GetName()))
+    {
+        UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: CboAvailableMaps NULL!"), *GetName());
+        return false;
+    }
+
+    if (!ensureMsgf(CboMaxNumberOfPlayers, TEXT("%s: CboMaxNumberOfPlayers is NULL"), *GetName()))
+    {
+        UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: CboMaxNumberOfPlayers NULL!"), *GetName());
+        return false;
+    }
+
+    return true;
+}
+
+void UMenu::InitNumberOfPlayersComboBox(int32 MinPlayers, int32 MaxPlayers)
+{
+    UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: InitNumberOfPlayersComboBox: MinPlayers=%d; MaxPlayers=%d; DefaultNumPlayers=%d"), *GetName(), MinPlayers, MaxPlayers, DefaultNumPlayers);
+
+    if (!CboMaxNumberOfPlayers)
+    {
+        return;
+    }
+
+    if (MinPlayers <= 0)
+    {
+        UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: InitNumberOfPlayersComboBox - MinPlayers=%d <= 0; defaulting to 1"), *GetName(), MinPlayers);
+        MinPlayers = 1;
+    }
+    if (MaxPlayers < MinPlayers)
+    {
+        UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: InitNumberOfPlayersComboBox - MaxPlayers=%d < MinPlayers=%d; defaulting to MinPlayers"), *GetName(), MaxPlayers, MinPlayers);
+        MaxPlayers = MinPlayers;
+    }
+
+    if (DefaultNumPlayers < MinPlayers || DefaultNumPlayers > MaxPlayers)
+    {
+        UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: InitNumberOfPlayersComboBox - DefaultNumPlayers=%d not in range [%d, %d]; defaulting to MinPlayers"),
+            *GetName(), DefaultNumPlayers, MinPlayers, MaxPlayers);
+        DefaultNumPlayers = MinPlayers;
+    }
+
+    CboMaxNumberOfPlayers->ClearOptions();
+    for (int32 Index = MinPlayers; Index <= MaxPlayers; ++Index)
+    {
+        CboMaxNumberOfPlayers->AddOption(FString::FromInt(Index));
+    }
+
+    // Set initial selected option to DefaultNumPlayers
+    CboMaxNumberOfPlayers->SetSelectedOption(FString::FromInt(DefaultNumPlayers));
+}
+
+void UMenu::InitMatchTypesComboBox(const TMap<FString, FString>& MatchTypesToDisplayMap)
+{
+    UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: InitMatchTypesComboBox: MatchTypesToDisplayMap=%d"), *GetName(), MatchTypesToDisplayMap.Num());
+
+    if (!CboAvailableMatchTypes)
+    {
+        return;
+    }
+
+    // Map keys to the display name
+
+    CboAvailableMatchTypes->ClearOptions();
+    for (int32 Index = 0; const auto & [_, MatchDisplayName] : MatchTypesToDisplayMap)
+    {
+        CboAvailableMatchTypes->AddOption(MatchDisplayName);
+
+        if (Index == 0)
+        {
+            CboAvailableMatchTypes->SetSelectedOption(MatchDisplayName);
+        }
+        ++Index;
+    }
+
+    MatchDisplayNamesToMatchTypes.Reset();
+
+    // Reverse the input map in order to get the match type for given display name
+    // since UMG doesn't have concept of option keys like an HTML combobox
+    for (const auto& Entry : MatchTypesToDisplayMap)
+    {
+        MatchDisplayNamesToMatchTypes.Add(Entry.Value, Entry.Key);
+    }
+}
+
+void UMenu::InitMapsComboBox(const TArray<FString>& Maps)
+{
+    UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: InitMapsComboBox: Maps=%d"), *GetName(), Maps.Num());
+
+    if (!CboAvailableMaps)
+    {
+        return;
+    }
+
+    CboAvailableMaps->ClearOptions();
+    for (int32 Index = 0; const auto & Map : Maps)
+    {
+        CboAvailableMaps->AddOption(Map);
+
+        if (Index == 0)
+        {
+            CboAvailableMaps->SetSelectedOption(Map);
+        }
+        ++Index;
+    }
+}
+
+void UMenu::SetHostEnabled_Implementation(bool bEnabled)
+{
+    BtnHost->SetIsEnabled(bEnabled);
+}
+
+void UMenu::SetJoinEnabled_Implementation(bool bEnabled)
+{
+    BtnJoin->SetIsEnabled(bEnabled);
+}
+
+void UMenu::OnHostButtonClicked()
+{
+    // Forwarding functions to interface since must use the Execute_ variant
+    IMultiplayerMenu::Execute_HostButtonClicked(this);
+}
+
+void UMenu::OnJoinButtonClicked()
+{
+    IMultiplayerMenu::Execute_JoinButtonClicked(this);
+}
+
+void UMenu::OnLanMatchChanged(bool bIsChecked)
+{
+    IMultiplayerMenu::Execute_LanMatchChanged(this, bIsChecked);
 }
 
 void UMenu::NativeDestruct()
@@ -129,6 +309,52 @@ void UMenu::LanMatchChanged_Implementation(bool bIsChecked)
 	}
 
 	IMultiplayerMenu::Execute_LanMatchChanged(MenuHelper, bIsChecked);
+}
+
+FString UMenu::GetPreferredMatchType_Implementation() const
+{
+    if (!CboAvailableMatchTypes)
+    {
+        return {};
+    }
+
+    if (const auto MatchResult = MatchDisplayNamesToMatchTypes.Find(CboAvailableMatchTypes->GetSelectedOption()); MatchResult)
+    {
+        return *MatchResult;
+    }
+
+    UE_VLOG_UELOG(this, LogMultiplayerSessions, Warning, TEXT("%s: GetPreferredMatchType - Could not find match type for display name %s"), *GetName(), *CboAvailableMatchTypes->GetSelectedOption());
+    return {};
+}
+
+FString UMenu::GetPreferredMap_Implementation() const
+{
+    return CboAvailableMaps ? CboAvailableMaps->GetSelectedOption() : FString{};
+}
+
+int32 UMenu::GetMaxNumberOfPlayers_Implementation() const
+{
+    return CboMaxNumberOfPlayers ? FCString::Atoi(*CboMaxNumberOfPlayers->GetSelectedOption()) : DefaultNumPlayers;
+}
+
+bool UMenu::AllowBots_Implementation() const
+{
+    return ChkAllowBots ? ChkAllowBots->IsChecked() : false;
+}
+
+bool UMenu::IsDirectIpLanMatch_Implementation() const
+{
+    if (!ChkLanMatch || !TxtLanIpAddress)
+    {
+        return false;
+    }
+
+    return ChkLanMatch->IsChecked() && !TxtLanIpAddress->GetText().IsEmpty();
+}
+
+FString UMenu::GetLanIpAddress_Implementation() const
+{
+    return TxtLanIpAddress ? TxtLanIpAddress->GetText().ToString() : FString{};
 }
 
 void UMenu::MenuTeardown()

@@ -7,7 +7,7 @@
 #include "MultiplayerMenu.generated.h"
 
 // This class does not need to be modified.
-UINTERFACE(MinimalAPI)
+UINTERFACE(BlueprintType, Blueprintable, MinimalAPI)
 class UMultiplayerMenu : public UInterface
 {
 	GENERATED_BODY()
