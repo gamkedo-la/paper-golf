@@ -272,7 +272,7 @@ void UPGGameInstance::ReturnToMainMenu()
 
 void UPGGameInstance::OnWorldChanged(UWorld* OldWorld, UWorld* NewWorld)
 {
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: OnWorldChanged: OldWorldMap=%s;NewWorldMap=%s"), *GetName(), 
+	UE_LOG(LogPaperGolfGame, Log, TEXT("%s: OnWorldChanged: OldWorldMap=%s;NewWorldMap=%s"), *GetName(),
 		OldWorld ? *OldWorld->GetMapName() : TEXT("NULL"),
 		NewWorld ? *NewWorld->GetMapName() : TEXT("NULL"));
 
@@ -291,7 +291,7 @@ void UPGGameInstance::OnWorldChanged(UWorld* OldWorld, UWorld* NewWorld)
 	// How to strip off the name of the map from the path?
 	if (MapName == MainMenuMapName)
 	{
-		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: Detected change to MainMenu map=%s - Destroying any active online session"), *GetName(), *MainMenuMapName);
+		UE_LOG(LogPaperGolfGame, Log, TEXT("%s: Detected change to MainMenu map=%s - Destroying any active online session"), *GetName(), *MainMenuMapName);
 
 		DestroyAnyActiveOnlineSession();
 	}
