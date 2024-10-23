@@ -121,12 +121,13 @@ void UTutorialAction::ShowMessages(const TArray<FText>& Messages, float MessageD
 			else
 			{
 				UE_VLOG_UELOG(GetOuter(), LogPGUI, Log, TEXT("%s: ShowMessages: All messages shown"), *GetName());
-				HUD->GetWorldTimerManager().ClearTimer(MessageTimerHandle);
 
 				if (ShouldMarkCompletedOnLastMessageDismissed())
 				{
 					MarkCompleted();
 				}
+
+				HUD->GetWorldTimerManager().ClearTimer(MessageTimerHandle);
 			}
 		}
 	}), MessageDuration, true, 0.0f);
