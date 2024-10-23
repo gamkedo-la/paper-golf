@@ -31,16 +31,18 @@
 void UMultiplayerMenuHelper::Initialize(const TScriptInterface<IMultiplayerMenuWidget>& InMenuWidget)
 {
     UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: Initialize"), *GetName());
-    
-    if(!ensure(InMenuWidget))
+
+	// Note that !ensure(InMenuWidget) fails as interfaces implemented in blueprint do not set the interface property.
+	// However we just need the object so just get that and then check the result
+	// See also https://www.stevestreeting.com/2020/11/02/ue4-c-interfaces-hints-n-tips/
+	MultiplayerWidget = InMenuWidget.GetObject();
+
+    if(!ensure(MultiplayerWidget))
     {
         UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: Initialize - InMenuWidget is NULL"), *GetName());
         return;
     }
-    
-    MultiplayerWidget = InMenuWidget.GetObject();
 }
-
 
 void UMultiplayerMenuHelper::MenuSetup_Implementation(const TMap<FString, FString>& MatchTypesToDisplayMap, const TArray<FString>& Maps, const FString& LobbyPath, int32 MinPlayers, int32 MaxPlayers, int32 InDefaultNumPlayers, bool bDefaultLANMatch, bool bDefaultAllowBots)
 {
