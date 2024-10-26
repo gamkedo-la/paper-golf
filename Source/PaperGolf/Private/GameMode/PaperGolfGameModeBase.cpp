@@ -502,11 +502,19 @@ bool APaperGolfGameModeBase::ReadyToStartMatch_Implementation()
 
 UClass* APaperGolfGameModeBase::GetDefaultPawnClassForController_Implementation(AController* InController)
 {
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: GetDefaultPawnClassForController_Implementation - InController=%s"), *GetName(), *LoggingUtils::GetName(InController));
+	if (const auto PawnClass = GetControllerPawnClass(InController); PawnClass)
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: GetDefaultPawnClassForController - Custom - Using PawnClass=%s for InController=%s"),
+			*GetName(), *LoggingUtils::GetName(PawnClass), *LoggingUtils::GetName(InController));
+		return PawnClass;
+	}
 
-	return Super::GetDefaultPawnClassForController_Implementation(InController);
+	const auto DefaultedPawnClass = Super::GetDefaultPawnClassForController_Implementation(InController);
 
-	// TODO: This is another spot where we can customize AI or which pawn to use for a given player - AI or human
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: GetDefaultPawnClassForController - Default - Using PawnClass=%s for InController=%s"),
+		*GetName(), *LoggingUtils::GetName(DefaultedPawnClass), *LoggingUtils::GetName(InController));
+
+	return DefaultedPawnClass;
 }
 
 void APaperGolfGameModeBase::OnMatchStateSet()
@@ -1197,4 +1205,22 @@ int32 APaperGolfGameModeBase::CreateBotPlayerId() const
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Warning, TEXT("%s: CreateBotPlayerId - Failed to generate a unique player id after %d retries - returning %d"), *GetName(), MaxIdRetries, PlayerId);
 
 	return PlayerId;
+}
+
+UClass* APaperGolfGameModeBase::GetControllerPawnClass(AController* InController) const
+{
+	if (!IsValid(InController))
+	{
+		return nullptr;
+	}
+
+	for (const auto& [ControllerClass, PawnClass] : ControllerPawnClassMap)
+	{
+		if (InController->IsA(ControllerClass))
+		{
+			return PawnClass;
+		}
+	}
+
+	return nullptr;
 }

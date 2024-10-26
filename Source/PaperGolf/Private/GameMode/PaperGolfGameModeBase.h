@@ -10,6 +10,7 @@ class AGolfAIController;
 class UHoleTransitionComponent;
 class IGolfController;
 class UPlayerConfig;
+class APaperGolfPawn;
 
 namespace PG
 {
@@ -193,6 +194,8 @@ private:
 
 	virtual bool CanCourseBeStarted() const;
 
+	UClass* GetControllerPawnClass(AController* InController) const;
+
 protected:
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	int32 StartHoleNumber{ 1 };
@@ -253,6 +256,12 @@ private:
 
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	TObjectPtr<UPlayerConfig> PlayerConfigData{};
+
+	/*
+	* Customize which pawn classes are used to spawn each controller type.
+	*/
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	TMap<TSubclassOf<AController>, TSubclassOf<APaperGolfPawn>> ControllerPawnClassMap{};
 
 	TUniquePtr<PG::FPlayerStateConfigurator> PlayerStateConfigurator{};
 };
