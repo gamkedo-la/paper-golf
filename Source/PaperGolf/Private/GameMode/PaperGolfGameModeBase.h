@@ -148,6 +148,7 @@ private:
 	AGolfAIController* CreateBot(int32 BotNumber);
 	AGolfAIController* ReplaceLeavingPlayerWithBot(AController* Player);
 	void InitBot(AGolfAIController& AIController, int32 BotNumber);
+	int32 CreateBotPlayerId() const;
 
 	void ConfigureJoinedPlayerState(AController& Player);
 	void SetHumanPlayerName(AController& PlayerController, APlayerState& PlayerState);

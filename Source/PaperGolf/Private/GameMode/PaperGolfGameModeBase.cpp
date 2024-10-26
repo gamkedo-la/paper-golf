@@ -43,6 +43,7 @@
 namespace
 {
 	constexpr const auto MatchJoinFailureMessage = TEXT("Match is no longer joinable");
+	constexpr const auto MaxIdRetries = 100;
 }
 
 APaperGolfGameModeBase::APaperGolfGameModeBase()
@@ -1146,6 +1147,7 @@ void APaperGolfGameModeBase::InitBot(AGolfAIController& AIController, int32 BotN
 	{
 		// TODO: Draw from a random list of 90s names
 		PlayerState->SetPlayerName(FString::Printf(TEXT("Bot %d"), BotNumber));
+		PlayerState->SetPlayerId(CreateBotPlayerId());
 
 		if (PlayerStateConfigurator)
 		{
@@ -1159,4 +1161,40 @@ void APaperGolfGameModeBase::InitBot(AGolfAIController& AIController, int32 BotN
 
 	// NumPlayers is incremented automatically but NumBots is not
 	++NumBots;
+}
+
+// Ensure that the bot player id does not conflict with any other player id
+int32 APaperGolfGameModeBase::CreateBotPlayerId() const
+{
+	const auto GeneratePlayerId = [] { return FMath::Rand32(); };
+
+	if (!ensure(IsValid(GameState)))
+	{
+		const auto PlayerId = GeneratePlayerId();
+		UE_VLOG_UELOG(this, LogPaperGolfGame,
+			Error, TEXT("%s: CreateBotPlayerId - GameState is not valid - just generating a playerId=%d without checking for conflicts"), *GetName(), PlayerId);
+		return PlayerId;
+	}
+
+	const auto& PlayerArray = GameState->PlayerArray;
+
+	for (int i = 0; i < MaxIdRetries; ++i)
+	{
+		const int32 PlayerId = GeneratePlayerId();
+		const bool bNoConflicts = !Algo::FindBy(PlayerArray, PlayerId, &AGolfPlayerState::GetPlayerId);
+		if (bNoConflicts)
+		{
+			UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: CreateBotPlayerId - PlayerId=%d"), *GetName(), PlayerId);
+			return PlayerId;
+		}
+		else
+		{
+			UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: CreateBotPlayerId - PlayerId=%d - Conflict - Retrying %d/%d"), *GetName(), PlayerId, i + 1, MaxIdRetries);
+		}
+	}
+
+	const auto PlayerId = GeneratePlayerId();
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Warning, TEXT("%s: CreateBotPlayerId - Failed to generate a unique player id after %d retries - returning %d"), *GetName(), MaxIdRetries, PlayerId);
+
+	return PlayerId;
 }

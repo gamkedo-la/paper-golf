@@ -268,6 +268,9 @@ bool APGHUD::ShouldShowActiveTurnWidgets() const
 
 	if (auto GolfGameState = GetGameState(); GolfGameState)
 	{
+		// If a multiplayer game started but others players dropped there may be more than 1 in the PlayerArray
+		// or if there are spectators only
+		// However, in a multiplayer context still show the widget since it would have shown before in the same game
 		return GolfGameState->PlayerArray.Num() > 1;
 	}
 

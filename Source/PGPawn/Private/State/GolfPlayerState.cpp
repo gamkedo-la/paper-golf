@@ -211,6 +211,7 @@ void AGolfPlayerState::DoGrabDebugSnapshot(FVisualLogEntry* Snapshot, FVisualLog
 	PlayerStateCategory.Category = FString::Printf(TEXT("PlayerState"));
 
 	PlayerStateCategory.Add(TEXT("Name"), *GetPlayerName());
+	PlayerStateCategory.Add(TEXT("Id"), FString::Printf(TEXT("%d"), GetPlayerId()));
 	PlayerStateCategory.Add(TEXT("Shots"), FString::Printf(TEXT("%d"), GetShots()));
 	PlayerStateCategory.Add(TEXT("TotalShots"), FString::Printf(TEXT("%d"), GetTotalShots()));
 	PlayerStateCategory.Add(TEXT("IsReadyForShot"), LoggingUtils::GetBoolString(IsReadyForShot()));
