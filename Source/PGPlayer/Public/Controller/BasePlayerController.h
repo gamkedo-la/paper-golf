@@ -52,6 +52,9 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent)
 	void BlueprintResumeGame();
 
+	UFUNCTION(BlueprintPure)
+	bool CanPauseGame() const;
+
 #if ENABLE_VISUAL_LOG
 	virtual bool ShouldCaptureDebugSnapshot() const { return false; }
 #endif
@@ -61,6 +64,7 @@ private:
 
 	void InitDebugDraw();
 	void CleanupDebugDraw();
+
 	
 private:
 

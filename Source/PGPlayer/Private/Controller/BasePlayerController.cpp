@@ -75,6 +75,12 @@ bool ABasePlayerController::IsGamePaused() const
 
 void ABasePlayerController::SetPaused(bool bPaused)
 {
+	if (!CanPauseGame())
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("Cannot pause game in Net Mode: %d"), GetNetMode());
+		return;
+	}
+
 	UGameplayStatics::SetGamePaused(GetWorld(), bPaused);
 }
 
@@ -106,6 +112,12 @@ void ABasePlayerController::InitDebugDraw()
 void ABasePlayerController::CleanupDebugDraw()
 {
 	GetWorldTimerManager().ClearTimer(VisualLoggerTimer);
+}
+
+bool ABasePlayerController::CanPauseGame() const
+{
+	// To be fair only allow pause when running standalone
+	return GetNetMode() == NM_Standalone;
 }
 
 #else
