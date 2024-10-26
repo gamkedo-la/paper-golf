@@ -75,6 +75,8 @@ bool ABasePlayerController::IsGamePaused() const
 
 void ABasePlayerController::SetPaused(bool bPaused)
 {
+	bPauseRequested = bPaused;
+
 	if (!CanPauseGame())
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("Cannot pause game in Net Mode: %d"), GetNetMode());

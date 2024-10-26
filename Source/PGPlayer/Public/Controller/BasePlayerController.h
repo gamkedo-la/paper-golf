@@ -39,6 +39,13 @@ public:
 	UFUNCTION(BlueprintPure)
 	bool IsGamePaused() const;
 
+	/**
+	 Cannot pause the game in multiplayer, so this checks if the pause action
+	 is still active or if it was resumed. 
+	*/
+	UFUNCTION(BlueprintPure)
+	bool IsPauseActionActive() const;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(EEndPlayReason::Type EndPlayReason) override;
@@ -71,4 +78,15 @@ private:
 	#if ENABLE_VISUAL_LOG
 		FTimerHandle VisualLoggerTimer{};
 	#endif
+
+	bool bPauseRequested{};
 };
+
+#pragma region Inline Definitions
+
+FORCEINLINE bool ABasePlayerController::IsPauseActionActive() const
+{
+	return bPauseRequested;
+}
+
+#pragma endregion Inline Definitions
