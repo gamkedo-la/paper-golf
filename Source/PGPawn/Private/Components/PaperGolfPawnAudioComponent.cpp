@@ -5,6 +5,8 @@
 
 #include "Audio/PGPawnAudioConfigAsset.h"
 
+#include "PaperGolfTypes.h"
+
 #include "Logging/LoggingUtils.h"
 #include "PGPawnLogging.h"
 #include "VisualLogger/VisualLogger.h"
@@ -25,7 +27,7 @@ UPaperGolfPawnAudioComponent::UPaperGolfPawnAudioComponent()
 	SetIsReplicatedByDefault(true);
 }
 
-void UPaperGolfPawnAudioComponent::PlayFlick()
+void UPaperGolfPawnAudioComponent::PlayFlick(const FFlickParams& FlickParams, const FVector& FlickImpulse)
 {
 	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: PlayFlick"), *LoggingUtils::GetName(GetOwner()), *GetName());
 
@@ -39,11 +41,32 @@ void UPaperGolfPawnAudioComponent::PlayFlick()
 		UPGAudioUtilities::PlaySfx2D(GetOwner(), PawnAudioConfig->FlickSfx);
 	}
 
+	CheckPlayFlight(FlickImpulse);
+}
+
+void UPaperGolfPawnAudioComponent::CheckPlayFlight(const FVector& FlickImpulse)
+{
 	// Flight sound is handled via replication in order to make sure that it is started and stopped reliably
 	// It's a looping sound so better handled with replication than a reliable event for players that might join a game in progress
-	if (GetOwnerRole() != ROLE_SimulatedProxy)
+
+	if(GetOwnerRole() == ROLE_SimulatedProxy)
 	{
+		return;
+	}
+
+	// Don't play flight sound if it doesn't meet the impulse threshold
+	const auto ImpulseThreshold = PawnAudioConfig->FlightSfxImpulseThreshold;
+	const auto ImpulseMagnitude = FlickImpulse.Size();
+
+	if (ImpulseMagnitude >= ImpulseThreshold)
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: CheckPlayFlight - TRUE - ImpulseMagnitude=%f >= ImpulseThreshold=%f"), *LoggingUtils::GetName(GetOwner()), *GetName(), ImpulseMagnitude, ImpulseThreshold);
 		PlayFlight();
+
+	}
+	else
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: CheckPlayFlight - FASLSE - ImpulseMagnitude=%f < ImpulseThreshold=%f"), *LoggingUtils::GetName(GetOwner()), *GetName(), ImpulseMagnitude, ImpulseThreshold);
 	}
 }
 
@@ -138,12 +161,12 @@ void UPaperGolfPawnAudioComponent::PlayFlight()
 		return;
 	}
 
-	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: PlayFlight"), *LoggingUtils::GetName(GetOwner()), *GetName());
-
 	if (!PawnAudioConfig)
 	{
 		return;
 	}
+
+	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: PlayFlight"), *LoggingUtils::GetName(GetOwner()), *GetName());
 
 	bPlayFlightRequested = true;
 

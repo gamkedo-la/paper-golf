@@ -8,6 +8,7 @@
 
 class UPGPawnAudioConfigAsset;
 class UAudioComponent;
+struct FFlickParams;
 
 /**
  * 
@@ -21,7 +22,7 @@ public:
 	UPaperGolfPawnAudioComponent();
 
 	UFUNCTION(BlueprintCallable)
-	void PlayFlick();
+	void PlayFlick(const FFlickParams& FlickParams, const FVector& FlickImpulse);
 
 	UFUNCTION(BlueprintCallable)
 	void PlayTurnStart();
@@ -37,6 +38,7 @@ protected:
 	virtual void OnNotifyRelevantCollision(UPrimitiveComponent* HitComponent, const FHitResult& Hit, const FVector& NormalImpulse) override;
 
 private:
+	void CheckPlayFlight(const FVector& FlickImpulse);
 	void PlayFlight();
 	void StopFlight();
 	void CancelFlightAudioTimer();

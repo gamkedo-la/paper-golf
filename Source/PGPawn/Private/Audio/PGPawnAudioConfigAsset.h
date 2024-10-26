@@ -31,6 +31,9 @@ public:
 	UPROPERTY(Category = "Audio | Flight", EditDefaultsOnly)
 	float FlightSfxFadeOutTime{ 1.0f };
 
+	UPROPERTY(Category = "Audio | Flight", EditDefaultsOnly)
+	float FlightSfxImpulseThreshold{ 75.0f };
+
 protected:
 	virtual const TMap<UPhysicalMaterial*, USoundBase*>& SelectPhysicalMaterialSoundsForComponent(UPrimitiveComponent* OwnerComponent, UPrimitiveComponent* HitComponent) const override;
 	virtual USoundBase* SelectDefaultHitSoundForComponent(UPrimitiveComponent* OwnerComponent, UPrimitiveComponent* HitComponent) const override;

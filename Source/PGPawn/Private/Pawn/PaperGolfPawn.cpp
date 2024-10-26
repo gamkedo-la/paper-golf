@@ -532,7 +532,7 @@ void APaperGolfPawn::DoFlick(FFlickParams FlickParams)
 
 	OnFlick.Broadcast();
 
-	PawnAudioComponent->PlayFlick();
+	PawnAudioComponent->PlayFlick(FlickParams, Impulse);
 }
 
 void APaperGolfPawn::DoNetworkFlick(const FNetworkFlickParams& Params)
@@ -582,7 +582,10 @@ void APaperGolfPawn::MulticastFlick_Implementation(const FNetworkFlickParams& Pa
 
 	OnFlick.Broadcast();
 
-	PawnAudioComponent->PlayFlick();
+	// recalculate Flick Impulse for pawn audio component
+	const auto& FlickImpulse = GetFlickForce(Params.FlickParams.ShotType, Params.FlickParams.Accuracy, Params.FlickParams.PowerFraction);
+
+	PawnAudioComponent->PlayFlick(Params.FlickParams, FlickImpulse);
 }
 
 bool APaperGolfPawn::ServerFlick_Validate(const FNetworkFlickParams& Params)
