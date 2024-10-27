@@ -80,7 +80,7 @@ private:
 
 	bool IsWorldShuttingDown() const;
 
-	void AdjustPlayerPositionIfTooCloseToHole(const IGolfController& Player, APaperGolfPawn& PaperGolfPawn);
+	bool AdjustPlayerPositionIfTooCloseToHole(const IGolfController& Player, APaperGolfPawn& PaperGolfPawn);
 
 private:
 	// TODO: Use APGTurnBasedGameMode if need the functionality of it.  Keeping it to the base class for now for maximum reuse

@@ -27,6 +27,7 @@ namespace PG::CollisionUtils
 namespace PG::CollisionChannel
 {
 	inline constexpr ECollisionChannel FlickTraceType = ECollisionChannel::ECC_GameTraceChannel1;
+	inline constexpr ECollisionChannel StaticObstacleTrace = ECollisionChannel::ECC_GameTraceChannel2;
 }
 
 namespace PG::CollisionProfile

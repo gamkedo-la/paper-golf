@@ -18,6 +18,7 @@ class UCameraComponent;
 class UPaperGolfPawnAudioComponent;
 class UPawnCameraLookComponent;
 class UCollisionDampeningComponent;
+class UGolfShotClearanceComponent;
 
 struct FPredictProjectilePathResult;
 class UCurveFloat;
@@ -339,6 +340,9 @@ private:
 
 	UPROPERTY(VisibleDefaultsOnly, Category = "Components")
 	TObjectPtr<UCollisionDampeningComponent> CollisionDampeningComponent{};
+
+	UPROPERTY(VisibleDefaultsOnly, Category = "Components")
+	TObjectPtr<UGolfShotClearanceComponent> GolfShotClearanceComponent{};
 };
 
 #pragma region Inline Definitions

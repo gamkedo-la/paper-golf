@@ -28,6 +28,8 @@
 #include "Components/PaperGolfPawnAudioComponent.h"
 #include "Components/PawnCameraLookComponent.h"
 #include "Components/CollisionDampeningComponent.h"
+#include "Components/GolfShotClearanceComponent.h"
+
 #include "VisualLogger/VisualLogger.h"
 #include "Logging/LoggingUtils.h"
 #include "Utils/StringUtils.h"
@@ -70,6 +72,7 @@ APaperGolfPawn::APaperGolfPawn()
 	PawnAudioComponent = CreateDefaultSubobject<UPaperGolfPawnAudioComponent>(TEXT("Audio"));
 	CameraLookComponent = CreateDefaultSubobject<UPawnCameraLookComponent>(TEXT("CameraLook"));
 	CollisionDampeningComponent = CreateDefaultSubobject<UCollisionDampeningComponent>(TEXT("CollisionDampening"));
+	GolfShotClearanceComponent = CreateDefaultSubobject<UGolfShotClearanceComponent>(TEXT("GolfShotClearance"));
 }
 
 void APaperGolfPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -227,6 +230,12 @@ void APaperGolfPawn::SetFocusActor(AActor* Focus, const TOptional<FVector>& Posi
 
 	FocusActor = Focus;
 
+	// TODO: This should happen before it adjusts for clearance
+	if (FocusActor)
+	{
+		GolfShotClearanceComponent->SetTargetPosition(FocusActor->GetActorLocation());
+	}
+
 	ResetCameraForShotSetup(PositionOverride);
 }
 
@@ -240,9 +249,17 @@ void APaperGolfPawn::OnRep_FocusActor()
 
 void APaperGolfPawn::SnapToGround()
 {
+	// Can only do this on server
+	if (!ensure(HasAuthority()))
+	{
+		return;
+	}
+
 	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: SnapToGround"), *GetName());
 
 	ResetRotation();
+
+	GolfShotClearanceComponent->AdjustPositionForClearance();
 
 	auto World = GetWorld();
 	

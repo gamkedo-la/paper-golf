@@ -343,7 +343,7 @@ void UGolfTurnBasedDirectorComponent::OnPaperGolfShotFinished(APaperGolfPawn* Pa
 	}
 }
 
-void UGolfTurnBasedDirectorComponent::AdjustPlayerPositionIfTooCloseToHole(const IGolfController& Player, APaperGolfPawn& PaperGolfPawn)
+bool UGolfTurnBasedDirectorComponent::AdjustPlayerPositionIfTooCloseToHole(const IGolfController& Player, APaperGolfPawn& PaperGolfPawn)
 {
 	checkf(CurrentHole, TEXT("%s: AdjustPlayerPositionIfTooCloseToHole - CurrentHole is NULL"), *GetName());
 
@@ -353,14 +353,14 @@ void UGolfTurnBasedDirectorComponent::AdjustPlayerPositionIfTooCloseToHole(const
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Warning, TEXT("%s: AdjustPlayerPositionIfTooCloseToHole - FALSE - Player=%s; PaperGolfPawn=%s does not have GolfPlayerState"),
 			*GetName(), *Player.ToString(), *PaperGolfPawn.GetName());
-		return;
+		return false;
 	}
 
 	if (PlayerState->HasScored())
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: AdjustPlayerPositionIfTooCloseToHole - FALSE - Player=%s; PaperGolfPawn=%s has already scored"),
 			*GetName(), *Player.ToString(), *PaperGolfPawn.GetName());
-		return;
+		return false;
 	}
 
 	// If overlapping the hole then a scored event will shortly come in so ignore in that case too
@@ -368,13 +368,15 @@ void UGolfTurnBasedDirectorComponent::AdjustPlayerPositionIfTooCloseToHole(const
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: AdjustPlayerPositionIfTooCloseToHole - FALSE - Player=%s; PaperGolfPawn=%s is overlapping hole"),
 			*GetName(), *Player.ToString(), *PaperGolfPawn.GetName());
-		return;
+		return false;
 	}
 
 	const bool bAdjustmentResult = PaperGolfPawn.AdjustPositionIfSnapToGroundOverlapping(CurrentHole->GetActorLocation(), CurrentHole->GetHoleRadius());
 
 	UE_VLOG_UELOG(GetOwner(), LogPaperGolfGame, Log, TEXT("%s: AdjustPlayerPositionIfTooCloseToHole - %s - Player=%s; PaperGolfPawn=%s"),
 		*GetName(), LoggingUtils::GetBoolString(bAdjustmentResult), *Player.ToString(), *PaperGolfPawn.GetName());
+
+	return bAdjustmentResult;
 }
 
 void UGolfTurnBasedDirectorComponent::OnPaperGolfPlayerScored(APaperGolfPawn* PaperGolfPawn)
