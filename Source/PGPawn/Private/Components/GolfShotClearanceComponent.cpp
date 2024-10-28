@@ -15,6 +15,9 @@
 
 #include "PGPawnLogging.h"
 
+
+#include UE_INLINE_GENERATED_CPP_BY_NAME(GolfShotClearanceComponent)
+
 namespace
 {
 	const FVector DefaultPosition{ 1e9, 1e9, 1e9 };
@@ -73,11 +76,14 @@ bool UGolfShotClearanceComponent::AdjustPositionForClearance()
 	bool bResult = World->OverlapAnyTestByChannel(TracePosition, RotationQuat, PG::CollisionChannel::StaticObstacleTrace, TraceShape);
 
 #if ENABLE_VISUAL_LOG
-	if (FVisualLogger::IsRecording())
+	if (bResult && FVisualLogger::IsRecording())
 	{
-		const auto LogShape = FBox::BuildAABB(TracePosition, TraceShape.GetExtent());
+		// Place at origin as translation is provided by the transform
+		const auto LogShape = FBox::BuildAABB(FVector::ZeroVector, TraceShape.GetExtent());
 
-		UE_VLOG_OBOX(MyOwner, LogPGPawn, Log, LogShape, RotationQuat.ToMatrix(),
+		const FTransform LogTransform{ RotationQuat, TracePosition };
+
+		UE_VLOG_OBOX(MyOwner, LogPGPawn, Log, LogShape, LogTransform.ToMatrixNoScale(),
 			bResult ? FColor::Red : FColor::Green, TEXT("Clearance"));
 	}
 #endif
@@ -96,18 +102,39 @@ bool UGolfShotClearanceComponent::AdjustPositionForClearance()
 	// Push back toward the last position and then retest
 	// TODO: May want to consider a hit normal as a fallback as need to make sure we don't push player through the floor in a way that snap to ground won't correct
 	const auto NewPosition = CurrentPosition + PushbackDirection * AdjustmentDistance;
-	const auto NewTraceShape = FCollisionShape::MakeBox(FVector{ TraceHeight * 0.5f });
+	
+	// Test if moving to the new location results in a collision
+	// TODO: Consider a different trace channel than ECC_VISIBILITY.  StaticObstacle trace is for whether something is considered an obstacle and FlickTrace is whether there is line of sight
+	// so really need a new trace channel for this
+	// Pushback current position so don't overlap immediately with what we checked before
+	// Use trace height since this is the actor height and would be the max distance we could have fallen into a crevice of the object
+	const auto NewPositionTraceStart = CurrentPosition + PushbackDirection * TraceHeight;
+	bResult = World->LineTraceTestByChannel(NewPositionTraceStart, NewPosition, ECollisionChannel::ECC_Visibility);
+
+#if ENABLE_VISUAL_LOG
+	if (bResult && FVisualLogger::IsRecording())
+	{
+		UE_VLOG_ARROW(MyOwner, LogPGPawn, Log, CurrentPosition, NewPosition, FColor::Red, TEXT("Clearance Dir"));
+		UE_VLOG_UELOG(MyOwner, LogPGPawn, Log, TEXT("%s-%s: AdjustPositionForClearance - FALSE - Pushback direction: %s to location %s resulted in us penetrating another object"),
+			*LoggingUtils::GetName(MyOwner), *GetName(), *PushbackDirection.ToCompactString(), *NewPosition.ToCompactString());
+
+		return false;
+	}
+#endif
+	
+	const auto BoundsTraceShape = FCollisionShape::MakeBox(FVector{ TraceHeight * 0.5f });
 	const auto NewRotationQuat = PushbackDirection.ToOrientationQuat();
 
-	bResult = World->OverlapAnyTestByChannel(NewPosition + TraceOffset, NewRotationQuat, ECollisionChannel::ECC_Visibility, NewTraceShape);
+	bResult = World->OverlapAnyTestByChannel(NewPosition + TraceOffset, NewRotationQuat, ECollisionChannel::ECC_Visibility, BoundsTraceShape);
 
 #if ENABLE_VISUAL_LOG
 	if (FVisualLogger::IsRecording())
 	{
 		UE_VLOG_ARROW(MyOwner, LogPGPawn, Log, CurrentPosition, NewPosition, FColor::Yellow, TEXT("Clearance Dir"));
-		const auto LogShape = FBox::BuildAABB(NewPosition + TraceOffset, NewTraceShape.GetExtent());
+		const auto LogShape = FBox::BuildAABB(FVector::ZeroVector, BoundsTraceShape.GetExtent());
 
-		UE_VLOG_OBOX(MyOwner, LogPGPawn, Log, LogShape, NewRotationQuat.ToMatrix(),
+		const FTransform LogTransform{ NewRotationQuat, NewPosition + TraceOffset };
+		UE_VLOG_OBOX(MyOwner, LogPGPawn, Log, LogShape, LogTransform.ToMatrixNoScale(),
 			bResult ? FColor::Red : FColor::Green, TEXT("Clearance New"));
 	}
 #endif
@@ -125,8 +152,7 @@ bool UGolfShotClearanceComponent::AdjustPositionForClearance()
 
 	MyOwner->SetActorLocation(NewPosition);
 
-	// TODO: Do we want to update this after changing location?
-	// LastPosition = CurrentPosition;
+	LastPosition = CurrentPosition;
 
 	return true;
 }
