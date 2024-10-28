@@ -32,6 +32,10 @@ private:
 
 	FBox GetOwnerAABB() const;
 
+	bool IsClearanceNeeded() const;
+
+	bool CalculateClearanceLocation(FVector& OutNewLocation) const;
+
 private:
 
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
