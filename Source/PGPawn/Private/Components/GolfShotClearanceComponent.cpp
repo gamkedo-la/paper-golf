@@ -197,14 +197,8 @@ bool UGolfShotClearanceComponent::IsClearanceNeeded(FHitResultData& OutHitResult
 	const auto TracePosition = CurrentPosition + TraceOffset;
 	const auto TraceShape = FCollisionShape::MakeBox(FVector{ AdjustmentDistance, AdjustmentDistance, TraceHeight });
 
-	FCollisionQueryParams QueryParams;
-	QueryParams.bIgnoreBlocks = false;
-	QueryParams.bIgnoreTouches = true;
-	QueryParams.bFindInitialOverlaps = false;
-
-	FHitResult OutHitResult;
 	// Cannot get the hit normal from the sweep trace with a box shape so need to do a line trace after to the hit location direction
-	bool bResult = World->SweepSingleByChannel(OutHitResult, TracePosition, TracePosition + FVector{ 0.1f }, RotationQuat, PG::CollisionChannel::StaticObstacleTrace, TraceShape, QueryParams);
+	bool bResult = World->OverlapAnyTestByChannel(TracePosition, RotationQuat, PG::CollisionChannel::StaticObstacleTrace, TraceShape);
 
 #if ENABLE_VISUAL_LOG
 	if (bResult && FVisualLogger::IsRecording())
@@ -214,7 +208,6 @@ bool UGolfShotClearanceComponent::IsClearanceNeeded(FHitResultData& OutHitResult
 
 		const FTransform LogTransform{ RotationQuat, TracePosition };
 
-		//DrawDebugSphere(World, OutHitResult.Location, 25.0f, 16, FColor::Purple, false, 10.0f);
 
 		UE_VLOG_OBOX(MyOwner, LogPGPawn, Log, LogShape, LogTransform.ToMatrixNoScale(),
 			bResult ? FColor::Red : FColor::Green, TEXT("Clearance"));
@@ -223,35 +216,40 @@ bool UGolfShotClearanceComponent::IsClearanceNeeded(FHitResultData& OutHitResult
 
 	if (bResult)
 	{
-		const auto HitLocation = OutHitResult.Location;
-		OutHitResultData.Location = HitLocation;
+		// Send out line traces to get hit location and normal
+		FCollisionQueryParams QueryParams;
+		QueryParams.AddIgnoredActor(MyOwner);
+		QueryParams.bIgnoreBlocks = false;
+		QueryParams.bIgnoreTouches = true;
+		QueryParams.bFindInitialOverlaps = false;
 
-		const auto ToHit = HitLocation - TracePosition;
-		const auto HitDistance = ToHit.Size();
-		const auto TraceDirection = ToHit / FMath::Max(HitDistance, KINDA_SMALL_NUMBER);
+		const auto& RightVector = MyOwner->GetActorRightVector();
 
-		// Trace so that we will hit again but be able to determine the normal
-		if (World->LineTraceSingleByChannel(OutHitResult, TracePosition, HitLocation + TraceDirection * 100.0f, PG::CollisionChannel::StaticObstacleTrace, QueryParams))
+		for (const auto& Direction : { ForwardDirection, -ForwardDirection, RightVector, -RightVector })
 		{
-			OutHitResultData.Normal = OutHitResult.Normal;
-		}
-		else
-		{
-			OutHitResultData.Normal = (TracePosition - HitLocation).GetSafeNormal();
+			FHitResult HitResult;
+			const auto TraceEnd = TracePosition + Direction * AdjustmentDistance * 2;
 
-			UE_VLOG_UELOG(MyOwner, LogPGPawn, Warning, TEXT("%s-%s: AdjustPositionForClearance - Unable to calculate hit normal - defaulting to inverse trace direction=%s"),
-				*LoggingUtils::GetName(MyOwner), *GetName(), *OutHitResultData.Normal.ToCompactString());
+			if (World->LineTraceSingleByChannel(HitResult, TracePosition, TraceEnd, PG::CollisionChannel::StaticObstacleTrace, QueryParams))
+			{
+				OutHitResultData.Location = HitResult.Location;
+				OutHitResultData.Normal = HitResult.Normal;
 
-			UE_VLOG_ARROW(MyOwner, LogPGPawn, Log, HitLocation, TracePosition, FColor::Yellow, TEXT("Default Normal"));
+				UE_VLOG_UELOG(MyOwner, LogPGPawn, Log, TEXT("%s-%s: AdjustPositionForClearance - TRUE - HitLocation=%s; HitNormal=%s"),
+					*LoggingUtils::GetName(MyOwner), *GetName(), *OutHitResultData.Location.ToCompactString(), *OutHitResultData.Normal.ToCompactString());
+
+				UE_VLOG_ARROW(MyOwner, LogPGPawn, Log, TracePosition, HitResult.Location, FColor::Orange, TEXT("Hit Location"));
+				UE_VLOG_ARROW(MyOwner, LogPGPawn, Log, HitResult.Location, HitResult.Location + HitResult.Normal * 100.0f, FColor::Yellow, TEXT("Hit Normal"));
+
+				return true;
+			}
 		}
 	}
-	else
-	{
-		UE_VLOG_UELOG(MyOwner, LogPGPawn, Log, TEXT("%s-%s: AdjustPositionForClearance - FALSE - No overlap detected"),
+
+	UE_VLOG_UELOG(MyOwner, LogPGPawn, Log, TEXT("%s-%s: AdjustPositionForClearance - FALSE - No valid overlap detected"),
 			*LoggingUtils::GetName(MyOwner), *GetName());
-	}
 
-	return bResult;
+	return false;
 }
 
 bool UGolfShotClearanceComponent::CalculateClearanceLocation(const FHitResultData& HitResultData, FVector& OutNewLocation) const
