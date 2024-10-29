@@ -26,15 +26,23 @@ protected:
 
 private:
 
+	struct FHitResultData
+	{
+		FVector Location;
+		FVector Normal;
+	};
+
+private:
+
 	bool ShouldAdjustPosition() const;
 
 	float GetActorHeight() const;
 
 	FBox GetOwnerAABB() const;
 
-	bool IsClearanceNeeded() const;
-
-	bool CalculateClearanceLocation(FVector& OutNewLocation) const;
+	bool IsClearanceNeeded(FHitResultData& OutHitResultData) const;
+	bool CalculateClearanceLocation(const FHitResultData& OutHitResultData, FVector& OutNewLocation) const;
+	bool CalculateClearanceLocation(const FVector& HitLocation, const FVector& PushbackDirection, FVector& OutNewLocation) const;
 
 private:
 
@@ -49,6 +57,11 @@ private:
 
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	float AdjustmentDistance{ 3 * 100.0f };
+
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	float HitNormalAlignmentAngle{ 45.0f };
+
+	float HitNormalAlignmentAngleCos{};
 
 	mutable float ActorHeight{ -1.0f };
 	FVector TargetPosition{ EForceInit::ForceInitToZero };
