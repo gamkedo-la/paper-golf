@@ -51,3 +51,22 @@ APlayerState* UPaperGolfGameUtilities::GetLocalPlayerState(UObject* WorldContext
 
 	return PlayerController->PlayerState;
 }
+
+FString UPaperGolfGameUtilities::GetCurrentMapName(UObject* WorldContextObject)
+{
+	if (!ensure(WorldContextObject))
+	{
+		return {};
+	}
+
+	const auto World = WorldContextObject->GetWorld();
+	if (!ensure(World))
+	{
+		return {};
+	}
+
+	FString MapName = World->GetMapName();
+	MapName.RemoveFromStart(World->StreamingLevelsPrefix); // Remove any prefix if necessary
+
+	return MapName;
+}

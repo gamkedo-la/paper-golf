@@ -167,10 +167,10 @@ void AGolfHole::BeginPlay()
 	}
 
 	auto GameState = World->GetGameState<APaperGolfGameStateBase>();
-	if (!ensureMsgf(GameState, TEXT("%s: BeginPlay: GameState=%s is not APaperGolfGameStateBase"),
-		*GetName(), *LoggingUtils::GetName(World->GetGameState())))
+	// This is not an assertion as the world could be loaded with a different game mode such as the lobby
+	if (!GameState)
 	{
-		UE_VLOG_UELOG(this, LogPGGameplay, Error, TEXT("%s: BeginPlay: GameState=%s is not APaperGolfGameStateBase"),
+		UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: BeginPlay: GameState=%s is not APaperGolfGameStateBase - Skipping initialization"),
 			*GetName(), *LoggingUtils::GetName(World->GetGameState()));
 		return;
 	}
@@ -284,10 +284,9 @@ void AGolfHole::UpdateColliderRegistration()
 
 	auto GameState = World->GetGameState<APaperGolfGameStateBase>();
 
-	if (!ensureAlwaysMsgf(GameState, TEXT("%s: UpdateColliderRegistration: GameState=%s is not APaperGolfGameStateBase"),
-	   *GetName(), *LoggingUtils::GetName(World->GetGameState())))
+	if (!GameState)
 	{
-		UE_VLOG_UELOG(this, LogPGGameplay, Error, TEXT("%s: UpdateColliderRegistration: GameState=%s is not APaperGolfGameStateBase"),
+		UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: UpdateColliderRegistration (Skip): GameState=%s is not APaperGolfGameStateBase"),
 			*GetName(), *LoggingUtils::GetName(World->GetGameState()));
 		return;
 	}

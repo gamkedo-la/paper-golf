@@ -46,6 +46,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Game Session Config")
 	static const FString& GetRandomMapName() { return RandomMapName; }
 
+	UFUNCTION(BLueprintPure, Category = "Maps")
+	static bool IsRandomMap(const FString& MapName);
+
 	UFUNCTION(BlueprintPure, Category = "Maps")
 	TSoftObjectPtr<UWorld> GetMap(const FString& MapName) const;
 
@@ -53,7 +56,10 @@ public:
 	TSoftObjectPtr<UWorld> GetRandomMap() const;
 
 	UFUNCTION(BlueprintPure, Category = "Maps")
-	FString GetPathForMap(const TSoftObjectPtr<UWorld>& World) const;
+	FString GetRandomizedMapName() const;
+
+	UFUNCTION(BlueprintPure, Category = "Maps")
+	static FString GetPathForMap(const TSoftObjectPtr<UWorld>& World);
 
 	UFUNCTION(BlueprintPure, Category = "Maps")
 	FString GetPathForMapName(const FString& MapName) const;
@@ -66,13 +72,19 @@ public:
 	const FGameModeInfo& GetGameModeInfo(const FString& MatchType, bool& bOutValid) const;
 
 	UFUNCTION(BlueprintPure, Category = "Modes")
-	FString GetGameModePath(const TSoftClassPtr<AGameModeBase>& GameMode) const;
+	static FString GetGameModePath(const TSoftClassPtr<AGameModeBase>& GameMode);
 
 	UFUNCTION(BlueprintPure, Category = "Modes")
 	TArray<FGameModeInfo> GetAllGameModes() const;
 
 	UFUNCTION(BlueprintPure, Category = "Modes")
 	TMap<FString, FString> GetMatchTypesToModeNames() const;
+
+	UFUNCTION(BlueprintPure, Category = "Modes")
+	TArray<FString> GetAllMatchTypeKeys() const;
+
+	UFUNCTION(BlueprintPure, Category = "Modes")
+	TArray<FString> GetAllGameModeNames() const;
 
 private:
 	void ValidateMaps();
@@ -97,6 +109,11 @@ private:
 FORCEINLINE FString UGameSessionConfig::GetPathForMapName(const FString& MapName) const
 {
 	return GetPathForMap(GetMap(MapName));
+}
+
+FORCEINLINE bool UGameSessionConfig::IsRandomMap(const FString& MapName)
+{
+	return MapName == RandomMapName;
 }
 
 #pragma endregion Inline Definitions

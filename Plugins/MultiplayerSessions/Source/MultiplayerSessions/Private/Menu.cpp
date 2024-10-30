@@ -6,6 +6,9 @@
 #include "Menu/MultiplayerMenuHelper.h"
 
 #include "MultiplayerSessionsLogging.h"
+
+#include "Config/GameSessionConfig.h"
+
 #include "Components/Button.h"
 #include "Components/CheckBox.h"
 
@@ -18,23 +21,33 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(Menu)
 
-void UMenu::MenuSetup_Implementation(const TMap<FString, FString>& MatchTypesToDisplayMap, const TArray<FString>& Maps, const FString& LobbyPath, int32 MinPlayers, int32 MaxPlayers, int32 InDefaultNumPlayers, bool bDefaultLANMatch, bool bDefaultAllowBots)
+void UMenu::MenuSetup_Implementation(const UGameSessionConfig* GameSessionConfig, const FString& LobbyPath, int32 MinPlayers, int32 MaxPlayers, int32 InDefaultNumPlayers, bool bDefaultLANMatch, bool bDefaultAllowBots)
 {
-	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: MenuSetup: MinPlayers=%d; MaxPlayers=%d; DefaultNumPlayers=%d; bDefaultLANMatch=%s; DefaultAllowBots=%s; MatchTypesToDisplayMap=%d; Maps=%d; LobbyPath=%s"), 
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: MenuSetup: MinPlayers=%d; MaxPlayers=%d; DefaultNumPlayers=%d; bDefaultLANMatch=%s; DefaultAllowBots=%s;GameSessionConfig=%s; LobbyPath=%s"), 
 		*GetName(), MinPlayers, MaxPlayers, InDefaultNumPlayers,
 		bDefaultLANMatch ? TEXT("TRUE") : TEXT("FALSE"), 
 		bDefaultAllowBots ? TEXT("TRUE") : TEXT("FALSE"),
-		MatchTypesToDisplayMap.Num(), Maps.Num(), *LobbyPath);
+        GameSessionConfig ? *GameSessionConfig->GetName() : TEXT("NULL"), *LobbyPath);
 
 	if (!MenuHelper)
 	{
 		return;
 	}
+
+    if (!ensure(GameSessionConfig))
+    {
+        return;
+    }
     
+
+	const auto MatchTypesToDisplayMap = GameSessionConfig->GetMatchTypesToModeNames();
+	const auto Maps = GameSessionConfig->GetAllMapNames();
+
     DefaultNumPlayers = InDefaultNumPlayers;
 
+
 	IMultiplayerMenu::Execute_MenuSetup(MenuHelper,
-		MatchTypesToDisplayMap, Maps, LobbyPath, MinPlayers, MaxPlayers, InDefaultNumPlayers, bDefaultLANMatch, bDefaultAllowBots
+		GameSessionConfig, LobbyPath, MinPlayers, MaxPlayers, InDefaultNumPlayers, bDefaultLANMatch, bDefaultAllowBots
 	);
     
     InitNumberOfPlayersComboBox(MinPlayers, MaxPlayers);

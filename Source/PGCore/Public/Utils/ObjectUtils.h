@@ -54,6 +54,8 @@ namespace PG::ObjectUtils
     template<std::derived_from<UObject> T>
     void LoadClassAsync(const TSoftClassPtr<T>& ClassPtr, TFunction<void(UClass*)>&& OnClassLoaded);
 
+    PGCORE_API FString GetFullyQualifiedClassName(const UObject* Object);
+
     namespace Private
     {
         template<typename PtrType, std::derived_from<UObject> CallbackType>

@@ -43,5 +43,7 @@ public:
 	*/
 	UFUNCTION(BlueprintPure, Category = "Paper Golf", meta = (DefaultToSelf = "WorldContextObject"))
 	static APlayerState* GetLocalPlayerState(UObject* WorldContextObject);
-	
+
+	UFUNCTION(BlueprintPure, Category = "World", meta = (WorldContext = "WorldContextObject"))
+	static FString GetCurrentMapName(UObject* WorldContextObject);
 };

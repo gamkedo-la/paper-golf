@@ -3,3 +3,18 @@
 
 #include "Utils/ObjectUtils.h"
 
+FString PG::ObjectUtils::GetFullyQualifiedClassName(const UObject* Object)
+{
+    if (!Object)
+    {
+        return {};
+    }
+    const auto Class = Object->GetClass();
+
+    if (!Class)
+    {
+        return {};
+    }
+
+    return Class->GetClassPathName().ToString();
+}

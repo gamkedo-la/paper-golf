@@ -130,7 +130,30 @@ TSoftObjectPtr<UWorld> UGameSessionConfig::GetRandomMap() const
 	return nullptr;
 }
 
-FString UGameSessionConfig::GetPathForMap(const TSoftObjectPtr<UWorld>& World) const
+FString UGameSessionConfig::GetRandomizedMapName() const
+{
+	if (!ensureAlways(!Maps.IsEmpty()))
+	{
+		return {};
+	}
+
+	auto MapIndex = FMath::RandRange(0, Maps.Num() - 1);
+
+	for (auto It = Maps.CreateConstIterator(); It; ++It)
+	{
+		if (MapIndex == 0)
+		{
+			return It.Key();
+		}
+		--MapIndex;
+	}
+
+	checkNoEntry();
+
+	return {};
+}
+
+FString UGameSessionConfig::GetPathForMap(const TSoftObjectPtr<UWorld>& World)
 {
 	// For some reason an odd extension is being added : e.g. House.house
 	// remove the extension
@@ -144,7 +167,7 @@ FString UGameSessionConfig::GetPathForMap(const TSoftObjectPtr<UWorld>& World) c
 	return Path.Left(Index);
 }
 
-FString UGameSessionConfig::GetGameModePath(const TSoftClassPtr<AGameModeBase>& GameMode) const
+FString UGameSessionConfig::GetGameModePath(const TSoftClassPtr<AGameModeBase>& GameMode)
 {
 	return GameMode.ToSoftObjectPath().ToString();
 }
@@ -166,7 +189,6 @@ TMap<FString, FString> UGameSessionConfig::GetMatchTypesToModeNames() const
 	return MatchTypesToNames;
 }
 
-
 TArray<FGameModeInfo> UGameSessionConfig::GetAllGameModes() const
 {
 	TArray<FGameModeInfo> GameModes;
@@ -186,3 +208,25 @@ TArray<FString> UGameSessionConfig::GetAllMapNames() const
 
 	return MapNames;
 }
+
+TArray<FString> UGameSessionConfig::GetAllMatchTypeKeys() const
+{
+	TArray<FString> MatchTypes;
+	MatchTypesToModes.GenerateKeyArray(MatchTypes);
+
+	return MatchTypes;
+}
+
+TArray<FString> UGameSessionConfig::GetAllGameModeNames() const
+{
+	TArray<FString> GameModeNames;
+	GameModeNames.Reserve(MatchTypesToModes.Num());
+
+	for (const auto& [_, GameMode] : MatchTypesToModes)
+	{
+		GameModeNames.Add(GameMode.Name);
+	}
+
+	return GameModeNames;
+}
+

@@ -7,6 +7,9 @@
 
 #include "MultiplayerSessionsLogging.h"
 #include "MultiplayerSessionsSubsystem.h"
+
+#include "Config/GameSessionConfig.h"
+
 #include "Interfaces/MultiplayerMenuWidget.h"
 #include "Components/Button.h"
 #include "Components/CheckBox.h"
@@ -44,16 +47,24 @@ void UMultiplayerMenuHelper::Initialize(const TScriptInterface<IMultiplayerMenuW
     }
 }
 
-void UMultiplayerMenuHelper::MenuSetup_Implementation(const TMap<FString, FString>& MatchTypesToDisplayMap, const TArray<FString>& Maps, const FString& LobbyPath, int32 MinPlayers, int32 MaxPlayers, int32 InDefaultNumPlayers, bool bDefaultLANMatch, bool bDefaultAllowBots)
+void UMultiplayerMenuHelper::MenuSetup_Implementation(const UGameSessionConfig* InGameSessionConfig, const FString& LobbyPath, int32 MinPlayers, int32 MaxPlayers, int32 InDefaultNumPlayers, bool bDefaultLANMatch, bool bDefaultAllowBots)
 {
-	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: MenuSetup: MinPlayers=%d; MaxPlayers=%d; DefaultNumPlayers=%d; bDefaultLANMatch=%s; DefaultAllowBots=%s; MatchTypesToDisplayMap=%d; Maps=%d; LobbyPath=%s"),
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: MenuSetup: MinPlayers=%d; MaxPlayers=%d; DefaultNumPlayers=%d; bDefaultLANMatch=%s; DefaultAllowBots=%s; InGameSessionConfig=%s; LobbyPath=%s"),
 		*GetName(), MinPlayers, MaxPlayers, InDefaultNumPlayers,
 		bDefaultLANMatch ? TEXT("TRUE") : TEXT("FALSE"),
 		bDefaultAllowBots ? TEXT("TRUE") : TEXT("FALSE"),
-		MatchTypesToDisplayMap.Num(), Maps.Num(), *LobbyPath);
+		InGameSessionConfig ? *InGameSessionConfig->GetName() : TEXT("NULL"), *LobbyPath);
 
+	if (!InGameSessionConfig)
+	{
+		UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: GameSessionConfig is NULL"), *GetName());
+		return;
+	}
+
+	GameSessionConfig = InGameSessionConfig;
 	PathToLobby = LobbyPath;
-    MatchTypesToDisplayMap.GenerateKeyArray(AllAvailableMatchTypes);
+
+	AllAvailableMatchTypes = GameSessionConfig->GetAllMatchTypeKeys();
     DefaultNumPlayers = InDefaultNumPlayers;
 
 	APlayerController* PlayerController = GetLocalPlayerController();
@@ -95,20 +106,55 @@ void UMultiplayerMenuHelper::OnCreateSessionComplete(bool bWasSuccessful)
 	if (bWasSuccessful)
 	{
 		// Travel to the lobby level after confirmation that session creation was successful
-		if (auto World = GetWorld(); World)
-		{
-			// TODO: This needs to be overridable as a BlueprintNativeEvent
-			World->ServerTravel(PathToLobby + "?listen");
-		}
-		else
-		{
-			UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: HostButtonClicked - World is NULL"), *GetName());
-		}
+		bWasSuccessful = TravelToLobby();
 	}
-	else
+
+	if(!bWasSuccessful)
 	{
         SetHostEnabled(true);
 	}
+}
+
+bool UMultiplayerMenuHelper::TravelToLobby()
+{
+	if (auto World = GetWorld(); World)
+	{
+		TMap<FString,FString> AdditionalLobbyOptions;
+		const auto LobbyMapOverride = GetLobbyMapOverride(AdditionalLobbyOptions);
+
+		FString LobbyMapParameters = "?listen";
+		FString LobbyUrl;
+
+		if (!LobbyMapOverride.IsEmpty())
+		{
+			for (const auto& [Key, Value] : AdditionalLobbyOptions)
+			{
+				LobbyMapParameters += '?';
+				LobbyMapParameters += Key;
+				if (!Value.IsEmpty())
+				{
+					LobbyMapParameters += '=';
+					LobbyMapParameters += Value;
+				}
+			}
+
+			UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: TravelToLobby - Using LobbyMapOverride: %s and LobbyMapParameters=%s"),
+				*GetName(), *LobbyMapOverride, *LobbyMapParameters);
+
+			LobbyUrl = LobbyMapOverride + LobbyMapParameters;
+		}
+		else
+		{
+			LobbyUrl = PathToLobby + LobbyMapParameters;
+		}
+
+		World->ServerTravel(LobbyUrl);
+
+		return true;
+	}
+
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Error, TEXT("%s: HostButtonClicked - World is NULL"), *GetName());
+	return false;
 }
 
 void UMultiplayerMenuHelper::OnFindSessionsComplete(const TArray<FOnlineSessionSearchResult>& SessionResults, bool bWasSuccessful)
@@ -441,4 +487,14 @@ FString UMultiplayerMenuHelper::GetPreferredMap() const
 int32 UMultiplayerMenuHelper::GetMaxNumberOfPlayers() const
 {
     return MultiplayerWidget ? IMultiplayerMenuWidget::Execute_GetMaxNumberOfPlayers(MultiplayerWidget) : DefaultNumPlayers;
+}
+
+void UMultiplayerMenuHelper::PredetermineRandomMap()
+{
+	if (!MultiplayerWidget)
+	{
+		return;
+	}
+
+	IMultiplayerMenuWidget::Execute_PredetermineRandomMap(MultiplayerWidget);
 }

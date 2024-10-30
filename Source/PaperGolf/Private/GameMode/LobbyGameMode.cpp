@@ -142,7 +142,7 @@ bool ALobbyGameMode::HostStartMatch()
 		return false;
 	}
 
-	const FString GameMode = GameSessionConfig->GetGameModePath(FoundMatchTypeInfo.GameMode);
+	const FString GameMode = UGameSessionConfig::GetGameModePath(FoundMatchTypeInfo.GameMode);
 	const FString MapPath = GameSessionConfig->GetPathForMapName(Subsystem->GetDesiredMap());
 
 	const FString MatchUrl = FString::Printf(TEXT("%s?game=%s?%s%d?%s%d?%s%d?%s%d"),

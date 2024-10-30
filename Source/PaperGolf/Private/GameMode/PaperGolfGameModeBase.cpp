@@ -26,8 +26,12 @@
 
 #include "Utils/VisualLoggerUtils.h"
 
+#include "Utils/ObjectUtils.h"
+
 #include "Subsystems/GolfEventsSubsystem.h"
 #include "MultiplayerSessionsSubsystem.h"
+
+#include "Library/PaperGolfGameUtilities.h"
 
 #include "Config/PlayerConfig.h"
 #include "Config/PlayerStateConfigurator.h"
@@ -825,10 +829,8 @@ void APaperGolfGameModeBase::RestartGame()
 			return;
 		}
 
-		FString MapName = GetWorld()->GetMapName();
-		MapName.RemoveFromStart(GetWorld()->StreamingLevelsPrefix); // Remove any prefix if necessary
-
-		const FString& GameModeName = GetClass()->GetClassPathName().ToString();
+		const auto MapName = UPaperGolfGameUtilities::GetCurrentMapName(this);
+		const auto GameModeName = PG::ObjectUtils::GetFullyQualifiedClassName(this);
 
 		// Pass along updated options from current game state
 		GetWorld()->ServerTravel(FString::Printf(TEXT("%s?game=%s?%s%d?%s%d?%s%d"),

@@ -25,6 +25,9 @@ public:
     
     UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Menu")
     void SetJoinEnabled(bool bEnabled);
+
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Menu")
+    void PredetermineRandomMap();
     
     UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Menu")
     FString GetPreferredMatchType() const;

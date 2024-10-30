@@ -6,6 +6,8 @@
 #include "UObject/Interface.h"
 #include "MultiplayerMenu.generated.h"
 
+class UGameSessionConfig;
+
 // This class does not need to be modified.
 UINTERFACE(BlueprintType, Blueprintable, MinimalAPI)
 class UMultiplayerMenu : public UInterface
@@ -20,13 +22,10 @@ class MULTIPLAYERSESSIONS_API IMultiplayerMenu
 {
 	GENERATED_BODY()
 
-	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
 
-	// TODO: Interface needs to take UGameSessionConfig instead of MatchTypesToDisplayMap and Maps array
-
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Menu")
-	void MenuSetup(const TMap<FString, FString>& MatchTypesToDisplayMap, const TArray<FString>& Maps, const FString& LobbyPath,
+	void MenuSetup(const UGameSessionConfig* GameSessionConfig, const FString& LobbyPath,
 		int32 MinPlayers = 2, int32 MaxPlayers = 4, int32 DefaultNumPlayers = 2, bool bDefaultLANMatch = true, bool bDefaultAllowBots = false);
 
 	// Allow invoking from blueprint for Gamepad support

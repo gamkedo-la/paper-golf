@@ -27,7 +27,7 @@ class MULTIPLAYERSESSIONS_API UMenu : public UUserWidget, public IMultiplayerMen
 
 protected:
 
-    virtual void MenuSetup_Implementation(const TMap<FString, FString>& MatchTypesToDisplayMap, const TArray<FString>& Maps, const FString& LobbyPath,
+    virtual void MenuSetup_Implementation(const UGameSessionConfig* GameSessionConfig, const FString& LobbyPath,
         int32 MinPlayers = 2, int32 MaxPlayers = 4, int32 DefaultNumPlayers = 2, bool bDefaultLANMatch = true, bool bDefaultAllowBots = false) override;
     
 	virtual bool Initialize() override;
@@ -100,6 +100,5 @@ private:
 	TObjectPtr<UComboBoxString> CboAvailableMaps{};
     
     TMap<FString, FString> MatchDisplayNamesToMatchTypes{};
-    TArray<FString> AvailableMaps{};
     int32 DefaultNumPlayers{};
 };
