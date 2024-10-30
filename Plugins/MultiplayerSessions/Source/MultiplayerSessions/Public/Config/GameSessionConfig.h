@@ -42,7 +42,6 @@ public:
 	UFUNCTION(Category = "Game Session Config", BlueprintPure)
 	bool IsValid() const;
 
-
 	UFUNCTION(BlueprintPure, Category = "Game Session Config")
 	static const FString& GetRandomMapName() { return RandomMapName; }
 
