@@ -4,24 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameMode.h"
+
+#include "Config/GameSessionConfig.h"
+
 #include "LobbyGameMode.generated.h"
-
-class APaperGolfGameModeBase;
-
-USTRUCT(BlueprintType)
-struct FGameModeInfo
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	FString Name{};
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TSoftClassPtr<APaperGolfGameModeBase> GameMode{};
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	int32 MinPlayers{};
-};
 
 /**
  * 
@@ -47,25 +33,14 @@ protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
-	FString GetPathForMap(const TSoftObjectPtr<UWorld>& World) const;
-	FString GetPathForGameMode(const TSoftClassPtr<APaperGolfGameModeBase>& GameMode) const;
-
-	TSoftObjectPtr<UWorld> GetMap(const FString& MapName) const;
-	TSoftObjectPtr<UWorld> GetRandomMap() const;
-
-	void ValidateMaps();
-	void ValidateGameModes();
 
 	class UMultiplayerSessionsSubsystem* GetMultiplayerSessionsSubsystem() const;
 
 	int32 GetNumBots() const;
 
 private:
-	UPROPERTY(EditDefaultsOnly, Category = "Modes", meta = (TitleProperty = "GameMode"))
-	TMap<FString, FGameModeInfo> MatchTypesToModes;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Maps")
-	TMap<FString, TSoftObjectPtr<UWorld>> Maps;
+	UPROPERTY(EditDefaultsOnly, Category = "Game Session Config")
+	TObjectPtr<UGameSessionConfig> GameSessionConfig{};
 
 	bool bCanStartMatch{};
 	bool bMatchStarted{};

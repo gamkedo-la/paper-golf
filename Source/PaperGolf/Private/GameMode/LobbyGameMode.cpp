@@ -21,11 +21,6 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(LobbyGameMode)
 
-namespace
-{
-	const FString RandomMapName = TEXT("Random");
-}
-
 void ALobbyGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
 	PG::VisualLoggerUtils::StartAutomaticRecording(this);
@@ -36,11 +31,14 @@ void ALobbyGameMode::InitGame(const FString& MapName, const FString& Options, FS
 
 	bMatchStarted = false;
 
-#if !UE_BUILD_SHIPPING
-	ValidateMaps();
-	ValidateGameModes();
-#endif
+	if (!ensure(IsValid(GameSessionConfig)))
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: InitGame - GameSessionConfig is NULL"), *GetName());
+		ErrorMessage = "GameSessionConfig is NULL";
+		return;
+	}
 
+	GameSessionConfig->Validate();
 }
 
 void ALobbyGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -67,6 +65,12 @@ void ALobbyGameMode::InitGameState()
 #endif 
 	// LobbyGameMode is created and server hosts the game so the max desired players would be known here
 
+	if (!GameSessionConfig)
+	{
+		// Already asserted in InitGame
+		return;
+	}
+
 	auto LobbyGameState = GetGameState<APaperGolfLobbyGameState>();
 	if (!ensureMsgf(LobbyGameState, TEXT("%s: GameState=%s is not APaperGolfLobbyGameState"), *GetName(), *LoggingUtils::GetName(GameState)))
 	{
@@ -80,19 +84,19 @@ void ALobbyGameMode::InitGameState()
 	}
 
 	const auto& MatchType = Subsystem->GetDesiredMatchType();
-	const auto& FoundMatchTypeInfo = MatchTypesToModes.Find(MatchType);
-	if (!FoundMatchTypeInfo)
+
+	bool bMatchTypeValid{};
+	const auto& FoundMatchTypeInfo = GameSessionConfig->GetGameModeInfo(MatchType, bMatchTypeValid);
+	if (!bMatchTypeValid)
 	{
 		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: MatchType=%s not found in MatchTypesToMode"), *GetName(), *MatchType);
 		return;
 	}
 
-	check(!FoundMatchTypeInfo->GameMode.IsNull());
-
 	LobbyGameState->Initialize(
-		FoundMatchTypeInfo->Name,
+		FoundMatchTypeInfo.Name,
 		Subsystem->GetDesiredMap(),
-		FoundMatchTypeInfo->MinPlayers,
+		FoundMatchTypeInfo.MinPlayers,
 		Subsystem->GetDesiredNumPublicConnections()
 	);
 }
@@ -100,6 +104,12 @@ void ALobbyGameMode::InitGameState()
 bool ALobbyGameMode::HostStartMatch()
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: HostStartMatch"), *GetName());
+
+	if (!GameSessionConfig)
+	{
+		return false;
+	}
+
 	if (!CanStartMatch())
 	{
 		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: HostStartMatch - FALSE - conditions not met to start match"), *GetName());
@@ -122,20 +132,21 @@ bool ALobbyGameMode::HostStartMatch()
 	bUseSeamlessTravel = !WITH_EDITOR;
 
 	const auto& MatchType = Subsystem->GetDesiredMatchType();
-	const auto& FoundMatchTypeInfo = MatchTypesToModes.Find(MatchType);
-	if (!FoundMatchTypeInfo)
+
+	bool bMatchTypeValid{};
+	const auto& FoundMatchTypeInfo = GameSessionConfig->GetGameModeInfo(MatchType, bMatchTypeValid);
+
+	if (!bMatchTypeValid)
 	{
 		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: HostStartMatch - MatchType=%s not found in MatchTypesToMode"), *GetName(), *MatchType);
 		return false;
 	}
 
-	check(!FoundMatchTypeInfo->GameMode.IsNull());
-
-	const FString GameModeName = FoundMatchTypeInfo->GameMode.ToSoftObjectPath().ToString();
-	const FString MapPath = GetPathForMap(GetMap(Subsystem->GetDesiredMap()));
+	const FString GameMode = GameSessionConfig->GetGameModePath(FoundMatchTypeInfo.GameMode);
+	const FString MapPath = GameSessionConfig->GetPathForMapName(Subsystem->GetDesiredMap());
 
 	const FString MatchUrl = FString::Printf(TEXT("%s?game=%s?%s%d?%s%d?%s%d?%s%d"),
-		*MapPath, *GameModeName,
+		*MapPath, *GameMode,
 		PG::GameModeOptions::NumPlayers, GetNumPlayers(),
 		PG::GameModeOptions::NumBots, GetNumBots(),
 		PG::GameModeOptions::AllowBots, Subsystem->AllowBots(),
@@ -143,7 +154,7 @@ bool ALobbyGameMode::HostStartMatch()
 	);
 
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: ServerTravel to Map=%s with GameMode=%s - %s"),
-		*GetName(), *MapPath, *GameModeName, *MatchUrl);
+		*GetName(), *MapPath, *GameMode, *MatchUrl);
 
 	// Make sure don't start twice from a menu, especially since doing seamless travel
 	bMatchStarted = true;
@@ -189,10 +200,8 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: PostLogin - %s"), *GetName(), *LoggingUtils::GetName(NewPlayer));
 
-	if(!ensure(!Maps.IsEmpty()) || !ensure(!MatchTypesToModes.IsEmpty()))
+	if (!IsValid(GameSessionConfig) || !GameSessionConfig->IsValid())
 	{
-		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: Maps or MatchTypesToModes is empty: MapsSize=%d; MatchTypesToModesSize=%d"),
-			*GetName(), Maps.Num(), MatchTypesToModes.Num());
 		return;
 	}
 
@@ -239,102 +248,6 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 	{
 		UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: PostLogin - Max of %d players reached - host is auto-starting the match"), *GetName(), NumberOfPlayers);
 		HostStartMatch();
-	}
-}
-
-FString ALobbyGameMode::GetPathForMap(const TSoftObjectPtr<UWorld>& World) const
-{
-	// For some reason an odd extension is being added : e.g. House.house
-	// remove the extension
-	FString Path = World.ToSoftObjectPath().ToString();
-	const auto Index = Path.Find(TEXT("."), ESearchCase::IgnoreCase, ESearchDir::FromEnd);
-	if(Index == INDEX_NONE)
-	{
-		return Path;
-	}
-
-	return Path.Left(Index);
-}
-
-FString ALobbyGameMode::GetPathForGameMode(const TSoftClassPtr<APaperGolfGameModeBase>& GameMode) const
-{
-	return GameMode.ToSoftObjectPath().ToString();
-}
-
-TSoftObjectPtr<UWorld> ALobbyGameMode::GetMap(const FString& MapName) const
-{
-	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: GetMap - %s"), *GetName(), *MapName);
-	
-	const TSoftObjectPtr<UWorld> MatchedMap{};
-
-	if (MapName != RandomMapName)
-	{
-		if(auto FindResult = Maps.Find(MapName); FindResult)
-		{
-			return *FindResult;
-		}
-		UE_VLOG_UELOG(this, LogPaperGolfGame, Warning, TEXT("%s: GetMap - MapName=%s not found in Maps"), *GetName(), *MapName);
-	}
-
-	return GetRandomMap();
-}
-
-TSoftObjectPtr<UWorld> ALobbyGameMode::GetRandomMap() const
-{
-	check(!Maps.IsEmpty());
-
-	auto MapIndex = FMath::RandRange(0, Maps.Num() - 1);
-
-	for (auto It = Maps.CreateConstIterator(); It; ++It)
-	{
-		if (MapIndex == 0)
-		{
-			return It.Value();
-		}
-		--MapIndex;
-	}
-
-	checkNoEntry();
-
-	return nullptr;
-}
-
-void ALobbyGameMode::ValidateMaps()
-{
-	for(auto It = Maps.CreateIterator(); It; ++It)
-	{
-		if (It->Value.IsNull())
-		{
-			UE_VLOG_UELOG(this, LogPaperGolfGame, Warning, TEXT("%s: Invalid map in Maps array at key=%s"), *GetName(), *It->Key);
-			It.RemoveCurrent();
-		}
-	}
-
-	if(!ensureMsgf(!Maps.IsEmpty(), TEXT("%s: No valid maps defined!"), *GetName()))
-	{
-		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: No valid maps defined!"), *GetName());
-	}
-}
-
-void ALobbyGameMode::ValidateGameModes()
-{
-	for(auto It = MatchTypesToModes.CreateIterator(); It; ++It)
-	{
-		if (It.Key().IsEmpty())
-		{
-			UE_VLOG_UELOG(this, LogPaperGolfGame, Warning, TEXT("%s: Invalid matchType in MatchTypesToModes array"), *GetName());
-			It.RemoveCurrent();
-		}
-		else if (It.Value().GameMode.IsNull())
-		{
-			UE_VLOG_UELOG(this, LogPaperGolfGame, Warning, TEXT("%s: Invalid game mode in MatchTypesToModes array for MatchType=%s"), *GetName(), *It.Key());
-			It.RemoveCurrent();
-		}
-	}
-
-	if (!ensureMsgf(!MatchTypesToModes.IsEmpty(), TEXT("%s: No valid game mode mappings defined!"), *GetName()))
-	{
-		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: No valid game mode mappings defined!"), *GetName());
 	}
 }
 

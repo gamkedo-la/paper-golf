@@ -97,6 +97,7 @@ void UMultiplayerMenuHelper::OnCreateSessionComplete(bool bWasSuccessful)
 		// Travel to the lobby level after confirmation that session creation was successful
 		if (auto World = GetWorld(); World)
 		{
+			// TODO: This needs to be overridable as a BlueprintNativeEvent
 			World->ServerTravel(PathToLobby + "?listen");
 		}
 		else
