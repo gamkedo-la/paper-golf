@@ -109,7 +109,7 @@ protected:
 	/*
 	* Called when the course is complete. Returns the time to wait before restarting the game or returning to the main menu.
 	*/
-	virtual float DoAdditionalCourseComplete() { return CourseCompleteActionDelayTimeSeconds; }
+	virtual float OnCourseCompleteAction() { return CourseCompleteActionDelayTimeSeconds; }
 
 	virtual void OnPlayerJoined(AController* NewPlayer);
 	virtual void OnPlayerLeft(AController* LeavingPlayer) {}
@@ -127,6 +127,11 @@ protected:
 	* By default chooses the bot with the best score.
 	*/
 	virtual AController* ChooseBotToEvict() const;
+
+	/*
+	* Invoked after course completes to decide what to do next. By default it restarts the course if configured so; otherwise, returns to the main menu.
+	*/
+	virtual void CourseCompletionNextAction();
 
 private:
 

@@ -19,6 +19,8 @@
 
 #include "State/PaperGolfLobbyGameState.h"
 
+#include "Library/PaperGolfGameUtilities.h"
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(LobbyGameMode)
 
 void ALobbyGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -145,12 +147,11 @@ bool ALobbyGameMode::HostStartMatch()
 	const FString GameMode = UGameSessionConfig::GetGameModePath(FoundMatchTypeInfo.GameMode);
 	const FString MapPath = GameSessionConfig->GetPathForMapName(Subsystem->GetDesiredMap());
 
-	const FString MatchUrl = FString::Printf(TEXT("%s?game=%s?%s%d?%s%d?%s%d?%s%d"),
-		*MapPath, *GameMode,
-		PG::GameModeOptions::NumPlayers, GetNumPlayers(),
-		PG::GameModeOptions::NumBots, GetNumBots(),
-		PG::GameModeOptions::AllowBots, Subsystem->AllowBots(),
-		PG::GameModeOptions::MaxPlayers, Subsystem->GetDesiredNumPublicConnections()
+	const FString MatchUrl = UPaperGolfGameUtilities::CreateCourseOptionsUrl(
+		MapPath, GameMode,
+		GetNumPlayers(), GetNumBots(),
+		Subsystem->AllowBots(),
+		Subsystem->GetDesiredNumPublicConnections()
 	);
 
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Display, TEXT("%s: ServerTravel to Map=%s with GameMode=%s - %s"),

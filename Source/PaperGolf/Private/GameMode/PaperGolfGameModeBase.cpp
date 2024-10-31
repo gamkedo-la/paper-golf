@@ -579,7 +579,7 @@ void APaperGolfGameModeBase::OnCourseComplete()
 {	
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Verbose, TEXT("%s: OnCourseComplete - Enter"), *GetName());
 
-	const auto ActionDelayTime = DoAdditionalCourseComplete();
+	const auto ActionDelayTime = OnCourseCompleteAction();
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Verbose, TEXT("%s: OnCourseComplete - ActionDelayTime=%f"), *GetName(), ActionDelayTime);
 
 	if (ActionDelayTime > 0)
@@ -597,15 +597,19 @@ void APaperGolfGameModeBase::DoCourseComplete()
 {
 	EndMatch();
 
+	CourseCompletionNextAction();
+}
+
+void APaperGolfGameModeBase::CourseCompletionNextAction()
+{
 	if (bRestartGameOnCourseComplete)
 	{
-		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: DoCourseComplete - bRestartGameOnCourseComplete = TRUE - Restarting the map"), *GetName());
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: CourseCompletionNextAction - bRestartGameOnCourseComplete = TRUE - Restarting the map"), *GetName());
 		RestartGame();
 	}
 	else
 	{
-		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: DoCourseComplete - Returning to Main Menu Host"), *GetName());
-
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: CourseCompletionNextAction - Returning to Main Menu Host"), *GetName());
 		ReturnToMainMenuHost();
 	}
 }

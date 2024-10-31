@@ -46,6 +46,11 @@ public:
 	UFUNCTION(BlueprintPure)
 	int32 GetCurrentHoleNumber() const { return CurrentHoleNumber; }
 
+	void SetShowScoresHUD(bool bShow);
+
+	UFUNCTION(BlueprintPure)
+	bool ShouldShowScoresHUD() const { return bShowScoresHUD; }
+
 	void SetCurrentHoleNumber(int32 Hole);
 
 	UFUNCTION(BlueprintPure)
@@ -126,6 +131,9 @@ private:
 
 	UPROPERTY(Transient, Replicated)
 	TObjectPtr<AGolfPlayerState> ActivePlayer{};
+
+	UPROPERTY(Transient, Replicated)
+	bool bShowScoresHUD{ true };
 
 	UPROPERTY(Transient)
 	TArray<AGolfPlayerState*> UpdatedPlayerStates{};

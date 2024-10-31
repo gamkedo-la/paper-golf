@@ -46,4 +46,40 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "World", meta = (WorldContext = "WorldContextObject"))
 	static FString GetCurrentMapName(UObject* WorldContextObject);
+
+	/*
+	* Encodes the course options.
+	*/
+	UFUNCTION(BlueprintPure, Category = "Load Level")
+	static FString CreateCourseOptionsUrl(const FString& Map, const FString& GameMode, int32 NumPlayers, int32 NumBots, int32 AllowBots = -1, int32 MaxPlayers = -1);
+	
+	/*
+	* Encodes the next course options into the Options string.
+	*/
+	UFUNCTION(BlueprintPure, Category = "Load Level", meta = (DisplayName = "Encode Next Course Options (Ref)"))
+	static void EncodeNextCourseOptionsInline(FString NextCourseOptions,  UPARAM(ref) FString& Options);
+
+	/*
+	* Encodes the next course options into the Options string and returns the new string.
+	*/
+	UFUNCTION(BlueprintPure, Category = "Load Level", meta = (DisplayName = "Encode Next Course Options"))
+	static FString EncodeNextCourseOptions(FString NextCourseOptions, const FString& Options);
+
+	/*
+	* Decodes the next course options from the Options string.  The returned string can be passed to server travel.
+	*/
+	UFUNCTION(BlueprintPure, Category = "Load Level")
+	static FString DecodeNextCourseOptions(const FString& Options);
 };
+
+#pragma region Inline Definitions
+
+FORCEINLINE FString UPaperGolfGameUtilities::EncodeNextCourseOptions(FString NextCourseOptions, const FString& Options)
+{
+	FString UpdatedOptions = Options;
+	EncodeNextCourseOptionsInline(NextCourseOptions, UpdatedOptions);
+
+	return UpdatedOptions;
+}
+
+#pragma endregion Inline Definitions

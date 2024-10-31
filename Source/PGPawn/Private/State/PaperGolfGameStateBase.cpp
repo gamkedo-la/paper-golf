@@ -25,6 +25,18 @@ void APaperGolfGameStateBase::GetLifetimeReplicatedProps(TArray<FLifetimePropert
 
 	DOREPLIFETIME(APaperGolfGameStateBase, CurrentHoleNumber);
 	DOREPLIFETIME(APaperGolfGameStateBase, ActivePlayer);
+	DOREPLIFETIME(APaperGolfGameStateBase, bShowScoresHUD);
+}
+
+void APaperGolfGameStateBase::SetShowScoresHUD(bool bShow)
+{
+	if (bShow == bShowScoresHUD)
+	{
+		return;
+	}
+
+	bShowScoresHUD = bShow;
+	ForceNetUpdate();
 }
 
 void APaperGolfGameStateBase::SetCurrentHoleNumber(int32 Hole)
@@ -450,6 +462,7 @@ void APaperGolfGameStateBase::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 	Category.Add(TEXT("CurrentHoleNumber"), FString::Printf(TEXT("%d"), CurrentHoleNumber));
 	Category.Add(TEXT("ActivePlayer"), LoggingUtils::GetName(ActivePlayer));
 	Category.Add(TEXT("UpdatedPlayerStates"), PG::ToStringObjectElements(UpdatedPlayerStates));
+	Category.Add(TEXT("ShowScoresHUD"), LoggingUtils::GetBoolString(bShowScoresHUD));
 
 	Snapshot->Status.Add(Category);
 }

@@ -551,6 +551,25 @@ void APGHUD::CheckForInitialDeferredState(const APaperGolfGameStateBase& GameSta
 	}
 }
 
+bool APGHUD::ShouldShowAnyScores() const
+{
+	const auto GameState = GetGameState();
+	
+	if (!ensure(GameState))
+	{
+		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Error, TEXT("%s: ShouldShowAnyScores - FALSE - GameState is NULL"), *GetName());
+		return false;
+	}
+
+	if (!GameState->ShouldShowScoresHUD())
+	{
+		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: ShouldShowAnyScores - FALSE - Should not show scores HUD"), *GetName());
+		return false;
+	}
+
+	return true;
+}
+
 void APGHUD::PlayCourseResultsSoundIfApplicable()
 {
 	const auto bShouldCheckPlaySound = FinalResultsAreDetermined();
@@ -671,12 +690,10 @@ void APGHUD::OnScoresSynced(APaperGolfGameStateBase& GameState)
 
 	bScoresSynced = bScoresEverSynced = true;
 
-	// 
-	// TODO: OnStartHole for HoleNumber 1 doesn't get called because the event happens before we can subscribe
-	// We could just do what we normally would on BeginPlay to cover that case
-	// 
-	// We may just want to use the combo of scores synced and then course complete, next hole (previous hole finished) to determine how to display the results
-	// Start Hole could be used to trigger the hole flyby and maybe show the updated player rankings from last hole
+	if (!ShouldShowAnyScores())
+	{
+		return;
+	}
 
 	CheckShowScoresOrFinalResults(GameState);
 
@@ -841,6 +858,11 @@ void APGHUD::OnCourseComplete()
 	bCourseComplete = true;
 	ActivePlayer.Reset();
 	bShotUpdatesReceived = false;
+
+	if (!ShouldShowAnyScores())
+	{
+		return;
+	}
 
 	if (!CheckShowFinalResults(GetGameState()))
 	{

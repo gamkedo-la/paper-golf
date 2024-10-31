@@ -179,6 +179,8 @@ private:
 	
 	void CheckForInitialDeferredState(const APaperGolfGameStateBase& GameState);
 
+	bool ShouldShowAnyScores() const;
+
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Config")
 	TSubclassOf<UGolfUserWidget> GolfWidgetClass{};
