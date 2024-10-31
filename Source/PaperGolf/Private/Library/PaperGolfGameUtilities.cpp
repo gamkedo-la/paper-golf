@@ -18,9 +18,9 @@
 
 namespace
 {
-	inline constexpr auto NextCourseKey = TEXT("next=");
-	inline constexpr auto EncodedKey = TEXT('@');
-	inline constexpr auto EncodedSeparator = TEXT('~');
+	constexpr auto NextCourseKey = TEXT("next=");
+	constexpr auto EncodedKey = TEXT('@');
+	constexpr auto EncodedSeparator = TEXT('~');
 }
 
 APlayerController* UPaperGolfGameUtilities::GetLocalPlayerController(UObject* WorldContextObject)
