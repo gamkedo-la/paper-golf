@@ -12,6 +12,7 @@
 class UTutorialAction;
 class APlayerController;
 class UTutorialConfigDataAsset;
+class UTutorialSaveGame;
 
 /* Callback for when the hole fly by is complete or canceled.
    Should be bound to the triggering code and then executed from blueprints where the flyby is executed */
@@ -59,14 +60,19 @@ public:
 	void MarkAllHoleFlybysSeen(bool bSeen);
 
 private:
+
+	friend class UTutorialSaveGame;
+
 	template<std::derived_from<UTutorialAction> T>
 	void RegisterTutorialAction(UTutorialConfigDataAsset* TutorialConfig, APlayerController* PlayerController);
+
+	void SaveTutorialState();
 
 private:
 
 	inline static constexpr int32 MaxHoles = 18;
 
-	bool bTutorialSeen{};
+	bool bTutorialHoleSeen{};
 	TArray<bool> HoleFlybySeen{};
 
 	UPROPERTY(Transient)
@@ -74,6 +80,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UTutorialAction> CurrentTutorialAction{};
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTutorialSaveGame> TutorialSaveGame{};
 };
 
 #pragma region Inline Definitions
@@ -89,12 +98,7 @@ FORCEINLINE bool UTutorialTrackingSubsystem::IsHoleFlybySeen(int32 HoleNumber) c
 
 FORCEINLINE bool UTutorialTrackingSubsystem::IsTutorialSeen() const
 {
-	return bTutorialSeen;
-}
-
-FORCEINLINE void UTutorialTrackingSubsystem::MarkTutorialSeen()
-{
-	bTutorialSeen = true;
+	return bTutorialHoleSeen;
 }
 
 FORCEINLINE void UTutorialTrackingSubsystem::MarkHoleFlybySeen(int32 HoleNumber, bool bSeen)

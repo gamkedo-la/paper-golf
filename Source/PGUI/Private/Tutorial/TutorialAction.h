@@ -31,8 +31,12 @@ public:
 	virtual bool IsRelevant() const { return !bIsCompleted; }
 	virtual bool IsActive() const { return MessageTimerHandle.IsValid(); }
 
+	bool IsCompleted() const { return bIsCompleted; }
+
 	virtual void Execute();
 	virtual void Abort();
+
+	virtual FString GetActionName() const { return GetClass()->GetName(); }
 
 protected:
 	void ShowMessages(const TArray<FText>& Messages, float MessageDuration = -1.0f);

@@ -17,6 +17,10 @@
 #include "Tutorial/ShotPreviewTutorialAction.h"
 #include "Tutorial/ShotSpinTutorialAction.h"
 
+#include "Tutorial/TutorialSaveGame.h"
+
+#include "Utils/SaveGameUtils.h"
+
 #include UE_INLINE_GENERATED_CPP_BY_NAME(TutorialTrackingSubsystem)
 
 UTutorialTrackingSubsystem::UTutorialTrackingSubsystem()
@@ -28,6 +32,18 @@ void UTutorialTrackingSubsystem::Initialize(FSubsystemCollectionBase& Collection
 {
 	UE_VLOG_UELOG(this, LogPGUI, Log, TEXT("%s: Initialize"), *GetName());
 	Super::Initialize(Collection);
+
+	TutorialSaveGame = SaveGameUtils::GetSavedGame<UTutorialSaveGame>();
+	if (TutorialSaveGame)
+	{
+		UE_VLOG_UELOG(this, LogPGUI, Log, TEXT("%s: Initialize: Restoring saved TutorialSaveGame state"), *GetName());
+		TutorialSaveGame->RestoreState(this);
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPGUI, Log, TEXT("%s: Initialize: Creating new TutorialSaveGame"), *GetName());
+		TutorialSaveGame = SaveGameUtils::CreateSaveGameInstance<UTutorialSaveGame>();
+	}
 }
 
 void UTutorialTrackingSubsystem::MarkAllHoleFlybysSeen(bool bSeen)
@@ -35,6 +51,14 @@ void UTutorialTrackingSubsystem::MarkAllHoleFlybysSeen(bool bSeen)
 	for (auto& seen : HoleFlybySeen)
 	{
 		seen = bSeen;
+	}
+}
+
+void UTutorialTrackingSubsystem::SaveTutorialState()
+{
+	if (TutorialSaveGame)
+	{
+		TutorialSaveGame->Save(this);
 	}
 }
 
@@ -63,14 +87,31 @@ void UTutorialTrackingSubsystem::RegisterTutorialAction(UTutorialConfigDataAsset
 {
 	if (auto Tutorial = NewObject<T>(PlayerController); ensure(Tutorial))
 	{
-		Tutorial->Initialize(TutorialConfig);
-		TutorialActions.Add(Tutorial);
+		if (!TutorialSaveGame || !TutorialSaveGame->IsTutorialCompleted(*Tutorial))
+		{
+			Tutorial->Initialize(TutorialConfig);
+			TutorialActions.Add(Tutorial);
+		}
+		else
+		{
+			UE_VLOG_UELOG(this, LogPGUI, Log, TEXT("%s: RegisterTutorialAction: Tutorial %s is already completed"),
+				*GetName(), *LoggingUtils::GetName(Tutorial));
+		}
 	}
+}
+
+void UTutorialTrackingSubsystem::MarkTutorialSeen()
+{
+	bTutorialHoleSeen = true;
+
+	SaveTutorialState();
 }
 
 void UTutorialTrackingSubsystem::DisplayNextTutorial(APlayerController* PlayerController)
 {
 	UE_VLOG_UELOG(this, LogPGUI, Log, TEXT("%s: DisplayNextTutorial: PlayerController=%s"), *GetName(), *LoggingUtils::GetName(PlayerController));
+
+	SaveTutorialState();
 
 	for (auto TutorialAction : TutorialActions)
 	{
@@ -86,6 +127,8 @@ void UTutorialTrackingSubsystem::DisplayNextTutorial(APlayerController* PlayerCo
 void UTutorialTrackingSubsystem::HideActiveTutorial()
 {
 	UE_VLOG_UELOG(this, LogPGUI, Log, TEXT("%s: HideActiveTutorial"), *GetName());
+
+	SaveTutorialState();
 
 	if (IsValid(CurrentTutorialAction) && CurrentTutorialAction->IsActive())
 	{
