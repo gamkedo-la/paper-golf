@@ -388,6 +388,7 @@ TOptional<UGolfAIShotComponent::FShotPowerCalculationResult> UGolfAIShotComponen
 	const auto HorizontalDistance = PositionDelta.Size2D();
 	const auto VerticalDistance = PositionDelta.Z;
 	const auto DistanceSum = CalculateDistanceSum(HorizontalDistance, VerticalDistance);
+	const auto AdjustedHorizontalDistance = FMath::Min(HorizontalDistance, DistanceSum);
 
 	float PowerFraction;
 
@@ -402,7 +403,7 @@ TOptional<UGolfAIShotComponent::FShotPowerCalculationResult> UGolfAIShotComponen
 	else
 	{
 		const auto Gravity = FMath::Abs(World->GetGravityZ());
-		const auto Speed = HorizontalDistance * FMath::Sqrt(Gravity) / FMath::Sqrt(DistanceSum);
+		const auto Speed = AdjustedHorizontalDistance * FMath::Sqrt(Gravity) / FMath::Sqrt(DistanceSum);
 
 		// Compare speed to max flick speed
 		// Impulse is proportional to sqrt of the distance ratio if overshoot

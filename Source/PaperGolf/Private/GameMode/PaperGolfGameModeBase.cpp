@@ -660,7 +660,25 @@ bool APaperGolfGameModeBase::PlayerCanRestart_Implementation(APlayerController* 
 
 APawn* APaperGolfGameModeBase::SpawnDefaultPawnAtTransform_Implementation(AController* NewPlayer, const FTransform& SpawnTransform)
 {
+#if PG_DEBUG_ENABLED
+
+	FTransform DesiredSpawnTransform{ SpawnTransform };
+	if (const auto& OverridePosString = PG::CStartPositionOverride.GetValueOnGameThread(); !OverridePosString.IsEmpty())
+	{
+		FVector OverridePos;
+		if (OverridePos.InitFromCompactString(OverridePosString))
+		{
+			UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: SpawnDefaultPawnAtTransform - NewPlayer=%s; Override spawn location from %s -> %s"),
+				*GetName(), *LoggingUtils::GetName(NewPlayer),
+				*SpawnTransform.GetLocation().ToString(), *OverridePos.ToString());
+			DesiredSpawnTransform.SetLocation(OverridePos);
+		}
+	}
+	const auto Pawn = Super::SpawnDefaultPawnAtTransform_Implementation(NewPlayer, DesiredSpawnTransform);
+
+#else
 	const auto Pawn = Super::SpawnDefaultPawnAtTransform_Implementation(NewPlayer, SpawnTransform);
+#endif
 
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: SpawnDefaultPawnAtTransform_Implementation - NewPlayer=%s; Pawn=%s"),
 		*GetName(), *LoggingUtils::GetName(NewPlayer), *LoggingUtils::GetName(Pawn));

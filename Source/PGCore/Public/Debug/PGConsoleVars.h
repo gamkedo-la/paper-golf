@@ -12,6 +12,7 @@ namespace PG
 	extern PGCORE_API TAutoConsoleVariable<bool> CShowForces;
 	extern PGCORE_API TAutoConsoleVariable<bool> CAutomaticVisualLoggerRecording;
 	extern PGCORE_API TAutoConsoleVariable<int32> CStartHoleOverride;
+	extern PGCORE_API TAutoConsoleVariable<FString> CStartPositionOverride;
 
 	extern PGCORE_API TAutoConsoleVariable<float> CPlayerAccuracyExponent;
 	extern PGCORE_API TAutoConsoleVariable<float> CPlayerMaxAccuracy;

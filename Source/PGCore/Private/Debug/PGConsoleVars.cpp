@@ -37,6 +37,12 @@ namespace PG
 		TEXT("Override the start hole number"),
 		ECVF_Scalability | ECVF_RenderThreadSafe);
 
+	TAutoConsoleVariable<FString> CStartPositionOverride(
+		TEXT("pg.start.pos"),
+		{},
+		TEXT("Override the player start position"),
+		ECVF_Default); // ECVF_RenderThreadSafe -> This causes editor to not load and then hangs eventually with a crash! 
+
 	TAutoConsoleVariable<float> CPlayerAccuracyExponent(
 		TEXT("pg.diff.pAccExp"),
 		-1.0f,
