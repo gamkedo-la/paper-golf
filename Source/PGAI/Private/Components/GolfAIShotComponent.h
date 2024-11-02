@@ -99,6 +99,8 @@ private:
 
 	float GetHitRestitution(const FHitResult& HitResult) const;
 
+	double CalculateDistanceSum(double HorizontalDistance, double VerticalDistance) const;
+
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float BounceOverhitCorrectionFactor{ 0.1f };
@@ -129,6 +131,15 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float MinRetryShotPowerReductionFactor { 0.5f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	float MinHeightDistanceReductionFactor{ 0.25f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	float MinHeightAdjustmentTreshold{ 100.0f };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	float HeightToDistanceRatioStartExp{ 1.0 };
 
 	UPROPERTY(Category = "Shot Arc Prediction", EditDefaultsOnly)
 	float MinTraceDistance{ 1000.0f };

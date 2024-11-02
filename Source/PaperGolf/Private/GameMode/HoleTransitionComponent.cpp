@@ -334,20 +334,17 @@ void UHoleTransitionComponent::OnNextHoleTimer()
 // See LyraPlayerStartComponent.cpp in the Lyra project
 APlayerStart* UHoleTransitionComponent::FindPlayFromHereStart(AController* Player)
 {
-	// Only 'Play From Here' for a player controller, bots etc. should all spawn from normal spawn points.
-	if (Player->IsA<APlayerController>())
+	// Use 'Play From Here' for player controller and also bots so can have the bot try a specific shot easily
+	if (auto World = GetWorld(); ensure(World))
 	{
-		if (auto World = GetWorld(); ensure(World))
+		for (TActorIterator<APlayerStart> It(World); It; ++It)
 		{
-			for (TActorIterator<APlayerStart> It(World); It; ++It)
+			if (auto PlayerStart = *It; PlayerStart)
 			{
-				if (auto PlayerStart = *It; PlayerStart)
+				if (PlayerStart->IsA<APlayerStartPIE>())
 				{
-					if (PlayerStart->IsA<APlayerStartPIE>())
-					{
-						// Always prefer the first "Play from Here" PlayerStart, if we find one while in PIE mode
-						return PlayerStart;
-					}
+					// Always prefer the first "Play from Here" PlayerStart, if we find one while in PIE mode
+					return PlayerStart;
 				}
 			}
 		}

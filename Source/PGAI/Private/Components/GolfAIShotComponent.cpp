@@ -378,6 +378,7 @@ TOptional<UGolfAIShotComponent::FShotPowerCalculationResult> UGolfAIShotComponen
 	const auto FlickMaxSpeed = FlickMaxForce / PlayerPawn->GetMass();
 
 	// See https://en.wikipedia.org/wiki/Range_of_a_projectile
+	// solve for v: d = v * cos(45 degrees) / g * (v * sin(45 degrees) + sqrt(v^2 * sin(45 degrees)^2 + 2 * g * y))
 	// Using wolfram alpha to solve the equation when theta is 45 for v, we get
 	// v = d * sqrt(g) / sqrt(d + y)
 	// where d is the horizontal distance XY and y is the vertical distance Z and v is vxy
@@ -386,11 +387,11 @@ TOptional<UGolfAIShotComponent::FShotPowerCalculationResult> UGolfAIShotComponen
 	const auto PositionDelta = FocusActorLocation - FlickLocation;
 	const auto HorizontalDistance = PositionDelta.Size2D();
 	const auto VerticalDistance = PositionDelta.Z;
-	const auto DistanceSum = HorizontalDistance + VerticalDistance;
+	const auto DistanceSum = CalculateDistanceSum(HorizontalDistance, VerticalDistance);
 
 	float PowerFraction;
 
-	// if TotalHorizontalDistance + VerticalDistance <= 0 then we use minimum power as so far above the target
+	// if TotalHorizontalDistance + VerticalDistance <= 0 then we use minimum power as so far above the target though this shouldn't happen based on updated CalculateDistanceSum
 	if (DistanceSum <= 0)
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateInitialShotParams - Way above target, using min force. HorizontalDistance=%.1fm; VerticalDistance=%.1fm"),
@@ -409,8 +410,8 @@ TOptional<UGolfAIShotComponent::FShotPowerCalculationResult> UGolfAIShotComponen
 		if (Speed >= FlickMaxSpeed)
 		{
 			UE_VLOG_UELOG(GetOwner(), LogPGAI, Log,
-				TEXT("%s-%s: CalculateInitialShotParams - Coming up short hit full power - Speed=%.1f; FlickMaxSpeed=%.1f, HorizontalDistance=%.1fm; VerticalDistance=%.1fm"),
-				*LoggingUtils::GetName(GetOwner()), *GetName(), Speed, FlickMaxSpeed, HorizontalDistance / 100, VerticalDistance / 100);
+				TEXT("%s-%s: CalculateInitialShotParams - Coming up short hit full power - Speed=%.1f; FlickMaxSpeed=%.1f, HorizontalDistance=%.1fm; VerticalDistance=%.1fm; DistanceSum=%.1fm"),
+				*LoggingUtils::GetName(GetOwner()), *GetName(), Speed, FlickMaxSpeed, HorizontalDistance / 100, VerticalDistance / 100, DistanceSum / 100);
 
 			PowerFraction = 1.0f;
 		}
@@ -424,8 +425,8 @@ TOptional<UGolfAIShotComponent::FShotPowerCalculationResult> UGolfAIShotComponen
 			PowerFraction = FMath::Max(MinShotPower, RawPowerFraction);
 
 			UE_VLOG_UELOG(GetOwner(), LogPGAI, Log,
-				TEXT("%s-%s: CalculateInitialShotParams - Overhit - Speed=%.1f; FlickMaxSpeed=%.1f, HorizontalDistance=%.1fm; VerticalDistance=%.1fm; RawPowerFraction=%.2f; PowerFraction=%.2f"),
-				*LoggingUtils::GetName(GetOwner()), *GetName(), Speed, FlickMaxSpeed, HorizontalDistance / 100, VerticalDistance / 100, RawPowerFraction, PowerFraction);
+				TEXT("%s-%s: CalculateInitialShotParams - Overhit - Speed=%.1f; FlickMaxSpeed=%.1f, HorizontalDistance=%.1fm; VerticalDistance=%.1fm; DistanceSum=%.1fm; RawPowerFraction=%.2f; PowerFraction=%.2f"),
+				*LoggingUtils::GetName(GetOwner()), *GetName(), Speed, FlickMaxSpeed, HorizontalDistance / 100, VerticalDistance / 100, DistanceSum / 100, RawPowerFraction, PowerFraction);
 		}
 	}
 
@@ -444,6 +445,33 @@ TOptional<UGolfAIShotComponent::FShotPowerCalculationResult> UGolfAIShotComponen
 		.PowerFraction = PowerFraction,
 		.ShotType = ShotType
 	};
+}
+
+double UGolfAIShotComponent::CalculateDistanceSum(double HorizontalDistance, double VerticalDistance) const
+{
+	if (VerticalDistance >= -MinHeightAdjustmentTreshold)
+	{
+		return HorizontalDistance + VerticalDistance;
+	}
+
+	// Reduce to account for projectile motion, but sometimes there is a surface that we need to "clear"
+	// Ideally, we would calculate the distance to get “to the edge” by setting a target there and then basing the power calculation that we just need to clear the edge 
+	// (and don’t correct for bounce), i.e. the distance needs to be at least the distance to the edge, so that we go over and bounce on the ground.
+
+	const auto HorizontalDistanceMeters = HorizontalDistance / 100;
+	const auto VerticalDistanceAbsMeters = FMath::Abs(VerticalDistance) / 100;
+	const auto HorizontalRatio = HorizontalDistanceMeters / VerticalDistanceAbsMeters;
+
+	const auto AdjustedVerticalDistance = -100 * (VerticalDistanceAbsMeters - FMath::Pow(VerticalDistanceAbsMeters, 1 / (HorizontalRatio + HeightToDistanceRatioStartExp)));
+
+	// Make sure distance is at least the min factor of the horizontal distance
+	const auto NewSum = HorizontalDistance + AdjustedVerticalDistance;
+	const auto ResultDistance = FMath::Max(HorizontalDistance * MinHeightDistanceReductionFactor, NewSum);
+
+	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateDistanceSum - ADJUSTED - HorizontalDistance=%.1fm; VerticalDistance=%.1fm; AdjustedVerticalDistance=%.1fm -> %.1fm"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), HorizontalDistance / 100, VerticalDistance / 100, AdjustedVerticalDistance / 100, ResultDistance / 100);
+
+	return ResultDistance;
 }
 
 FVector UGolfAIShotComponent::GetFocusActorLocation(const FVector& FlickLocation) const
@@ -709,10 +737,16 @@ UGolfAIShotComponent::FShotCalibrationResult UGolfAIShotComponent::CalibrateShot
 		const auto DistanceToHoleMeters = DistanceToHoleCalculator();
 		const auto PowerReductionFactor = Curve->Eval(DistanceToHoleMeters);
 
-		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalibrateShot - DistanceToHole=%.1fm; PowerReductionFactor=%.2f; PowerFraction=%.2f -> %.2f"),
-			*LoggingUtils::GetName(GetOwner()), *GetName(), DistanceToHoleMeters, PowerReductionFactor, PowerFraction, PowerFraction * PowerReductionFactor);
+		const auto NewPowerFractionCalc = [&]()
+		{
+			return FMath::Max(MinShotPower, PowerFraction * PowerReductionFactor);
+		};
 
-		PowerFraction *= PowerReductionFactor;
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalibrateShot - DistanceToHole=%.1fm; PowerReductionFactor=%.2f; PowerFraction=%.2f -> %.2f"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), DistanceToHoleMeters, PowerReductionFactor, PowerFraction, NewPowerFractionCalc());
+
+		// Make sure don't fall below min shot power
+		PowerFraction = NewPowerFractionCalc();
 	}
 
 	Curve = FindCurveForKey(AIConfigCurveTable, PowerFractionVsPitchAngle);
