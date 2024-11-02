@@ -1055,7 +1055,14 @@ void APaperGolfGameModeBase::ReplacePlayer(AController* LeavingPlayer, AControll
 {
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: ReplacePlayer - LeavingPlayer=%s; NewPlayer=%s"), *GetName(), *LoggingUtils::GetName(LeavingPlayer), *LoggingUtils::GetName(NewPlayer));
 
-	if (NewPlayer && LeavingPlayer)
+#if WITH_EDITOR
+	// Don't trigger assertion in simulate mode in editor
+	const bool bShouldCheck = !GIsEditor || !GEditor || !GEditor->IsSimulateInEditorInProgress();
+#else
+	constexpr bool bShouldCheck = true;
+#endif
+
+	if (bShouldCheck && NewPlayer && LeavingPlayer)
 	{
 		// Copy player state data from leaving player to new player
 		const auto NewPlayerState = NewPlayer->GetPlayerState<AGolfPlayerState>();
