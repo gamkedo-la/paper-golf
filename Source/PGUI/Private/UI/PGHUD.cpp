@@ -68,10 +68,56 @@ void APGHUD::DisplayMessageWidget(EMessageWidgetType MessageType)
 	}
 }
 
+void APGHUD::RemoveMessageWidget(EMessageWidgetType MessageType)
+{
+	switch (MessageType)
+	{
+	case EMessageWidgetType::HoleFinished:
+	{
+		RemoveHoleFinishedMessage();
+		UnregisterHoleFinishedMessageRemoval();
+		break;
+	}
+	case EMessageWidgetType::Tutorial:
+	{
+		RemoveActiveMessageWidgetByClass(TutorialWidgetClass);
+		break;
+	}
+	default:
+		checkNoEntry();
+	}
+}
+
 void APGHUD::DisplayMessageWidgetWithText(const FText& Message)
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: DisplayMessageWidgetWithText: Message=%s"), *GetName(), *Message.ToString());
 	DisplayMessageWidgetByClass(GenericMessagingWidgetClass, Message);
+}
+
+void APGHUD::RemoveMessageWidgetWithText(const FText& Message)
+{
+	if (!IsValid(ActiveMessageWidget))
+	{
+		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: RemoveMessageWidgetWithText: Message=%s - Skip: No active message widget"),
+			*GetName(), *Message.ToString());
+		return;
+	}
+
+	if (ActiveMessageWidget->GetClass() != GenericMessagingWidgetClass.Get())
+	{
+		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: RemoveMessageWidgetWithText: Message=%s - Skip: Active message widget=%s is not of class %s"),
+			*GetName(), *Message.ToString(), *LoggingUtils::GetName(ActiveMessageWidget), *LoggingUtils::GetName(GenericMessagingWidgetClass));
+		return;
+	}
+
+	if(!Message.EqualTo(LastMessageText))
+	{
+		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: RemoveMessageWidgetWithText: Message=%s - Skip: Active message widget=%s with message=%s does not match message input"),
+			*GetName(), *Message.ToString(), *LoggingUtils::GetName(ActiveMessageWidget), *LastMessageText.ToString());
+		return;
+	}
+
+	DoRemoveActiveMessageWidgetFromScreen();
 }
 
 void APGHUD::DisplayHazardEntryWidget(EHazardType HazardType)
@@ -111,16 +157,28 @@ void APGHUD::RegisterHoleFinishedMessageRemoval()
 
 void APGHUD::RemoveHoleFinishedMessage()
 {
-	// Make sure the active message widget is still the hole finished widget
-	// HoleFinishedWidgetClass will already be loaded and active if the hole finished message is displayed
-	if (!IsValid(ActiveMessageWidget) || ActiveMessageWidget->GetClass() != HoleFinishedWidgetClass.Get())
+	if (RemoveActiveMessageWidgetByClass(HoleFinishedWidgetClass))
 	{
-		return;
+		UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: RemoveHoleFinishedMessage"), *GetName());
+	}
+}
+
+bool APGHUD::RemoveActiveMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& WidgetClass)
+{
+	// Make sure the active message widget is still the indicated widget
+	// WidgetClass will already be loaded and active if it is dispalyed
+
+	if (!IsValid(ActiveMessageWidget) || ActiveMessageWidget->GetClass() != WidgetClass.Get())
+	{
+		return false;
 	}
 
-	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: RemoveHoleFinishedMessage"), *GetName());
+	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: RemoveActiveMessageWidgetByClass: WidgetClass=%s"), *GetName(),
+		*LoggingUtils::GetName(WidgetClass));
 
 	RemoveActiveMessageWidget();
+	
+	return true;
 }
 
 void APGHUD::UnregisterHoleFinishedMessageRemoval()
@@ -138,15 +196,25 @@ void APGHUD::RemoveActiveMessageWidget()
 {
 	UE_VLOG_UELOG(GetOwningPlayerController(), LogPGUI, Log, TEXT("%s: RemoveActiveMessageWidget: ActiveMessageWidget=%s"),
 		*GetName(), *LoggingUtils::GetName(ActiveMessageWidget));
-	if(!IsValid(ActiveMessageWidget))
+
+	if (DoRemoveActiveMessageWidgetFromScreen())
 	{
-		return;
+		UnregisterHoleFinishedMessageRemoval();
+	}
+}
+
+bool APGHUD::DoRemoveActiveMessageWidgetFromScreen()
+{
+	if (!IsValid(ActiveMessageWidget))
+	{
+		return false;
 	}
 
 	ActiveMessageWidget->RemoveFromParent();
 	ActiveMessageWidget = nullptr;
+	LastMessageText = FText::GetEmpty();
 
-	UnregisterHoleFinishedMessageRemoval();
+	return true;
 }
 
 void APGHUD::SpectatePlayer(int32 PlayerStateId)
@@ -397,7 +465,7 @@ void APGHUD::DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& Widge
 		{
 			if (NewWidget->GetClass()->ImplementsInterface(UTextDisplayingWidget::StaticClass()))
 			{
-				ITextDisplayingWidget::Execute_SetText(NewWidget, MessageToSet);
+				SetWidgetText(*NewWidget, MessageToSet);
 			}
 			else
 			{
@@ -416,6 +484,12 @@ void APGHUD::DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& Widge
 			ActiveMessageWidget->AddToViewport();
 		}
 	});
+}
+
+void APGHUD::SetWidgetText(UUserWidget& Widget, const FText& Text)
+{
+	ITextDisplayingWidget::Execute_SetText(&Widget, Text);
+	LastMessageText = Text;
 }
 
 void APGHUD::LoadWidgetAsync(const TSoftClassPtr<UUserWidget>& WidgetClass, TFunction<void(UUserWidget&)> OnWidgetReady)
@@ -483,7 +557,7 @@ void APGHUD::DisplayTurnWidget(const TSoftClassPtr<UUserWidget>& WidgetClass, Wi
 			ActivePlayerTurnWidgetClass = WidgetClass;
 		}
 
-		ITextDisplayingWidget::Execute_SetText(BoundWidgetToDisplay, Message);
+		SetWidgetText(*BoundWidgetToDisplay, Message);
 	}
 	else
 	{
@@ -502,7 +576,7 @@ void APGHUD::DisplayTurnWidget(const TSoftClassPtr<UUserWidget>& WidgetClass, Wi
 			}
 
 			this->*WidgetToDisplay = &NewWidget;
-			ITextDisplayingWidget::Execute_SetText(&NewWidget, Message);
+			SetWidgetText(NewWidget, Message);
 
 			ActivePlayerTurnWidget = &NewWidget;
 		});

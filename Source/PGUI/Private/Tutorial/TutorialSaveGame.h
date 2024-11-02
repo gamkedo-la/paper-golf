@@ -19,17 +19,13 @@ class UTutorialSaveGame : public USaveGame
 	
 public:
 	static inline constexpr uint32 CurrentVersion = 1;
-
-	UTutorialSaveGame();
+	static const FString SlotName;
 
 	uint32 GetVersion() const { return Version; }
 	void Save(const UObject* WorldContextObject);
 	void RestoreState(const UObject* WorldContextObject) const;
 
 	bool IsTutorialCompleted(const UTutorialAction& Tutorial) const;
-
-	FString SlotName{};
-	uint32 SlotIndex{};
 
 private:
 	UTutorialTrackingSubsystem* GetTutorialTrackingSubsystem(const UObject* WorldContextObject) const;

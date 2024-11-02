@@ -41,6 +41,8 @@ public:
 	void HideActiveTutorial();
 	void DestroyTutorialActions();
 
+	void ResetTutorialState();
+
 	UFUNCTION(BlueprintPure)
 	bool IsOnHoleFlybyCompleteBound() const;
 
@@ -64,9 +66,11 @@ private:
 	friend class UTutorialSaveGame;
 
 	template<std::derived_from<UTutorialAction> T>
-	void RegisterTutorialAction(UTutorialConfigDataAsset* TutorialConfig, APlayerController* PlayerController);
+	void RegisterTutorialAction();
 
 	void SaveTutorialState();
+	void RestoreTutorialState();
+	void RegisterResetTutorialConsoleCommand();
 
 private:
 
@@ -83,6 +87,11 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UTutorialSaveGame> TutorialSaveGame{};
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTutorialConfigDataAsset> TutorialConfig{};
+	
+	TWeakObjectPtr<APlayerController> LastPlayerController{};
 };
 
 #pragma region Inline Definitions

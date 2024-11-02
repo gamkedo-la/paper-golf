@@ -52,7 +52,13 @@ public:
 	void DisplayMessageWidget(EMessageWidgetType MessageType);
 
 	UFUNCTION(BlueprintCallable)
+	void RemoveMessageWidget(EMessageWidgetType MessageType);
+
+	UFUNCTION(BlueprintCallable)
 	void DisplayMessageWidgetWithText(const FText& Message);
+
+	UFUNCTION(BlueprintCallable)
+	void RemoveMessageWidgetWithText(const FText& Message);
 
 	UFUNCTION(BlueprintCallable)
 	void DisplayHazardEntryWidget(EHazardType HazardType);
@@ -130,6 +136,8 @@ private:
 
 	void DisplayMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& WidgetClass, FText MessageToSet = {});
 
+	void SetWidgetText(UUserWidget& Widget, const FText& Text);
+
 	void Init();
 
 	void OnScoresSynced(APaperGolfGameStateBase& GameState);
@@ -148,6 +156,9 @@ private:
 
 	UFUNCTION()
 	void OnHoleComplete();
+
+	bool DoRemoveActiveMessageWidgetFromScreen();
+	bool RemoveActiveMessageWidgetByClass(const TSoftClassPtr<UUserWidget>& WidgetClass);
 
 	void HideActiveTurnWidget();
 
@@ -250,6 +261,7 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Audio")
 	TSoftObjectPtr<USoundBase> LoseSfx{};
 
+	FText LastMessageText{};
 	FTimerHandle HoleFinishedMessageTimerHandle{};
 
 	bool bScoresSynced{};

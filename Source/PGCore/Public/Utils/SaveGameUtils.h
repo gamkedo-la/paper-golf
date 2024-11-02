@@ -13,13 +13,8 @@ namespace SaveGameUtils
 	concept SaveGameConcept = requires(T SaveGame)
 	{
 		{
-			SaveGame.SlotName
+			T::SlotName
 		} -> std::convertible_to<FString>;
-
-		{
-			SaveGame.SlotIndex
-		} -> std::convertible_to<int32>;
-
 		{
 			SaveGame.GetVersion()
 		} -> std::convertible_to<int32>;
@@ -28,9 +23,6 @@ namespace SaveGameUtils
 			T::CurrentVersion
 		} -> std::convertible_to<int32>;
 	};
-
-	template<SaveGameConcept T>
-	const T* CreateSaveGameTemplateInstance();
 
 	template<SaveGameConcept T>
 	T* CreateSaveGameInstance();
@@ -57,12 +49,6 @@ namespace SaveGameUtils
 namespace SaveGameUtils
 {
 	template<SaveGameConcept T>
-	inline const T* CreateSaveGameTemplateInstance()
-	{
-		return CreateSaveGameInstance<T>();
-	}
-
-	template<SaveGameConcept T>
 	inline T* CreateSaveGameInstance()
 	{
 		return Cast<T>(UGameplayStatics::CreateSaveGameObject(T::StaticClass()));
@@ -77,7 +63,7 @@ namespace SaveGameUtils
 			return;
 		}
 
-		UGameplayStatics::AsyncSaveGameToSlot(SaveGame, SaveGame->SlotName, SaveGame->SlotIndex);
+		UGameplayStatics::AsyncSaveGameToSlot(SaveGame, T::SlotName, 0);
 	}
 
 	template<SaveGameConcept T>
@@ -88,17 +74,9 @@ namespace SaveGameUtils
 			return false;
 		}
 
-		const T* const SaveGameMetadata = CreateSaveGameTemplateInstance<T>();
+		UE_LOG(LogTemp, Display, TEXT("Deleting Saved Game %s:%d ..."), *T::SlotName, 0);
 
-		if (!SaveGameMetadata)
-		{
-			UE_LOG(LogTemp, Error, TEXT("Unable to create a saved game instance"));
-			return false;
-		}
-
-		UE_LOG(LogTemp, Display, TEXT("Deleting Saved Game %s:%d ..."), *SaveGameMetadata->SlotName, SaveGameMetadata->SlotIndex);
-
-		bool bWasDeleted = UGameplayStatics::DeleteGameInSlot(SaveGameMetadata->SlotName, SaveGameMetadata->SlotIndex);
+		bool bWasDeleted = UGameplayStatics::DeleteGameInSlot(T::SlotName, 0);
 
 		if (bWasDeleted)
 		{
@@ -119,17 +97,9 @@ namespace SaveGameUtils
 	}
 
 	template<SaveGameConcept T>
-	bool DoesSaveGameExist()
+	inline bool DoesSaveGameExist()
 	{
-		const T* const SaveGameMetadata = CreateSaveGameTemplateInstance<T>();
-
-		if (!SaveGameMetadata)
-		{
-			UE_LOG(LogTemp, Error, TEXT("Unable to create a saved game instance"));
-			return false;
-		}
-
-		return UGameplayStatics::DoesSaveGameExist(SaveGameMetadata->SlotName, SaveGameMetadata->SlotIndex);
+		return UGameplayStatics::DoesSaveGameExist(T::SlotName, 0);
 	}
 
 	template<SaveGameConcept T>
@@ -140,27 +110,19 @@ namespace SaveGameUtils
 			return nullptr;
 		}
 
-		const T* const TemplateLoad = CreateSaveGameTemplateInstance<T>();
-
-		if (!TemplateLoad)
-		{
-			UE_LOG(LogTemp, Error, TEXT("Unable to create a saved game instance"));
-			return nullptr;
-		}
-
-		T* LoadedGame = Cast<T>(UGameplayStatics::LoadGameFromSlot(TemplateLoad->SlotName, TemplateLoad->SlotIndex));
+		T* LoadedGame = Cast<T>(UGameplayStatics::LoadGameFromSlot(T::SlotName, 0));
 
 		if (!LoadedGame)
 		{
-			UE_LOG(LogTemp, Error, TEXT("Unable to load saved game: SlotIndex=%d; SlotName=%s"), TemplateLoad->SlotIndex, *TemplateLoad->SlotName);
+			UE_LOG(LogTemp, Error, TEXT("Unable to load saved game: %s"), *T::SlotName);
 			return nullptr;
 		}
 
 		if (LoadedGame->GetVersion() != T::CurrentVersion)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Saved game version=%d is incompatible with current version=%d; SlotIndex=%d; SlotName=%s"),
+			UE_LOG(LogTemp, Warning, TEXT("Saved game version=%d is incompatible with current version=%d; SlotName=%s"),
 				LoadedGame->GetVersion(), T::CurrentVersion,
-				LoadedGame->SlotIndex, *LoadedGame->SlotName
+				*T::SlotName
 			);
 			return nullptr;
 		}

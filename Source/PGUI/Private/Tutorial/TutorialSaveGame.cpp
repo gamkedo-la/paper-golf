@@ -3,7 +3,6 @@
 
 #include "Tutorial/TutorialSaveGame.h"
 #include "Tutorial/TutorialAction.h"
-
 #include "Logging/LoggingUtils.h"
 #include "VisualLogger/VisualLogger.h"
 #include "PGUILogging.h"
@@ -16,11 +15,7 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(TutorialSaveGame)
 
-UTutorialSaveGame::UTutorialSaveGame()
-{
-	SlotName = TEXT("TutorialSaveGame");
-	SlotIndex = 0;
-}
+const FString UTutorialSaveGame::SlotName = TEXT("TutorialSaveGame");
 
 void UTutorialSaveGame::Save(const UObject* WorldContextObject)
 {

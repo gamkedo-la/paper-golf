@@ -5,6 +5,8 @@
 
 #include "VisualLogger/VisualLogger.h"
 
+#include "PGConstants.h"
+
 #include "Logging/LoggingUtils.h"
 
 #include "PGUILogging.h"
@@ -33,17 +35,8 @@ void UTutorialTrackingSubsystem::Initialize(FSubsystemCollectionBase& Collection
 	UE_VLOG_UELOG(this, LogPGUI, Log, TEXT("%s: Initialize"), *GetName());
 	Super::Initialize(Collection);
 
-	TutorialSaveGame = SaveGameUtils::GetSavedGame<UTutorialSaveGame>();
-	if (TutorialSaveGame)
-	{
-		UE_VLOG_UELOG(this, LogPGUI, Log, TEXT("%s: Initialize: Restoring saved TutorialSaveGame state"), *GetName());
-		TutorialSaveGame->RestoreState(this);
-	}
-	else
-	{
-		UE_VLOG_UELOG(this, LogPGUI, Log, TEXT("%s: Initialize: Creating new TutorialSaveGame"), *GetName());
-		TutorialSaveGame = SaveGameUtils::CreateSaveGameInstance<UTutorialSaveGame>();
-	}
+	RegisterResetTutorialConsoleCommand();
+	RestoreTutorialState();
 }
 
 void UTutorialTrackingSubsystem::MarkAllHoleFlybysSeen(bool bSeen)
@@ -62,29 +55,60 @@ void UTutorialTrackingSubsystem::SaveTutorialState()
 	}
 }
 
-void UTutorialTrackingSubsystem::InitializeTutorialActions(UTutorialConfigDataAsset* TutorialConfig, APlayerController* PlayerController)
+void UTutorialTrackingSubsystem::RestoreTutorialState()
 {
-	UE_VLOG_UELOG(this, LogPGUI, Log, TEXT("%s: InitializeTutorialActions: TutorialConfig=%s; PlayerController=%s")
-		, *GetName(), *LoggingUtils::GetName(TutorialConfig), *LoggingUtils::GetName(PlayerController));
-
-	if (!ensure(PlayerController))
+	TutorialSaveGame = SaveGameUtils::GetSavedGame<UTutorialSaveGame>();
+	if (TutorialSaveGame)
 	{
-		UE_VLOG_UELOG(this, LogPGUI, Error, TEXT("%s: InitializeTutorialActions: PlayerController is nullptr"), *GetName());
+		UE_VLOG_UELOG(this, LogPGUI, Log, TEXT("%s: Initialize: Restoring saved TutorialSaveGame state"), *GetName());
+		TutorialSaveGame->RestoreState(this);
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPGUI, Log, TEXT("%s: Initialize: Creating new TutorialSaveGame"), *GetName());
+		TutorialSaveGame = SaveGameUtils::CreateSaveGameInstance<UTutorialSaveGame>();
+	}
+}
+
+void UTutorialTrackingSubsystem::InitializeTutorialActions(UTutorialConfigDataAsset* InTutorialConfig, APlayerController* InPlayerController)
+{
+	UE_VLOG_UELOG(this, LogPGUI, Log, TEXT("%s: InitializeTutorialActions: InTutorialConfig=%s; InPlayerController=%s")
+		, *GetName(), *LoggingUtils::GetName(InTutorialConfig), *LoggingUtils::GetName(InPlayerController));
+
+	if (!ensure(InPlayerController))
+	{
+		UE_VLOG_UELOG(this, LogPGUI, Error, TEXT("%s: InitializeTutorialActions: InPlayerController is nullptr"), *GetName());
 		return;
 	}
+
+	LastPlayerController = InPlayerController;
+	TutorialConfig = InTutorialConfig;
 
 	CurrentTutorialAction = nullptr;
 	TutorialActions.Reset();
 
-	RegisterTutorialAction<UShotTutorialAction>(TutorialConfig, PlayerController);
-	RegisterTutorialAction<UAimTutorialAction>(TutorialConfig, PlayerController);
-	RegisterTutorialAction<UShotPreviewTutorialAction>(TutorialConfig, PlayerController);
-	RegisterTutorialAction<UShotSpinTutorialAction>(TutorialConfig, PlayerController);
+	RegisterTutorialAction<UShotTutorialAction>();
+	RegisterTutorialAction<UAimTutorialAction>();
+	RegisterTutorialAction<UShotPreviewTutorialAction>();
+	RegisterTutorialAction<UShotSpinTutorialAction>();
 }
 
 template<std::derived_from<UTutorialAction> T>
-void UTutorialTrackingSubsystem::RegisterTutorialAction(UTutorialConfigDataAsset* TutorialConfig, APlayerController* PlayerController)
+void UTutorialTrackingSubsystem::RegisterTutorialAction()
 {
+	if (!TutorialConfig)
+	{
+		UE_VLOG_UELOG(this, LogPGUI, Warning, TEXT("%s: RegisterTutorialAction: SkipAll - TutorialConfig is NULL"), *GetName());
+		return;
+	}
+
+	const auto PlayerController = LastPlayerController.Get();
+	if (!PlayerController)
+	{
+		UE_VLOG_UELOG(this, LogPGUI, Warning, TEXT("%s: RegisterTutorialAction: SkipAll - PlayerController is NULL"), *GetName());
+		return;
+	}
+	
 	if (auto Tutorial = NewObject<T>(PlayerController); ensure(Tutorial))
 	{
 		if (!TutorialSaveGame || !TutorialSaveGame->IsTutorialCompleted(*Tutorial))
@@ -145,3 +169,63 @@ void UTutorialTrackingSubsystem::DestroyTutorialActions()
 	HideActiveTutorial();
 	TutorialActions.Reset();
 }
+
+void UTutorialTrackingSubsystem::ResetTutorialState()
+{
+	if (SaveGameUtils::DeleteSavedGame<UTutorialSaveGame>())
+	{
+		UE_VLOG_UELOG(this, LogPGUI, Log, TEXT("%s: DeleteSavedGame - Tutorial save deleted"), *GetName());
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPGUI, Log, TEXT("%s: DeleteSavedGame - Tutorial save not found"), *GetName());
+	}
+
+	bTutorialHoleSeen = false;
+
+	RestoreTutorialState();
+
+	// Reinitialize tutorial actions
+	const auto PlayerController = LastPlayerController.Get();
+	if (IsValid(TutorialConfig) && PlayerController)
+	{
+		InitializeTutorialActions(TutorialConfig, PlayerController);
+	}
+
+	UE_VLOG_UELOG(this, LogPGUI, Display, TEXT("%s: ResetTutorialState"), *GetName());
+}
+
+#if PG_DEBUG_ENABLED
+
+namespace
+{
+	constexpr const auto ResetTutorialConsoleName = TEXT("pg.tutorial.reset");
+}
+
+void UTutorialTrackingSubsystem::RegisterResetTutorialConsoleCommand()
+{
+	auto& ConsoleManager = IConsoleManager::Get();
+
+	// Must remove existing registration to avoid warnings
+	if (auto ExistingCommand = ConsoleManager.FindConsoleObject(ResetTutorialConsoleName); ExistingCommand)
+	{
+		UE_LOG(LogPGUI, Log, TEXT("%s: Unregistering existing console command for %s"), *GetName(), ResetTutorialConsoleName);
+
+		ConsoleManager.UnregisterConsoleObject(ExistingCommand);
+	}
+
+	UE_LOG(LogPGUI, Log, TEXT("%s: Registering console command for %s"), *GetName(), ResetTutorialConsoleName);
+
+	ConsoleManager.RegisterConsoleCommand(
+		ResetTutorialConsoleName,
+		TEXT("Deletes saved state of tutorial so it can be replayed"),
+		FConsoleCommandDelegate::CreateUObject(this, &UTutorialTrackingSubsystem::ResetTutorialState),
+		ECVF_Default
+	);
+}
+
+#else
+
+void UTutorialTrackingSubsystem::RegisterResetTutorialConsoleCommand(){}
+
+#endif
