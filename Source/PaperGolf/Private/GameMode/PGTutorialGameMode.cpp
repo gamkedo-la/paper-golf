@@ -55,7 +55,9 @@ void APGTutorialGameMode::CourseCompletionNextAction()
 
 	if (auto World = GetWorld(); ensure(World))
 	{
-		bUseSeamlessTravel = !WITH_EDITOR;
+		// TODO: This causes a crash in non editor builds - no players are registers when the course starts
+		// Assertion failed: ActivePlayerIndex >= 0 && ActivePlayerIndex < Players.Num() [Source\PaperGolf\Private\GameMode\GolfTurnBasedDirectorComponent.cpp] [Line: 485]
+		bUseSeamlessTravel = false; // !WITH_EDITOR;
 
 		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: CourseCompletionNextAction: Loading next course with options=%s"),
 			*GetName(), *NextCourseOptions);
