@@ -55,7 +55,7 @@ namespace SaveGameUtils
 	}
 
 	template<SaveGameConcept T>
-	void SaveGameUtils::SaveGame(T* SaveGame)
+	void SaveGame(T* SaveGame)
 	{
 		if (!SaveGame)
 		{
