@@ -42,6 +42,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "UI")
 	void SetHUDVisible(bool bVisible);
 
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category = "UI")
+	void SetShowHoleNumber(bool bShouldDisplay);
+
 	UFUNCTION(BlueprintImplementableEvent, Category = "UI")
 	void OnGameOver();
 

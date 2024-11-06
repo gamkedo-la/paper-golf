@@ -32,4 +32,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = "Shot")
 	void SetTargetPower(float PowerFraction);
+
+	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = "Hole")
+	void SetShowHoleNumber(bool bShouldDisplay);
 };
