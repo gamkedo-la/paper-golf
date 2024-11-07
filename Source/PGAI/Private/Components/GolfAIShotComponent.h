@@ -12,7 +12,7 @@
 
 class APaperGolfPawn;
 class UCurveTable;
-
+class UAIPerformanceStrategy;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class UGolfAIShotComponent : public UActorComponent
@@ -55,12 +55,6 @@ private:
 		float PowerMultiplier{ 1.0f };
 	};
 
-	struct FShotErrorResult
-	{
-		float PowerFraction{};
-		float Accuracy{};
-	};
-
 	struct FShotCalibrationResult
 	{
 		float PowerFraction{};
@@ -75,10 +69,6 @@ private:
 
 	TOptional<FShotPowerCalculationResult> CalculateInitialShotParams() const;
 	FShotCalibrationResult CalibrateShot(const FVector& FlickLocation, float PowerFraction) const;
-	FShotErrorResult CalculateShotError(float PowerFraction);
-
-	float GenerateAccuracy(float MinDeviation, float MaxDeviation) const;
-	float GeneratePowerFraction(float InPowerFraction, float MinDeviation, float MaxDeviation) const;
 
 	float CalculateDefaultZOffset() const;
 
@@ -90,8 +80,7 @@ private:
 
 	bool ValidateAndLoadConfig();
 	bool ValidateCurveTable(UCurveTable* CurveTable) const;
-
-	const FGolfAIConfigData* SelectAIConfigEntry() const;
+	bool ValidateAndLoadAIPerformanceStrategy();
 
 	void LoadWorldData();
 
@@ -148,7 +137,10 @@ private:
 	TObjectPtr<UCurveTable> AIConfigCurveTable{};
 
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
-	TObjectPtr<UDataTable> AIErrorsDataTable{};
+	TSubclassOf<UAIPerformanceStrategy> AIPerformanceStrategyClass{};
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAIPerformanceStrategy> AIPerformanceStrategy{};
 
 	TArray<FGolfAIConfigData> AIErrorsData{};
 
@@ -162,8 +154,6 @@ private:
 
 	UPROPERTY(Transient)
 	AActor* FocusActor{};
-
-	int32 ShotsSinceLastError{};
 };
 
 #pragma region Inline Definitions

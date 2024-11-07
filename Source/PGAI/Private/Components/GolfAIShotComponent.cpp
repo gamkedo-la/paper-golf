@@ -15,7 +15,7 @@
 #include "PGAILogging.h"
 #include "Utils/CollisionUtils.h"
 
-#include "Utils/RandUtils.h"
+#include "Utils/GolfAIShotCalculationUtils.h"
 
 #include "Utils/ArrayUtils.h"
 #include "Utils/StringUtils.h"
@@ -29,6 +29,8 @@
 #include "Data/GolfAIConfigData.h"
 
 #include "PhysicalMaterials/PhysicalMaterial.h"
+
+#include "AIStrategy/AIPerformanceStrategy.h"
 
 #include "PGTags.h"
 
@@ -324,9 +326,12 @@ TOptional<FAIShotSetupResult> UGolfAIShotComponent::CalculateShotParamsForCurren
 	FlickParams.PowerFraction *= FMath::Max(ShotCalculationResult.PowerMultiplier, MinRetryShotPowerReductionFactor);
 
 	// Add error to power calculation and accuracy
-	const auto FlickError = CalculateShotError(FlickParams.PowerFraction);
-	FlickParams.PowerFraction = FlickError.PowerFraction;
-	FlickParams.Accuracy = FlickError.Accuracy;
+	if (AIPerformanceStrategy)
+	{
+		const auto FlickError = AIPerformanceStrategy->CalculateShotError(FlickParams.PowerFraction);
+		FlickParams.PowerFraction = FlickError.PowerFraction;
+		FlickParams.Accuracy = FlickError.Accuracy;
+	}
 
 	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotParamsForCurrentFocusActor - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f; ShotPitch=%.1f; ShotYaw=%.1f"),
 		*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(FlickParams.ShotType),
@@ -510,16 +515,15 @@ bool UGolfAIShotComponent::ValidateAndLoadConfig()
 {
 	bool bValid = true;
 
-	AIErrorsData = GolfAIConfigDataParser::ReadAll(AIErrorsDataTable);
-	if (AIErrorsData.IsEmpty())
-	{
-		UE_VLOG_UELOG(GetOwner(), LogPGAI, Error, TEXT("%s-%s: ValidateConfig - FALSE - AIErrorsData is empty"), *LoggingUtils::GetName(GetOwner()), *GetName());
-		bValid = false;
-	}
-
 	if (!ValidateCurveTable(AIConfigCurveTable))
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPGAI, Error, TEXT("%s-%s: ValidateConfig - FALSE - AIConfigCurveTable is invalid"), *LoggingUtils::GetName(GetOwner()), *GetName());
+		bValid = false;
+	}
+
+	if (!ValidateAndLoadAIPerformanceStrategy())
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Error, TEXT("%s-%s: ValidateConfig - FALSE - AIPerformanceStrategy is invalid"), *LoggingUtils::GetName(GetOwner()), *GetName());
 		bValid = false;
 	}
 
@@ -529,6 +533,31 @@ bool UGolfAIShotComponent::ValidateAndLoadConfig()
 	}
 
 	return bValid;
+}
+
+bool UGolfAIShotComponent::ValidateAndLoadAIPerformanceStrategy()
+{
+	if (!ensure(AIPerformanceStrategyClass))
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Error, TEXT("%s-%s: ValidateAndLoadAIPerformanceStrategy - FALSE - AIPerformanceStrategyClass is NULL"), *LoggingUtils::GetName(GetOwner()), *GetName());
+		return false;
+	}
+
+	AIPerformanceStrategy = NewObject<UAIPerformanceStrategy>(this, AIPerformanceStrategyClass);
+
+	if (!ensure(AIPerformanceStrategy))
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Error, TEXT("%s-%s: ValidateAndLoadAIPerformanceStrategy - FALSE - AIPerformanceStrategy=%s could not be created"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(AIPerformanceStrategyClass));
+		return false;
+	}
+
+	return AIPerformanceStrategy->Initialize(
+		PG::FAIPerformanceConfig {
+			.MinPower = MinShotPower,
+			.DefaultAccuracyDeviation = DefaultAccuracyDeviation,
+			.DefaultPowerDeviation = DefaultPowerDeviation
+	});
 }
 
 bool UGolfAIShotComponent::ValidateCurveTable(UCurveTable* CurveTable) const
@@ -542,17 +571,6 @@ bool UGolfAIShotComponent::ValidateCurveTable(UCurveTable* CurveTable) const
 	return FindCurveForKey(CurveTable, DeltaDistanceMetersVsPowerFraction)  &&
 		   FindCurveForKey(CurveTable, PowerFractionVsPitchAngle) &&
 		   FindCurveForKey(CurveTable, DeltaDistanceMetersVsZOffset);
-}
-
-float UGolfAIShotComponent::GenerateAccuracy(float MinDeviation, float MaxDeviation) const
-{
-	return RandUtils::RandSign() * FMath::FRandRange(MinDeviation, MaxDeviation);
-}
-
-float UGolfAIShotComponent::GeneratePowerFraction(float InPowerFraction, float MinDeviation, float MaxDeviation) const
-{
-	const auto Deviation = RandUtils::RandSign() * FMath::FRandRange(MinDeviation, MaxDeviation);
-	return FMath::Clamp(InPowerFraction * (1 + Deviation), MinShotPower, 1.0f);
 }
 
 float UGolfAIShotComponent::CalculateDefaultZOffset() const
@@ -691,7 +709,7 @@ FAIShotSetupResult UGolfAIShotComponent::CalculateDefaultShotParams() const
 		.ShotType = ShotContext.ShotType,
 		.LocalZOffset = 0,
 		.PowerFraction = 1.0f,
-		.Accuracy = GenerateAccuracy(-DefaultAccuracyDeviation, DefaultAccuracyDeviation)
+		.Accuracy = PG::GolfAIShotCalculationUtils::GenerateAccuracy(-DefaultAccuracyDeviation, DefaultAccuracyDeviation)
 	};
 
 	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f"),
@@ -777,102 +795,6 @@ UGolfAIShotComponent::FShotCalibrationResult UGolfAIShotComponent::CalibrateShot
 		.PowerFraction = PowerFraction,
 		.Pitch = PitchAngle,
 		.LocalZOffset = LocalZOffset
-	};
-}
-
-const FGolfAIConfigData* UGolfAIShotComponent::SelectAIConfigEntry() const
-{
-	const FGolfAIConfigData* Selected = AIErrorsData.FindByPredicate([this](const FGolfAIConfigData& Entry)
-	{
-		return ShotsSinceLastError <= Entry.ShotsSinceLastError;
-	});
-
-	if (!Selected && !AIErrorsData.IsEmpty())
-	{
-		Selected = &AIErrorsData.Last();
-
-		UE_VLOG_UELOG(GetOwner(), LogPGAI, Warning, TEXT("%s-%s: SelectAIConfigEntry - ShotsSinceLastError=%d; Defaulted to last entry with Shots=%d"),
-			*LoggingUtils::GetName(GetOwner()), *GetName(), ShotsSinceLastError, Selected->ShotsSinceLastError);
-	}
-
-	return Selected;
-}
-
-UGolfAIShotComponent::FShotErrorResult UGolfAIShotComponent::CalculateShotError(float PowerFraction)
-{
-	const auto AIConfigEntry = SelectAIConfigEntry();
-	if (!AIConfigEntry)
-	{
-		UE_VLOG_UELOG(GetOwner(), LogPGAI, Warning, TEXT("%s-%s: CalculateShotError - AIConfigEntry is NULL - using defaults"),
-			*LoggingUtils::GetName(GetOwner()), *GetName());
-
-		return FShotErrorResult
-		{
-			.PowerFraction = GeneratePowerFraction(PowerFraction, -DefaultPowerDeviation, DefaultPowerDeviation),
-			.Accuracy = GenerateAccuracy(-DefaultAccuracyDeviation, DefaultAccuracyDeviation),
-		};
-	}
-
-	const auto PerfectShotRoll = FMath::FRand();
-
-	if (PerfectShotRoll <= AIConfigEntry->PerfectShotProbability)
-	{
-		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotError - Perfect Shot - PerfectShotRoll=%.2f; PerfectShotProbability=%.2f; ShotsSinceLastError=%d"),
-			*LoggingUtils::GetName(GetOwner()), *GetName(), PerfectShotRoll, AIConfigEntry->PerfectShotProbability, ShotsSinceLastError);
-
-		++ShotsSinceLastError;
-
-		return FShotErrorResult
-		{
-			.PowerFraction = PowerFraction,
-			.Accuracy = 0.0f
-		};
-	}
-
-	ShotsSinceLastError = 0;
-
-	// Check for a "shank shot"
-	const auto ShankShotRoll = FMath::FRand();
-
-	if (ShankShotRoll <= AIConfigEntry->ShankShotProbability)
-	{
-		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotError - Shank Shot - ShankShotRoll=%.2f; ShankShotProbability=%.2f"),
-			*LoggingUtils::GetName(GetOwner()), *GetName(), ShankShotRoll, AIConfigEntry->ShankShotProbability);
-
-		const auto ShankPowerFactor = AIConfigEntry->ShankPowerFactor;
-		if (ShankPowerFactor * PowerFraction <= 1.0f)
-		{
-			PowerFraction *= ShankPowerFactor;
-		}
-		else
-		{
-			PowerFraction = FMath::Max(MinShotPower, PowerFraction / ShankPowerFactor);
-		}
-
-		const auto Accuracy = RandUtils::RandSign() * AIConfigEntry->ShankAccuracy;
-
-		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotError - Shank Shot - PowerFraction=%.2f; ShankPowerFactor=%.2f; ShankAccuracy=%.2f"),
-			*LoggingUtils::GetName(GetOwner()), *GetName(), PowerFraction, ShankPowerFactor, Accuracy);
-
-		return FShotErrorResult
-		{
-			.PowerFraction = PowerFraction,
-			.Accuracy = Accuracy
-		};
-	}
-
-	const auto Accuracy = GenerateAccuracy(AIConfigEntry->DefaultAccuracyDeltaMin, AIConfigEntry->DefaultAccuracyDeltaMax);
-	PowerFraction = GeneratePowerFraction(PowerFraction, AIConfigEntry->DefaultPowerDeltaMin, AIConfigEntry->DefaultPowerDeltaMax);
-
-	// use default calculation
-	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotError - Default - PowerFraction=%.2f; Accuracy = %.2f; AccuracyDeviation=[%.2f,%.2f]; PowerDeviation=[%.2f,%.2f]"),
-		*LoggingUtils::GetName(GetOwner()), *GetName(),
-		PowerFraction, Accuracy, AIConfigEntry->DefaultAccuracyDeltaMin, AIConfigEntry->DefaultAccuracyDeltaMax, AIConfigEntry->DefaultPowerDeltaMin, AIConfigEntry->DefaultPowerDeltaMax);
-
-	return FShotErrorResult
-	{
-		.PowerFraction = PowerFraction,
-		.Accuracy = Accuracy,
 	};
 }
 
