@@ -28,7 +28,7 @@ bool UShotsSinceLastErrorStrategy::Initialize(const PG::FAIPerformanceConfig& Co
 	return bValid;
 }
 
-PG::FShotErrorResult UShotsSinceLastErrorStrategy::CalculateShotError(float PowerFraction)
+PG::FShotErrorResult UShotsSinceLastErrorStrategy::CalculateShotError(const FFlickParams& FlickParams)
 {
 	const auto AIConfigEntry = SelectAIConfigEntry();
 	if (!AIConfigEntry)
@@ -36,8 +36,10 @@ PG::FShotErrorResult UShotsSinceLastErrorStrategy::CalculateShotError(float Powe
 		UE_VLOG_UELOG(GetOuter(), LogPGAI, Warning, TEXT("%s-%s: CalculateShotError - AIConfigEntry is NULL - using defaults"),
 			*LoggingUtils::GetName(GetOuter()), *GetName());
 
-		return Super::CalculateShotError(PowerFraction);
+		return Super::CalculateShotError(FlickParams);
 	}
+
+	auto PowerFraction = FlickParams.PowerFraction;
 
 	const auto PerfectShotRoll = FMath::FRand();
 

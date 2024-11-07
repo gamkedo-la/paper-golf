@@ -23,8 +23,10 @@ bool UAIPerformanceStrategy::Initialize(const PG::FAIPerformanceConfig& Config)
 	return true;
 }
 
-FShotErrorResult UAIPerformanceStrategy::CalculateShotError(float PowerFraction)
+FShotErrorResult UAIPerformanceStrategy::CalculateShotError(const FFlickParams& FlickParams)
 {
+	const auto PowerFraction = FlickParams.PowerFraction;
+
 	return FShotErrorResult
 	{
 		.PowerFraction = GolfAIShotCalculationUtils::GeneratePowerFraction(PowerFraction, AIConfig.MinPower, -AIConfig.DefaultPowerDeviation, AIConfig.DefaultPowerDeviation),

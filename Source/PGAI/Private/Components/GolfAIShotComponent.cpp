@@ -328,7 +328,7 @@ TOptional<FAIShotSetupResult> UGolfAIShotComponent::CalculateShotParamsForCurren
 	// Add error to power calculation and accuracy
 	if (AIPerformanceStrategy)
 	{
-		const auto FlickError = AIPerformanceStrategy->CalculateShotError(FlickParams.PowerFraction);
+		const auto FlickError = AIPerformanceStrategy->CalculateShotError(FlickParams);
 		FlickParams.PowerFraction = FlickError.PowerFraction;
 		FlickParams.Accuracy = FlickError.Accuracy;
 	}

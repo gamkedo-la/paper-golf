@@ -16,8 +16,11 @@ bool UShuffledAIStrategy::Initialize(const PG::FAIPerformanceConfig& Config)
 	return Super::Initialize(Config);
 }
 
-FShotErrorResult UShuffledAIStrategy::CalculateShotError(float PowerFraction)
+FShotErrorResult UShuffledAIStrategy::CalculateShotError(const FFlickParams& FlickParams)
 {
+	// TODO: Select the correct strategy based on the shot type
+	// Choose the next outcome in the array and if reach the end then reshuffle
+	// 
 	// TODO: Implement
-	return Super::CalculateShotError(PowerFraction);
+	return Super::CalculateShotError(FlickParams);
 }

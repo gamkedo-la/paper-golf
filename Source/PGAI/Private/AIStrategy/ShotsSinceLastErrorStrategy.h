@@ -22,7 +22,7 @@ class UShotsSinceLastErrorStrategy : public UAIPerformanceStrategy
 public:
 	virtual bool Initialize(const PG::FAIPerformanceConfig& Config) override;
 
-	virtual PG::FShotErrorResult CalculateShotError(float PowerFraction) override;
+	virtual PG::FShotErrorResult CalculateShotError(const FFlickParams& FlickParams) override;
 
 private:
 	const FGolfAIConfigData* SelectAIConfigEntry() const;

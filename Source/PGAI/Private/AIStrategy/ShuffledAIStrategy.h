@@ -7,6 +7,10 @@
 
 #include "AIStrategy/AIPerformanceStrategy.h"
 
+#include "PaperGolfTypes.h"
+
+#include "AIPerformanceConfig.h"
+
 #include "ShuffledAIStrategy.generated.h"
 
 /**
@@ -19,8 +23,14 @@ class UShuffledAIStrategy : public UAIPerformanceStrategy
 
 public:
 	virtual bool Initialize(const PG::FAIPerformanceConfig& Config) override;
-	virtual PG::FShotErrorResult CalculateShotError(float PowerFraction) override;
+	virtual PG::FShotErrorResult CalculateShotError(const FFlickParams& FlickParams) override;
 
 private:
 	float MinShotPower{};
+
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	TMap<EShotType, UDataTable*> ShotTypeStrategyTableMap{};
+
+	TMap<EShotType, TArray<FAIPerformanceConfigData>> ShotTypeStrategyDataMap{};
+	TMap<EShotType, int32> ShotTypeStrategyIndexMap{};
 };

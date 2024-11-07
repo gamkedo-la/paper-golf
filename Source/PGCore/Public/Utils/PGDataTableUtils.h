@@ -12,10 +12,13 @@ namespace PG::DataTableUtils
 {
 	template<std::derived_from<FTableRowBase> T>
 	bool ValidateDataTableRowType(UDataTable* DataTable);
+
+	template<std::derived_from<FTableRowBase> T>
+	TArray<T> ReadAll(UDataTable* DataTable, bool bValidate = true, const char* Context = "DataTableUtils::ReadAll");
 }
 
 
-#pragma region Inline Definitions
+#pragma region Definitions
 
 
 template<std::derived_from<FTableRowBase> T>
@@ -36,4 +39,29 @@ inline bool PG::DataTableUtils::ValidateDataTableRowType(UDataTable* DataTable)
 #endif
 }
 
-#pragma endregion Inline Definitions
+template<std::derived_from<FTableRowBase> T>
+TArray<T> PG::DataTableUtils::ReadAll(UDataTable* DataTable, bool bValidate, const char* Context)
+{
+	if (!ValidateDataTableRowType<T>(DataTable))
+	{
+		return {};
+	}
+
+	TArray<T*> Data;
+	DataTable->GetAllRows(Context, Data);
+
+	TArray<T> OutputData;
+	OutputData.Reserve(Data.Num());
+
+	for (auto DataRowPtr : Data)
+	{
+		if (DataRowPtr)
+		{
+			OutputData.Add(*DataRowPtr);
+		}
+	}
+
+	return OutputData;
+}
+
+#pragma endregion Definitions

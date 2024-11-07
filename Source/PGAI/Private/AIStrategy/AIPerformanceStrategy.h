@@ -4,6 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Interface.h"
+
+#include "PaperGolfTypes.h"
+
 #include "AIPerformanceStrategy.generated.h"
 
 namespace PG
@@ -35,7 +38,7 @@ class UAIPerformanceStrategy : public UObject
 public:
 
 	virtual bool Initialize(const PG::FAIPerformanceConfig& Config);
-	virtual PG::FShotErrorResult CalculateShotError(float PowerFraction);
+	virtual PG::FShotErrorResult CalculateShotError(const FFlickParams& FlickParams);
 
 protected:
 	PG::FAIPerformanceConfig AIConfig{};

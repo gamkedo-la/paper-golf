@@ -8,24 +8,5 @@
 
 TArray<FGolfAIConfigData> GolfAIConfigDataParser::ReadAll(UDataTable* GolfAIDataTable)
 {
-	if (!PG::DataTableUtils::ValidateDataTableRowType<FGolfAIConfigData>(GolfAIDataTable))
-	{
-		return {};
-	}
-
-	TArray<FGolfAIConfigData*> Data;
-	GolfAIDataTable->GetAllRows("GolfAIConfigDataParser::ReadAll", Data);
-
-	TArray<FGolfAIConfigData> OutputData;
-	OutputData.Reserve(Data.Num());
-
-	for (auto DataRowPtr : Data)
-	{
-		if (DataRowPtr)
-		{
-			OutputData.Add(*DataRowPtr);
-		}
-	}
-
-	return OutputData;
+	return PG::DataTableUtils::ReadAll<FGolfAIConfigData>(GolfAIDataTable, true, "GolfAIConfigDataParser::ReadAll");
 }
