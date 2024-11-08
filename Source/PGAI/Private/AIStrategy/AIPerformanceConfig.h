@@ -27,6 +27,14 @@ struct FAIPerformanceConfigData : public FTableRowBase
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, DisplayName = "Default Power Delta Max")
 	float PowerDeltaMax{};
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, DisplayName = "Absolute Min Power")
+	float PowerAbsoluteMin{ 0.1f };
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, DisplayName = "Power Sign Bias", Meta=(ClampMin="-1", ClampMax="1"))
+	float PowerSignBias{};
+
+	FString ToString() const;
 };
 
 namespace AIPerformanceConfigDataTableParser

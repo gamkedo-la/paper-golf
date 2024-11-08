@@ -26,7 +26,6 @@
 #include "Kismet/GameplayStatics.h"
 #include "Engine/CurveTable.h"
 #include "Curves/RealCurve.h"
-#include "Data/GolfAIConfigData.h"
 
 #include "PhysicalMaterials/PhysicalMaterial.h"
 

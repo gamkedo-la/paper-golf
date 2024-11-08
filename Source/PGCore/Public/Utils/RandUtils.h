@@ -17,6 +17,9 @@ namespace RandUtils
 	template<typename Random, std::forward_iterator Iter>
 	void ShuffleIndices(Iter Begin, Random& Rng, std::size_t Count);
 
+	template<typename T>
+	void ShuffleArray(TArray<T>& Array);
+
 	int32 RandSign();
 }
 
@@ -32,6 +35,18 @@ namespace RandUtils
 		// 0, 1, 2, 3...
 		std::iota(BeginIt, EndIt, 0);
 		std::shuffle(BeginIt, EndIt, Rng);
+	}
+
+	template<typename T>
+	void ShuffleArray(TArray<T>& Array)
+	{
+		// Shuffle using the Fisher-Yates shuffle algorithm
+
+		for (int32 i = Array.Num() - 1; i > 0; --i)
+		{
+			const auto j = FMath::RandRange(0, i);
+			Array.Swap(i, j);
+		}
 	}
 }
 

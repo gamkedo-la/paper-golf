@@ -11,3 +11,8 @@ TArray<FAIPerformanceConfigData> AIPerformanceConfigDataTableParser::ReadAll(UDa
 {
 	return PG::DataTableUtils::ReadAll<FAIPerformanceConfigData>(GolfAIDataTable, true, "AIPerformanceConfigDataTableParser::ReadAll");
 }
+
+FString FAIPerformanceConfigData::ToString() const
+{
+	return FString::Printf(TEXT("AccuracyDeltaMin=%.2f; AccuracyDeltaMax=%.2f; PowerDeltaMin=%.2f; PowerDeltaMax=%.2f"), AccuracyDeltaMin, AccuracyDeltaMax, PowerDeltaMin, PowerDeltaMax);
+}

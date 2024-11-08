@@ -7,7 +7,6 @@
 
 #include "PGAITypes.h"
 
-#include "Data/GolfAIConfigData.h"
 #include "GolfAIShotComponent.generated.h"
 
 class APaperGolfPawn;
@@ -141,8 +140,6 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAIPerformanceStrategy> AIPerformanceStrategy{};
-
-	TArray<FGolfAIConfigData> AIErrorsData{};
 
 	UPROPERTY(Transient)
 	TArray<AActor*> HazardActors{};

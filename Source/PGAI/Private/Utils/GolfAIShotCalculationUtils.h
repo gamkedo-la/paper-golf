@@ -5,5 +5,5 @@
 namespace PG::GolfAIShotCalculationUtils
 {
 	float GenerateAccuracy(float MinDeviation, float MaxDeviation);
-	float GeneratePowerFraction(float InPowerFraction, float MinShotPower, float MinDeviation, float MaxDeviation);
+	float GeneratePowerFraction(float InPowerFraction, float MinShotPower, float MinDeviation, float MaxDeviation, float SignBias = 0.0f);
 }
