@@ -36,13 +36,10 @@ FShotErrorResult UShuffledAIStrategy::CalculateShotError(const FFlickParams& Fli
 		return Super::CalculateShotError(FlickParams);
 	}
 
-	auto PowerFraction = FlickParams.PowerFraction;
-
 	const auto Accuracy = GolfAIShotCalculationUtils::GenerateAccuracy(ConfigEntry->AccuracyDeltaMin, ConfigEntry->AccuracyDeltaMax);
-	PowerFraction = GolfAIShotCalculationUtils::GeneratePowerFraction(PowerFraction, FMath::Max(AIConfig.MinPower, ConfigEntry->PowerAbsoluteMin),
+	const auto PowerFraction = GolfAIShotCalculationUtils::GeneratePowerFraction(FlickParams.PowerFraction, FMath::Max(AIConfig.MinPower, ConfigEntry->PowerAbsoluteMin),
 		ConfigEntry->PowerDeltaMin, ConfigEntry->PowerDeltaMax, ConfigEntry->PowerSignBias);
 
-	// use default calculation
 	UE_VLOG_UELOG(GetOuter(), LogPGAI, Log, TEXT("%s-%s: CalculateShotError - PowerFraction=%.2f; Accuracy = %.2f; AccuracyDeviation=[%.2f,%.2f]; PowerDeviation=[%.2f,%.2f]"),
 		*LoggingUtils::GetName(GetOuter()), *GetName(),
 		PowerFraction, Accuracy, ConfigEntry->AccuracyDeltaMin, ConfigEntry->AccuracyDeltaMax, ConfigEntry->PowerDeltaMin, ConfigEntry->PowerDeltaMax);
@@ -146,7 +143,7 @@ TArray<FAIPerformanceConfigData> UShuffledAIStrategy::CreateShotTypeEntries(ESho
 		}
 		else if (NumEntries == 0)
 		{
-			UE_VLOG_UELOG(GetOuter(), LogPGAI, Verbose, TEXT("%s-%s: CreateShotTypeEntries - i=%d - Entry=%s was truncated. NormalizedRowWeight=%.2f; ConfigEntry.NumOutcomes=%d; FinalEntries.Num()=%d"),
+			UE_VLOG_UELOG(GetOuter(), LogPGAI, Log, TEXT("%s-%s: CreateShotTypeEntries - i=%d - Entry=%s was truncated. NormalizedRowWeight=%.2f; ConfigEntry.NumOutcomes=%d; FinalEntries.Num()=%d"),
 				*LoggingUtils::GetName(GetOuter()), *GetName(), i, *Row.ToString(), NormalizedRowWeight, ConfigEntry.NumOutcomes, FinalEntries.Num());
 		}
 		else
