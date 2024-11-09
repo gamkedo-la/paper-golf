@@ -88,7 +88,8 @@ void AMovingObstacle::Tick(float DeltaTime)
 
 void AMovingObstacle::EvaluatePosition()
 {
-	const auto& SplineTransform = movementPath->GetTransformAtDistanceAlongSpline(distance, ESplineCoordinateSpace::World);
+	const auto AdjustedDistance = bReverseDirection ? movementPath->GetSplineLength() - distance : distance;
+	const auto& SplineTransform = movementPath->GetTransformAtDistanceAlongSpline(AdjustedDistance, ESplineCoordinateSpace::World);
 	// Preserve local transform of static mesh
 	const auto& LocalTransform = staticMesh->GetRelativeTransform();
 

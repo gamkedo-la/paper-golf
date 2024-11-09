@@ -51,4 +51,7 @@ private:
 	FQuat InitialRelativeRotation{ EForceInit::ForceInit };
 
 	float valueToAdd = 1;
+
+	UPROPERTY(EditAnywhere)
+	bool bReverseDirection{};
 };
