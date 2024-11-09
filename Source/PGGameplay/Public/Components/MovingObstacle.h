@@ -13,33 +13,42 @@ UCLASS()
 class PGGAMEPLAY_API AMovingObstacle : public AActor
 {
 	GENERATED_BODY()
-	
-public:	
+
+public:
 	// Sets default values for this actor's properties
 	AMovingObstacle();
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	UStaticMeshComponent* staticMesh;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	USplineComponent* movementPath;
+	TObjectPtr<UStaticMeshComponent> staticMesh{};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TObjectPtr<USplineComponent> movementPath{};
 
 	UPROPERTY(EditAnywhere)
-	float distance;
+	float distance = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float speed = 1;
 
-protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
-
-public:	
-	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
 	void EvaluatePosition();
 
 	void SetDistance();
 
+protected:
+	virtual void BeginPlay() override;
+
+private:
+	void EnableTick(bool bEnabled);
+	void Init();
+
+private:
+
+	FVector InitialRelativeLocation{ EForceInit::ForceInitToZero };
+	FQuat InitialRelativeRotation{ EForceInit::ForceInit };
+
+	float valueToAdd = 1;
 };

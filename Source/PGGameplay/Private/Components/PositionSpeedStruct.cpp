@@ -3,11 +3,4 @@
 
 #include "Components/PositionSpeedStruct.h"
 
-FPositionSpeedStruct::FPositionSpeedStruct()
-{
-
-}
-
-FPositionSpeedStruct::~FPositionSpeedStruct()
-{
-}
+#include UE_INLINE_GENERATED_CPP_BY_NAME(PositionSpeedStruct)

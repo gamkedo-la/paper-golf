@@ -12,16 +12,13 @@ struct PGGAMEPLAY_API FPositionSpeedStruct
 public:
 	GENERATED_BODY()
 
-	FPositionSpeedStruct();
-	~FPositionSpeedStruct();
-
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int distanceIn{};
+	int32 distanceIn{};
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Meta = (MakeEditWidget = true))
 	FVector position = FVector::ZeroVector;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	USplineComponent* spline;
+	TObjectPtr<USplineComponent> spline{};
 };
