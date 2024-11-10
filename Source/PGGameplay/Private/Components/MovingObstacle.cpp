@@ -4,9 +4,8 @@
 #include "Components/MovingObstacle.h"
 
 #include "VisualLogger/VisualLogger.h"
-
+#include "Utils/VisualLoggerUtils.h"
 #include "Logging/LoggingUtils.h"
-
 #include "PGGameplayLogging.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MovingObstacle)
@@ -48,6 +47,17 @@ void AMovingObstacle::BeginPlay()
 	Init();
 }
 
+void AMovingObstacle::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: EndPlay - %s"), *GetName(), *LoggingUtils::GetName(EndPlayReason));
+
+	Super::EndPlay(EndPlayReason);
+
+#if ENABLE_VISUAL_LOG
+	GetWorldTimerManager().ClearTimer(VisualLoggerTimer);
+#endif
+}
+
 void AMovingObstacle::EnableTick(bool bEnabled)
 {
 	UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: EnableTick - bEnabled=%s"), *GetName(), LoggingUtils::GetBoolString(bEnabled));
@@ -76,6 +86,14 @@ void AMovingObstacle::Init()
 	{
 		staticMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
+
+	// regularly draw updates if visual logging is enabled so we can see the obstacle in the visual logger
+#if ENABLE_VISUAL_LOG
+	GetWorldTimerManager().SetTimer(VisualLoggerTimer, FTimerDelegate::CreateWeakLambda(this, [this]()
+	{
+		UE_VLOG(this, LogPGGameplay, Log, TEXT("Get Moving Obstacle State"));
+	}), 0.05f, true);
+#endif
 }
 
 void AMovingObstacle::Tick(float DeltaTime)
@@ -106,16 +124,43 @@ void AMovingObstacle::SetDistance()
 {
 	if (distance >= movementPath->GetSplineLength())
 	{
-		if(!movementPath->IsClosedLoop())
+		if (!movementPath->IsClosedLoop())
+		{
 			valueToAdd = -1;
+		}
 		else
+		{
 			distance = 0;
+		}
 	}
 
 	if (distance <= 0)
+	{
 		valueToAdd = 1;
+	}
 
 	distance+=valueToAdd*speed;
-
-	UE_VLOG_UELOG(this, LogPGGameplay, VeryVerbose, TEXT("%s: SetDistance - Distance=%f; ValueToAdd=%f"), *GetName(), distance, valueToAdd);
 }
+
+#pragma region Visual Logger
+
+#if ENABLE_VISUAL_LOG
+void AMovingObstacle::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
+{
+	FVisualLogStatusCategory Category;
+	Category.Category = FString::Printf(TEXT("MovingObstacle (%s)"), *GetName());
+
+	Category.Add("Distance", FString::Printf(TEXT("%.1f"), distance));
+	Category.Add("Speed", FString::Printf(TEXT("%.1f"), speed));
+	Category.Add("ReverseDirection", LoggingUtils::GetBoolString(bReverseDirection));
+
+	if (staticMesh)
+	{
+		PG::VisualLoggerUtils::DrawStaticMeshComponent(*Snapshot, LogPGGameplay.GetCategoryName(), *staticMesh, FColor::Orange);
+	}
+
+	Snapshot->Status.Add(Category);
+}
+#endif
+
+#pragma endregion Visual Logger

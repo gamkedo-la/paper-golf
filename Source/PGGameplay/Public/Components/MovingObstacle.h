@@ -7,10 +7,13 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/SplineComponent.h"
 #include "PositionSpeedStruct.h"
+
+#include "VisualLogger/VisualLoggerDebugSnapshotInterface.h"
+
 #include "MovingObstacle.generated.h"
 
 UCLASS()
-class PGGAMEPLAY_API AMovingObstacle : public AActor
+class PGGAMEPLAY_API AMovingObstacle : public AActor, public IVisualLoggerDebugSnapshotInterface
 {
 	GENERATED_BODY()
 
@@ -34,14 +37,19 @@ public:
 
 	virtual void Tick(float DeltaTime) override;
 
-	void EvaluatePosition();
-
-	void SetDistance();
+#if ENABLE_VISUAL_LOG
+	virtual void GrabDebugSnapshot(FVisualLogEntry* Snapshot) const override;
+#endif
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
+
+	void EvaluatePosition();
+	void SetDistance();
+
 	void EnableTick(bool bEnabled);
 	void Init();
 
@@ -54,4 +62,8 @@ private:
 
 	UPROPERTY(EditAnywhere)
 	bool bReverseDirection{};
+
+#if ENABLE_VISUAL_LOG
+	FTimerHandle VisualLoggerTimer{};
+#endif
 };

@@ -68,6 +68,12 @@ void ABasePlayerController::ResumeGame()
 	BlueprintResumeGame();
 }
 
+bool ABasePlayerController::CanPauseGame() const
+{
+	// To be fair only allow pause when running standalone
+	return GetNetMode() == NM_Standalone;
+}
+
 bool ABasePlayerController::IsGamePaused() const
 {
 	return UGameplayStatics::IsGamePaused(this);
@@ -114,12 +120,6 @@ void ABasePlayerController::InitDebugDraw()
 void ABasePlayerController::CleanupDebugDraw()
 {
 	GetWorldTimerManager().ClearTimer(VisualLoggerTimer);
-}
-
-bool ABasePlayerController::CanPauseGame() const
-{
-	// To be fair only allow pause when running standalone
-	return GetNetMode() == NM_Standalone;
 }
 
 #else
