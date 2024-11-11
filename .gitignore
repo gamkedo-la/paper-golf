@@ -8,6 +8,8 @@
 
 # Rider files
 .idea/
+# Developer plugins, including Rider Link
+Plugins/Developer
 
 Plugins/BlockoutToolsPlugin
 
