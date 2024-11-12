@@ -37,21 +37,29 @@ private:
 
 	void SetForceActive(bool bActive);
 
+	bool ShouldApplyForceTo(const UPrimitiveComponent& Component) const;
+	FVector CalculateAirflowForce(const UPrimitiveComponent& Component) const;
+	void ApplyAirflowForce(UPrimitiveComponent& Component, const FVector& Force) const;
+
 private:
 	UPROPERTY(Transient)
 	TObjectPtr<UPrimitiveComponent> InfluenceCollider{};
 
-	// We can use a bool since there is only one active player at a time
-	bool bForceIsActive{};
+	// Only one active player at a time
+	UPROPERTY(Transient)
+	TObjectPtr<UPrimitiveComponent> OverlappedComponent{};
 
 	/* Max force strength */
 	UPROPERTY(Editanywhere, Category = "Fan")
-	float MaxForceStrength{ 1000.0f };
+	float MaxForceStrength{ 10000.0f };
 
 	/* Max distance from airflow origin where max force in effect before inverse square falloff takes effect. */
 	UPROPERTY(Editanywhere, Category = "Fan")
 	float MaxForceDistance{ 100.0f };
 
 	UPROPERTY(EditAnywhere, Category = "Fan")
-	float ForceRadialFalloffFactor{ 1.0f / (4 * PI) };
+	float ForceRadialFalloffConstantFactor{ 1.0f / (4 * PI) };
+
+	UPROPERTY(EditAnywhere, Category = "Fan")
+	float ForceRadialFalloffDistanceFactor { 1.0f / 25 };
 };
