@@ -29,6 +29,14 @@ protected:
 	void GetAirflowOriginAndDirection(FVector& OutOrigin, FVector& OutDirection) const;
 
 private:
+
+private:
+	struct FAirflowData
+	{
+		FVector Origin { EForceInit::ForceInitToZero };
+		FVector Direction { EForceInit::ForceInitToZero };
+	};
+	
 	UFUNCTION()
 	void OnComponentBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
@@ -37,8 +45,8 @@ private:
 
 	void SetForceActive(bool bActive);
 
-	bool ShouldApplyForceTo(const UPrimitiveComponent& Component) const;
-	FVector CalculateAirflowForce(const UPrimitiveComponent& Component) const;
+	bool ShouldApplyForceTo(const UPrimitiveComponent& Component, const FAirflowData& AirflowData) const;
+	FVector CalculateAirflowForce(const UPrimitiveComponent& Component, const FAirflowData& AirflowData) const;
 	void ApplyAirflowForce(UPrimitiveComponent& Component, const FVector& Force) const;
 
 private:
@@ -61,5 +69,5 @@ private:
 	float ForceRadialFalloffConstantFactor{ 1.0f / (4 * PI) };
 
 	UPROPERTY(EditAnywhere, Category = "Fan")
-	float ForceRadialFalloffDistanceFactor { 1.0f / 25 };
+	float ForceRadialFalloffDistanceFactor { 100 * 5 };
 };
