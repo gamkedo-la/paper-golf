@@ -4,10 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+
+#include "VisualLogger/VisualLoggerDebugSnapshotInterface.h"
+
 #include "OscillatingFan.generated.h"
 
 UCLASS()
-class PGGAMEPLAY_API AOscillatingFan : public AActor
+class PGGAMEPLAY_API AOscillatingFan : public AActor, public IVisualLoggerDebugSnapshotInterface
 {
 	GENERATED_BODY()
 	
@@ -18,8 +21,13 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty >& OutLifetimeProps) const override;
 
+#if ENABLE_VISUAL_LOG
+	virtual void GrabDebugSnapshot(FVisualLogEntry* Snapshot) const override;
+#endif
+
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 protected:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
@@ -28,7 +36,8 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent)
 	void GetAirflowOriginAndDirection(FVector& OutOrigin, FVector& OutDirection) const;
 
-private:
+	UFUNCTION(BlueprintImplementableEvent)
+	UStaticMeshComponent* GetFanHeadMesh() const;
 
 private:
 	struct FAirflowData
@@ -66,8 +75,9 @@ private:
 	float MaxForceDistance{ 100.0f };
 
 	UPROPERTY(EditAnywhere, Category = "Fan")
-	float ForceRadialFalloffConstantFactor{ 1.0f / (4 * PI) };
+	float ForceRadialFalloffDistance{ 5000.0f };
 
-	UPROPERTY(EditAnywhere, Category = "Fan")
-	float ForceRadialFalloffDistanceFactor { 100 * 5 };
+#if ENABLE_VISUAL_LOG
+	FTimerHandle VisualLoggerTimer{};
+#endif
 };

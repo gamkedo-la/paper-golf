@@ -35,11 +35,13 @@ public:
 namespace PG::VisualLoggerUtils
 {
 	#if ENABLE_VISUAL_LOG
-		PGCORE_API void DrawStaticMeshComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, const UStaticMeshComponent& Component, const FColor& Color);
+		PGCORE_API void DrawPrimitiveComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, const UPrimitiveComponent& Component, const FColor& Color, bool bUseWires = false);
+		PGCORE_API void DrawStaticMeshComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, const UStaticMeshComponent& Component, const FColor& Color, bool bUseWires = false);
 		PGCORE_API void StartAutomaticRecording(const UObject* Context);
 		PGCORE_API void StopAutomaticRecording(const UObject* Context);
 	#else
-		inline void DrawStaticMeshComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, const UStaticMeshComponent& Component, const FColor& Color) {}
+		inline void DrawPrimitiveComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, const UPrimitiveComponent& Component, const FColor& Color, bool bUseWires = false) {}
+		inline void DrawStaticMeshComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, const UStaticMeshComponent& Component, const FColor& Color, bool bUseWires = false) {}
 		inline void StartAutomaticRecording(const UObject* Context) {}
 		inline void StopAutomaticRecording(const UObject* Context) {}
 	#endif 

@@ -5,6 +5,7 @@
 
 #include "VisualLogger/VisualLogger.h"
 #include "Logging/LoggingUtils.h"
+#include "Utils/VisualLoggerUtils.h"
 #include "PGGameplayLogging.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(OscillatingFan)
@@ -22,6 +23,23 @@ void AOscillatingFan::BeginPlay()
 
 	// TODO: We should subscribe to game events to disable the force if an end overlap event doesn't happen before the end of the player's turn
 	// or maybe even the end of the hole
+
+	// regularly draw updates if visual logging is enabled so we can see the obstacle in the visual logger
+#if ENABLE_VISUAL_LOG
+	GetWorldTimerManager().SetTimer(VisualLoggerTimer, FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			UE_VLOG(this, LogPGGameplay, Log, TEXT("Get Oscillating Fan State"));
+		}), 0.05f, true);
+#endif
+}
+
+void AOscillatingFan::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+
+#if ENABLE_VISUAL_LOG
+	GetWorldTimerManager().ClearTimer(VisualLoggerTimer);
+#endif
 }
 
 void AOscillatingFan::SetInfluenceCollider(UPrimitiveComponent* InCollider)
@@ -34,8 +52,10 @@ void AOscillatingFan::SetInfluenceCollider(UPrimitiveComponent* InCollider)
 		return;
 	}
 
-	InCollider->OnComponentBeginOverlap.AddDynamic(this, &AOscillatingFan::OnComponentBeginOverlap);
-	InCollider->OnComponentEndOverlap.AddDynamic(this, &AOscillatingFan::OnComponentEndOverlap);
+	InfluenceCollider = InCollider;
+
+	InfluenceCollider->OnComponentBeginOverlap.AddUniqueDynamic(this, &AOscillatingFan::OnComponentBeginOverlap);
+	InfluenceCollider->OnComponentEndOverlap.AddUniqueDynamic(this, &AOscillatingFan::OnComponentEndOverlap);
 }
 
 void AOscillatingFan::OnComponentBeginOverlap(UPrimitiveComponent* InOverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -91,6 +111,18 @@ bool AOscillatingFan::ShouldApplyForceTo(const UPrimitiveComponent& Component, c
 		return false;
 	}
 
+	const auto DistSq = AirflowOriginToComponent.SizeSquared();
+
+	// If outside the radial falloff then don't apply force
+	const auto RadialFalloffSq = FMath::Square(ForceRadialFalloffDistance + MaxForceDistance);
+
+	if (DistSq > RadialFalloffSq)
+	{
+		UE_VLOG_UELOG(this, LogPGGameplay, VeryVerbose, TEXT("%s: ShouldApplyForceTo - %s-%s - Outside radial falloff: Dist=%fm; RadialFalloffDist=%fm"),
+			*GetName(), *Component.GetName(), *LoggingUtils::GetName(Component.GetOwner()), FMath::Sqrt(DistSq) / 100, FMath::Sqrt(RadialFalloffSq) / 100);
+		return false;
+	}
+
 	return true;
 }
 
@@ -108,9 +140,11 @@ FVector AOscillatingFan::CalculateAirflowForce(const UPrimitiveComponent& Compon
 	{
 		// Take excess distance beyond max force distance
 		const auto ForceReduceDist = Dist - MaxForceDistance;
+
+		const auto ForceRadialFalloffDistanceFactor = FMath::Min(1.0,
+			FMath::Square(1 - (Dist - MaxForceDistance) / (ForceRadialFalloffDistance - MaxForceDistance)));
 		// use inverse square law to adjust force
-		ForceMagnitude = FMath::Min(MaxForceStrength, MaxForceStrength * ForceRadialFalloffConstantFactor /
-			 FMath::Square(1 / ForceRadialFalloffDistanceFactor * ForceReduceDist));
+		ForceMagnitude = ForceRadialFalloffDistanceFactor * MaxForceStrength;
 	}
 	
 	UE_VLOG_UELOG(this, LogPGGameplay, VeryVerbose,
@@ -139,6 +173,7 @@ void AOscillatingFan::Tick(float DeltaTime)
 	if(!IsValid(OverlappedComponent))
 	{
 		UE_VLOG_UELOG(this, LogPGGameplay, VeryVerbose, TEXT("%s: Tick - OverlappedComponent is null"), *GetName());
+		SetForceActive(false);
 		return;
 	}
 	
@@ -154,6 +189,12 @@ void AOscillatingFan::Tick(float DeltaTime)
 
 	const auto ForceToApply = CalculateAirflowForce(*OverlappedComponent, AirflowData);
 	ApplyAirflowForce(*OverlappedComponent, ForceToApply);
+
+	UE_VLOG_ARROW(this, LogPGGameplay, Verbose, 
+		AirflowData.Origin,
+		AirflowData.Origin + ForceToApply.GetSafeNormal() * FVector::Dist(AirflowData.Origin, OverlappedComponent->GetComponentLocation()),
+		FColor::Orange, TEXT("Airflow Force: %.1f%%"), ForceToApply.Size() / MaxForceStrength * 100
+	);
 }
 
 void AOscillatingFan::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -161,3 +202,27 @@ void AOscillatingFan::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 }
 
+#pragma region VisualLogger
+
+#if ENABLE_VISUAL_LOG
+void AOscillatingFan::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
+{
+	FVisualLogStatusCategory Category;
+	Category.Category = FString::Printf(TEXT("OscillatingFan (%s)"), *GetName());
+
+	Category.Add("OverlappedActor", OverlappedComponent ? *LoggingUtils::GetName(OverlappedComponent->GetOwner()) : TEXT("None"));
+
+	if (auto FanHeadMesh = GetFanHeadMesh())
+	{
+		PG::VisualLoggerUtils::DrawStaticMeshComponent(*Snapshot, LogPGGameplay.GetCategoryName(), *FanHeadMesh, FColor::Orange);
+	}
+
+	if (InfluenceCollider)
+	{
+		PG::VisualLoggerUtils::DrawPrimitiveComponent(*Snapshot, LogPGGameplay.GetCategoryName(), *InfluenceCollider, OverlappedComponent ? FColor::Green : FColor::Red, true);
+	}
+}
+
+#endif
+
+#pragma endregion VisualLogger

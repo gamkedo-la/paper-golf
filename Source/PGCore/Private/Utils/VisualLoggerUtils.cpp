@@ -6,6 +6,8 @@
 
 #if ENABLE_VISUAL_LOG
 #include "PhysicsEngine/BodySetup.h"
+
+#include "Components/ShapeComponent.h"
 #include "Utils/CollisionUtils.h"
 
 #include "Logging/LoggingUtils.h"
@@ -25,9 +27,11 @@ namespace
 	bool bStartedAutomaticVisualLoggerRecording = false;
 	bool bVisualLoggerStartedByUs = false;
 	ContextPtr RecordingContext = nullptr;
+
+	void DrawBodySetup(FVisualLogEntry& Snapshot, const FName& CategoryName, const UPrimitiveComponent& Component, const UBodySetup& BodySetup, const FColor& Color, bool bUseWires);
 }
 
-void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, const UStaticMeshComponent& Component, const FColor& Color)
+void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, const UStaticMeshComponent& Component, const FColor& Color, bool bUseWires)
 {
 	const auto Mesh = Component.GetStaticMesh();
 	if (!IsValid(Mesh) || !Mesh->GetBodySetup())
@@ -36,85 +40,19 @@ void PG::VisualLoggerUtils::DrawStaticMeshComponent(FVisualLogEntry& Snapshot, c
 	}
 
 	const auto BodySetup = Mesh->GetBodySetup();
-	const auto& AggGeom = BodySetup->AggGeom;
+	DrawBodySetup(Snapshot, CategoryName, Component, *BodySetup, Color, bUseWires);
+}
 
-	const auto& Transform = Component.GetComponentTransform();
+void PG::VisualLoggerUtils::DrawPrimitiveComponent(FVisualLogEntry& Snapshot, const FName& CategoryName, const UPrimitiveComponent& Component, const FColor& Color, bool bUseWires)
+{
+	const auto BodyInstance = Component.GetBodyInstance();
+	if (!BodyInstance || !BodyInstance->GetBodySetup())
+	{
+		return;
+	}
 
-	// Render all the collision shapes even if multiple types are combined
-	if (!AggGeom.ConvexElems.IsEmpty())
-	{
-		for (const auto& ConvexElm : AggGeom.ConvexElems)
-		{
-			// Make a copy as we need to transform the position from model to world space
-			auto VertexData = ConvexElm.VertexData;
-			for (auto& Vertex : VertexData)
-			{
-				Vertex = Transform.TransformPosition(Vertex);
-			}
-
-			Snapshot.AddMesh(
-				VertexData,
-				ConvexElm.IndexData,
-				CategoryName,
-				ELogVerbosity::Log,
-				Color);
-		}
-	}
-	if (!AggGeom.BoxElems.IsEmpty())
-	{
-		for (const auto& BoxElem : AggGeom.BoxElems)
-		{
-			Snapshot.AddBox(
-				FBox::BuildAABB(FVector::ZeroVector, FVector{ BoxElem.X, BoxElem.Y, BoxElem.Z }),
-				// BoxElem transform includes the center
-				(BoxElem.GetTransform() * Transform).ToMatrixWithScale(),
-				CategoryName,
-				ELogVerbosity::Log,
-				Color
-			);
-		}
-	}
-	if (!AggGeom.SphereElems.IsEmpty())
-	{
-		for (const auto& SphereElem : AggGeom.SphereElems)
-		{
-			Snapshot.AddSphere(
-				Transform.TransformPosition(SphereElem.Center),
-				SphereElem.Radius,
-				CategoryName,
-				ELogVerbosity::Log,
-				Color
-			);
-		}
-	}
-	if (!AggGeom.SphylElems.IsEmpty())
-	{
-		for (const auto& SphylElm : AggGeom.SphylElems)
-		{
-			Snapshot.AddCapsule(
-				Transform.TransformPosition(SphylElm.Center),
-				SphylElm.Length * 0.5f,
-				SphylElm.Radius,
-				Transform.GetRotation() * SphylElm.Rotation.Quaternion(),
-				CategoryName,
-				ELogVerbosity::Log,
-				Color);
-		}
-	}
-	if (!AggGeom.TaperedCapsuleElems.IsEmpty())
-	{
-		for (const auto& CapsuleElm : AggGeom.TaperedCapsuleElems)
-		{
-			Snapshot.AddCapsule(
-				Transform.TransformPosition(CapsuleElm.Center),
-				(CapsuleElm.Radius0 + CapsuleElm.Radius1) * 0.5f,
-				CapsuleElm.Length * 0.5f,
-				Transform.GetRotation() * CapsuleElm.Rotation.Quaternion(),
-				CategoryName,
-				ELogVerbosity::Log,
-				Color);
-		}
-	}
+	const auto BodySetup = BodyInstance->GetBodySetup();
+	DrawBodySetup(Snapshot, CategoryName, Component, *BodySetup, Color, bUseWires);
 }
 
 void PG::VisualLoggerUtils::StartAutomaticRecording(const UObject* Context)
@@ -245,3 +183,101 @@ void UVisualLoggerUtils::StopRecording()
 }
 
 #endif
+
+namespace
+{
+	void DrawBodySetup(FVisualLogEntry& Snapshot, const FName& CategoryName, const UPrimitiveComponent& Component, const UBodySetup& BodySetup, const FColor& Color, bool bUseWires)
+	{
+		const auto& AggGeom = BodySetup.AggGeom;
+
+		const auto& Transform = Component.GetComponentTransform();
+
+		// Render all the collision shapes even if multiple types are combined
+		if (!AggGeom.ConvexElems.IsEmpty())
+		{
+			for (const auto& ConvexElm : AggGeom.ConvexElems)
+			{
+				// Make a copy as we need to transform the position from model to world space
+				auto VertexData = ConvexElm.VertexData;
+				for (auto& Vertex : VertexData)
+				{
+					Vertex = Transform.TransformPosition(Vertex);
+				}
+
+				Snapshot.AddMesh(
+					VertexData,
+					ConvexElm.IndexData,
+					CategoryName,
+					ELogVerbosity::Log,
+					Color);
+			}
+		}
+		if (!AggGeom.BoxElems.IsEmpty())
+		{
+			for (const auto& BoxElem : AggGeom.BoxElems)
+			{
+				Snapshot.AddBox(
+					FBox::BuildAABB(FVector::ZeroVector, FVector{ BoxElem.X, BoxElem.Y, BoxElem.Z }),
+					// BoxElem transform includes the center
+					(BoxElem.GetTransform() * Transform).ToMatrixWithScale(),
+					CategoryName,
+					ELogVerbosity::Log,
+					Color, {}, {},
+					bUseWires
+				);
+			}
+		}
+		if (!AggGeom.SphereElems.IsEmpty())
+		{
+			for (const auto& SphereElem : AggGeom.SphereElems)
+			{
+				Snapshot.AddSphere(
+					Transform.TransformPosition(SphereElem.Center),
+					SphereElem.Radius,
+					CategoryName,
+					ELogVerbosity::Log,
+					Color, {},
+					bUseWires
+				);
+			}
+		}
+		if (!AggGeom.SphylElems.IsEmpty())
+		{
+			for (const auto& SphylElm : AggGeom.SphylElems)
+			{
+				const auto HalfHeight = SphylElm.Length * 0.5f;
+				// Capsule expects position at base and not the center like the transform
+
+				Snapshot.AddCapsule(
+					Transform.TransformPosition(SphylElm.Center - FVector::ZAxisVector * (HalfHeight + SphylElm.Radius)),
+					HalfHeight,
+					SphylElm.Radius,
+					Transform.GetRotation() * SphylElm.Rotation.Quaternion(),
+					CategoryName,
+					ELogVerbosity::Log,
+					Color, {},
+					bUseWires
+				);
+			}
+		}
+		if (!AggGeom.TaperedCapsuleElems.IsEmpty())
+		{
+			for (const auto& CapsuleElm : AggGeom.TaperedCapsuleElems)
+			{
+				const auto Radius = (CapsuleElm.Radius0 + CapsuleElm.Radius1) * 0.5f;
+				const auto HalfHeight = CapsuleElm.Length * 0.5f;
+
+				Snapshot.AddCapsule(
+					Transform.TransformPosition(CapsuleElm.Center + FVector::ZAxisVector * (HalfHeight + Radius)),
+					HalfHeight,
+					Radius,
+					Transform.GetRotation() * CapsuleElm.Rotation.Quaternion(),
+					CategoryName,
+					ELogVerbosity::Log,
+					Color, {},
+					bUseWires
+				);
+			}
+		}
+	}
+}
