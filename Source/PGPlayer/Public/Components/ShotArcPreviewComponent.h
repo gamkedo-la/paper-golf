@@ -11,6 +11,7 @@ enum class EShotType : uint8;
 struct FFlickParams;
 class UTextRenderComponent;
 struct FPredictProjectilePathResult;
+class UMaterialInterface;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class PGPLAYER_API UShotArcPreviewComponent : public UActorComponent
@@ -78,6 +79,9 @@ private:
 
 	UPROPERTY(Category = "Shot Arc", EditDefaultsOnly)
 	float HitRadiusSize{ 100.0f };
+
+	UPROPERTY(Category = "Text", EditDefaultsOnly)
+	TObjectPtr<UMaterialInterface> TextMaterial{};
 
 	/*
 	* Minimum Z distance above player to display the shot power text.

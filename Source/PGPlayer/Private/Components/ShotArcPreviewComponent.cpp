@@ -139,6 +139,12 @@ void UShotArcPreviewComponent::RegisterPowerText(const APaperGolfPawn& Pawn)
 	PowerText->RegisterComponent();
 	PowerText->SetTextRenderColor(ShotPowerColor.ToFColor(true));
 	PowerText->SetWorldSize(ShotPowerTextSize);
+
+	if (TextMaterial)
+	{
+		PowerText->SetMaterial(0, TextMaterial);
+	}
+
 	PowerText->AttachToComponent(NewParent, FAttachmentTransformRules::KeepRelativeTransform);
 }
 
