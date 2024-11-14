@@ -22,9 +22,10 @@
 namespace
 {
 	const TArray<FText> Messages = {
-		NSLOCTEXT("ShotPreviewTutorialAction", "Message1", "Press RMB to toggle shot preview"),
-		NSLOCTEXT("ShotPreviewTutorialAction", "Message2", "Use mouse wheel to change preview power"),
-		NSLOCTEXT("ShotPreviewTutorialAction", "Message3", "Green line in power meter shows target shot power")
+		NSLOCTEXT("ShotPreviewTutorialAction", "Message1", "Shot preview shows when power adjustment required"),
+		NSLOCTEXT("ShotPreviewTutorialAction", "Message2", "Press RMB to toggle it on/off"),
+		NSLOCTEXT("ShotPreviewTutorialAction", "Message3", "Use mouse wheel to change preview power"),
+		NSLOCTEXT("ShotPreviewTutorialAction", "Message4", "Green line in power meter shows target shot power")
 	};
 }
 
