@@ -12,6 +12,8 @@
 
 #include "MovingObstacle.generated.h"
 
+class UAudioComponent;
+
 UCLASS()
 class PGGAMEPLAY_API AMovingObstacle : public AActor, public IVisualLoggerDebugSnapshotInterface
 {
@@ -52,6 +54,12 @@ private:
 
 	void EnableTick(bool bEnabled);
 	void Init();
+
+	void PlayAudioIfValid();
+
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TObjectPtr<UAudioComponent> AudioComponent{};
 
 private:
 

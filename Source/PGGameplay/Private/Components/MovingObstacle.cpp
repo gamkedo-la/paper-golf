@@ -2,6 +2,7 @@
 
 
 #include "Components/MovingObstacle.h"
+#include "Components/AudioComponent.h"
 
 #include "VisualLogger/VisualLogger.h"
 #include "Utils/VisualLoggerUtils.h"
@@ -32,6 +33,10 @@ AMovingObstacle::AMovingObstacle()
 	{
 		staticMesh->SetupAttachment(RootComponent);
 	}
+
+	AudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("Audio"));
+	AudioComponent->SetupAttachment(staticMesh);
+	AudioComponent->SetAutoActivate(false);
 }
 
 void AMovingObstacle::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -87,6 +92,8 @@ void AMovingObstacle::Init()
 		staticMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 
+	PlayAudioIfValid();
+
 	// regularly draw updates if visual logging is enabled so we can see the obstacle in the visual logger
 #if ENABLE_VISUAL_LOG
 	GetWorldTimerManager().SetTimer(VisualLoggerTimer, FTimerDelegate::CreateWeakLambda(this, [this]()
@@ -94,6 +101,20 @@ void AMovingObstacle::Init()
 		UE_VLOG(this, LogPGGameplay, Log, TEXT("Get Moving Obstacle State"));
 	}), 0.05f, true);
 #endif
+}
+
+void AMovingObstacle::PlayAudioIfValid()
+{
+	if (AudioComponent && AudioComponent->Sound)
+	{
+		UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: PlayAudioIfValid - Playing sound: %s"), *GetName(), *LoggingUtils::GetName(AudioComponent->Sound));
+		AudioComponent->Play();
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPGGameplay, Log, TEXT("%s: PlayAudioIfValid - No sound to play"), *GetName());
+
+	}
 }
 
 void AMovingObstacle::Tick(float DeltaTime)
