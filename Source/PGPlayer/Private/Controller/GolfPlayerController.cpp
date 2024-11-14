@@ -491,6 +491,12 @@ void AGolfPlayerController::AddCameraZoomDelta(float ZoomDelta)
 	}
 }
 
+AGolfHole* AGolfPlayerController::GetCurrentGolfHole() const
+{
+	// Explicitly call base class function since we are shadowing it
+	return Cast<AGolfHole>(IGolfController::GetCurrentGolfHole());
+}
+
 void AGolfPlayerController::ClientReset_Implementation()
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: ClientReset_Implementation"), *GetName());
@@ -979,7 +985,7 @@ void AGolfPlayerController::TriggerHoleFlybyAndPlayerCameraIntroduction()
 
 	if (!IsHoleFlybySeen())
 	{
-		const auto GolfHole = Cast<AGolfHole>(GetCurrentGolfHole());
+		const auto GolfHole = GetCurrentGolfHole();
 		if (ensure(GolfHole))
 		{
 			TriggerHoleFlyby(*GolfHole);
@@ -1083,7 +1089,7 @@ void AGolfPlayerController::SpectateCurrentGolfHole()
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SpectateCurrentGolfHole"), *GetName());
 
 	// Fine to re-target the golf hole as the camera manager doesn't interrupt a transition to the same target
-	if (auto GolfHole = Cast<AGolfHole>(GetCurrentGolfHole()); GolfHole)
+	if (auto GolfHole = GetCurrentGolfHole(); GolfHole)
 	{
 		SetViewTargetWithBlend(GolfHole, HoleCameraCutTime, EViewTargetBlendFunction::VTBlend_EaseInOut, HoleCameraCutExponent);
 	}
@@ -1333,6 +1339,8 @@ void AGolfPlayerController::ShowActivateTurnHUD()
 			TutorialTrackingSubsystem->DisplayNextTutorial(this);
 		}
 	}), TutorialDisplayTurnDelayTime, false);
+
+	BlueprintPlayerReadyForShot(TotalRotation);
 }
 
 bool AGolfPlayerController::ShouldEnableInputForActivateTurn() const

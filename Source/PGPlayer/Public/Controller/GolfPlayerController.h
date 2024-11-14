@@ -121,6 +121,11 @@ public:
 	UFUNCTION(BlueprintPure)
 	bool IsInCinematicSequence() const;
 
+	// Redefining to return the explicit type and make it BlueprintCallable
+
+	UFUNCTION(BlueprintCallable)
+	AGolfHole* GetCurrentGolfHole() const;
+
 	// TODO: Can we remove UFUNCTION on some of these
 protected:
 	virtual void BeginPlay() override;
@@ -165,6 +170,9 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void BlueprintResetShot();
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void BlueprintPlayerReadyForShot(const FRotator& InitialRelativeRotation);
 
 	virtual void ClientReset_Implementation() override;
 

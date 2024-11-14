@@ -272,3 +272,65 @@ bool UPaperGolfPawnUtilities::TraceCurrentShotWithParameters(const UObject* Worl
 	return UPaperGolfPawnUtilities::TraceShotAngle(
 		WorldContextObject, PlayerPawn, TraceStart, FlickDirection, FlickSpeed, FlickAngleDegrees);
 }
+
+bool UPaperGolfPawnUtilities::ShotWillReachDestination(const UObject* WorldContextObject, const APaperGolfPawn* PlayerPawn, const FFlickParams& FlickParams, const AActor* FocusActorOverride)
+{
+	if (!ensure(WorldContextObject))
+	{
+		return false;
+	}
+
+	if (!ensure(PlayerPawn))
+	{
+		return false;
+	}
+
+	const auto World = WorldContextObject->GetWorld();
+	if (!ensure(World))
+	{
+		return false;
+	}
+
+	const auto FocusActor = FocusActorOverride ? FocusActorOverride : PlayerPawn->GetFocusActor();
+	if (!FocusActor)
+	{
+		UE_VLOG_UELOG(GetVisualLoggerOwner(WorldContextObject), LogPGPawn, Warning, TEXT("ShotWillReachDestination - TRUE - FocusActorOverride is NULL and default FocusActor is NULL"));
+		return false;
+	}
+
+	// See UGolfAIShotComponent::CalculateInitialShotParams for details about the calculation
+	// Assumes a 45 degree shot angle for calculations
+	const auto FlickLocation = PlayerPawn->GetFlickLocation(FlickParams.LocalZOffset);
+	const auto FlickMaxForce = PlayerPawn->GetFlickMaxForce(FlickParams.ShotType);
+	const auto FlickMaxSpeed = FlickMaxForce / PlayerPawn->GetMass();
+
+	const auto& FocusActorLocation = FocusActor->GetActorLocation();
+
+	const auto PositionDelta = FocusActorLocation - FlickLocation;
+	const auto HorizontalDistance = PositionDelta.Size2D();
+	const auto VerticalDistance = PositionDelta.Z;
+	const auto DistanceSum = HorizontalDistance + VerticalDistance;
+
+	if (DistanceSum <= 0)
+	{
+		UE_VLOG_UELOG(GetVisualLoggerOwner(WorldContextObject), LogPGPawn, Log,
+			TEXT("ShotWillReachDestination - TRUE - DistanceSum is less than or equal to 0: FlickParams=%s; FocusActor=%s; HorizontalDistance=%.1fm; VerticalDistance=%.1fm"),
+			*FlickParams.ToString(), *LoggingUtils::GetName(FocusActor),
+			HorizontalDistance, VerticalDistance);
+		return true;
+	}
+
+	// Check if calculated speed is <= FlickMaxSpeed
+	const auto Gravity = FMath::Abs(World->GetGravityZ());
+	const auto Speed = HorizontalDistance * FMath::Sqrt(Gravity) / FMath::Sqrt(DistanceSum);
+
+	const bool bWillReachDestination = Speed <= FlickMaxSpeed;
+
+	UE_VLOG_UELOG(GetVisualLoggerOwner(WorldContextObject), LogPGPawn, Log,
+		TEXT("ShotWillReachDestination - %s - FlickParams=%s; FocusActor=%s; HorizontalDistance=%.1fm; VerticalDistance=%.1fm; DistanceSum=%.1fm; Speed=%.1fm; FlickMaxSpeed=%.1fm"),
+		LoggingUtils::GetBoolString(bWillReachDestination),
+		*FlickParams.ToString(), *LoggingUtils::GetName(FocusActor),
+		HorizontalDistance, VerticalDistance, DistanceSum, Speed, FlickMaxSpeed);
+
+	return bWillReachDestination;
+}

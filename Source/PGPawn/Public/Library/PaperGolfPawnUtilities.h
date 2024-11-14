@@ -44,6 +44,12 @@ public:
 	static bool TraceCurrentShotWithParameters(const UObject* WorldContextObject, const APaperGolfPawn* PlayerPawn,
 		const FFlickParams& FlickParams, float FlickAngleDegrees, float MinTraceDistance = 1000.0f);
 
+	/*
+	* Determines if the shot will reach the destination based on the input parameters. An optional focus actor can be provided to override the default focus.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Math")
+	static bool ShotWillReachDestination(const UObject* WorldContextObject, const APaperGolfPawn* PlayerPawn, const FFlickParams& FlickParams, const AActor* FocusActorOverride = nullptr);
+
 private:
 	// UFUNCTION does not allow default parameters for non-primitive types so add overload specifically for blueprints
 	UFUNCTION(BlueprintCallable, Category = "Physics", meta = (DisplayName = "ResetPhysicsState"))
