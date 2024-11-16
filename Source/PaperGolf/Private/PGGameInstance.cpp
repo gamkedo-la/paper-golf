@@ -288,7 +288,6 @@ void UPGGameInstance::OnWorldChanged(UWorld* OldWorld, UWorld* NewWorld)
 	FString MapName = NewWorld->GetMapName();
 	MapName.RemoveFromStart(NewWorld->StreamingLevelsPrefix); // Remove any prefix if necessary
 
-	// How to strip off the name of the map from the path?
 	if (MapName == MainMenuMapName)
 	{
 		UE_LOG(LogPaperGolfGame, Log, TEXT("%s: Detected change to MainMenu map=%s - Destroying any active online session"), *GetName(), *MainMenuMapName);

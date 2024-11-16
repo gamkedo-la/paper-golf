@@ -28,6 +28,12 @@ public:
 
 	virtual void ReturnToMainMenu() override;
 
+	UFUNCTION(BlueprintCallable)
+	void SetMainMenuShown(bool bShown);
+
+	UFUNCTION(BlueprintPure)
+	bool HasMainMenuBeenShown() const;
+
 protected:
 	virtual void OnWorldChanged(UWorld* OldWorld, UWorld* NewWorld) override;
 
@@ -63,6 +69,8 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Menu")
 	FString MainMenuMapName{ TEXT("MainMenu")};
+
+	bool bMainMenuShown{};
 };
 
 #pragma region Inline Definitions
@@ -70,6 +78,16 @@ private:
 FORCEINLINE bool UPGGameInstance::IsGamepadAvailable() const
 {
 	return PG::FInputCharacteristics::IsGamepadAvailable();
+}
+
+FORCEINLINE void UPGGameInstance::SetMainMenuShown(bool bShown)
+{
+	bMainMenuShown = bShown;
+}
+
+FORCEINLINE bool UPGGameInstance::HasMainMenuBeenShown() const
+{
+	return bMainMenuShown;
 }
 
 #pragma endregion Inline Definitions
