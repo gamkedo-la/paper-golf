@@ -182,8 +182,6 @@ void UVisualLoggerUtils::StopRecording()
 #endif
 }
 
-#endif
-
 namespace
 {
 	void DrawBodySetup(FVisualLogEntry& Snapshot, const FName& CategoryName, const UPrimitiveComponent& Component, const UBodySetup& BodySetup, const FColor& Color, bool bUseWires)
@@ -281,3 +279,5 @@ namespace
 		}
 	}
 }
+
+#endif
