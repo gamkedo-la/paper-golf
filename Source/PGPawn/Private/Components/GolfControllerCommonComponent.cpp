@@ -730,9 +730,7 @@ bool UGolfControllerCommonComponent::HasLOSToFocus(const FVector& Position, cons
 
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(FocusActor);
-
-	const auto& FocusActorLocation = FocusActor->GetActorLocation();
-
+	
 	// Try direct LOS first before doing offsets
 	const auto LOSTest = [&](const auto& Start, const auto& End)
 	{
@@ -743,18 +741,26 @@ bool UGolfControllerCommonComponent::HasLOSToFocus(const FVector& Position, cons
 			QueryParams
 		);
 	};
+	
+	const auto& FocusActorLocation = FocusActor->GetActorLocation();
+	const auto TraceStartOffsetVector = FVector::ZAxisVector * FocusTraceStartOffset;
 
+	// Want to go between FocusTraceEndOffset offset by ElevationDiff but be constrained by FocusTraceMaxEndOffset as don't want to go through ceiling
+	const auto ElevationDiff = Position.Z - FocusActorLocation.Z;
+	const auto FocusTraceSelectedEndOffset = FMath::Clamp(FocusTraceEndOffset + ElevationDiff, FocusTraceStartOffset, FocusTraceMaxEndOffset);
+	const auto TraceEndOffsetVector = FVector::ZAxisVector * FocusTraceSelectedEndOffset;
+	
 	bool bLOS = LOSTest(Position, FocusActorLocation);
 
 	if (!bLOS)
 	{
-		const auto TraceStartLocation = Position + FVector::ZAxisVector * FocusTraceStartOffset;
-		const auto TraceEndLocation = FocusActor->GetActorLocation() + FVector::ZAxisVector * FocusTraceEndOffset;
+		const auto TraceStartLocation = Position + TraceStartOffsetVector;
+		const auto TraceEndLocation = FocusActorLocation + TraceEndOffsetVector;
 
 		bLOS = LOSTest(TraceStartLocation, TraceEndLocation);
 	}
 
-	UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position + 200.f * FVector::ZAxisVector, FocusActor->GetActorLocation() + 200.f * FVector::ZAxisVector,
+	UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position + 200.f * FVector::ZAxisVector, FocusActorLocation + 200.f * FVector::ZAxisVector,
 		bLOS ? FColor::Green : FColor::Red, TEXT("LOS: %s"), *FocusActor->GetName());
 
 #if !NO_LOGGING
@@ -776,8 +782,8 @@ bool UGolfControllerCommonComponent::HasLOSToFocus(const FVector& Position, cons
 			FHitResult HitResult;
 			World->LineTraceSingleByChannel(
 				HitResult,
-				Position + FVector::ZAxisVector * FocusTraceStartOffset,
-				FocusActor->GetActorLocation() + FVector::ZAxisVector * FocusTraceEndOffset,
+				Position + TraceStartOffsetVector,
+				FocusActorLocation + TraceEndOffsetVector,
 				PG::CollisionChannel::FlickTraceType,
 				QueryParams
 			);

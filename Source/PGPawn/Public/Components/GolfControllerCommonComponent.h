@@ -131,8 +131,18 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Focus")
 	float FocusTraceStartOffset{ 100.0f };
 
+	/**
+	 * Minimum offset to trace to relative to the focus actor location.
+	 */
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Focus")
 	float FocusTraceEndOffset{ 2000.0f };
+
+	/**
+	 * Maximum offset to trace to relative to the focus actor location. Helps avoiding hitting the ceiling
+	 * when offsetting due to elevated start position.
+	 */
+	UPROPERTY(EditDefaultsOnly, Category = "Shot | Focus")
+	float FocusTraceMaxEndOffset{ 3000.0f };
 
 	int32 LastHoleNumber{};
 	float LastFlickTime{};
