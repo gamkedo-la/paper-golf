@@ -1016,6 +1016,9 @@ void AGolfPlayerController::TriggerHoleFlyby(const AGolfHole& GolfHole)
 	// it will be set to next state  in OnHoleFlybySequenceComplete
 	PreTurnState = EPlayerPreTurnState::HoleFlybyPlaying;
 
+	// Disable input here so we don't have a race condition while loading and playing the sequence
+	SetInputEnabled(false);
+
 	const auto& HoleFlybySoftReference = GolfHole.GetHoleFlybySequence();
 	if (HoleFlybySoftReference.IsNull())
 	{
@@ -1034,7 +1037,15 @@ void AGolfPlayerController::TriggerHoleFlyby(const AGolfHole& GolfHole)
 
 		if (!HoleFlybyObject)
 		{
-			UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s: TriggerHoleFlyby - HoleFlybyObject is NULL"), *GetName());
+			UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s: TriggerHoleFlyby(LoadObjectAsync) - HoleFlybyObject is NULL"), *GetName());
+			OnHoleFlybySequenceComplete();
+			return;
+		}
+
+		// Make sure that the hole flyby wasn't skipped while we were attempting to load it
+		if (PreTurnState != EPlayerPreTurnState::HoleFlybyPlaying)
+		{
+			UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: TriggerHoleFlyby(LoadObjectAsync) - HoleFlyby was skipped"), *GetName());
 			OnHoleFlybySequenceComplete();
 			return;
 		}
@@ -1046,7 +1057,7 @@ void AGolfPlayerController::TriggerHoleFlyby(const AGolfHole& GolfHole)
 		}
 		else
 		{
-			UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s: TriggerHoleFlyby - HUD is NULL"), *GetName());
+			UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s: TriggerHoleFlyby(LoadObjectAsync) - HUD is NULL"), *GetName());
 			OnHoleFlybySequenceComplete();
 		}
 	});
@@ -1167,8 +1178,6 @@ void AGolfPlayerController::MarkFirstPlayerTurnReady()
 
 	PreTurnState = EPlayerPreTurnState::None;
 	
-	// TEMP: Could this be where the bug was triggered in school? Look for above log message but no turn activation
-	// Look at value of bTurnActivated in the visual logger
 	if (bTurnActivated)
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: MarkFirstPlayerTurnReady - Setting input enabled"), *GetName());
