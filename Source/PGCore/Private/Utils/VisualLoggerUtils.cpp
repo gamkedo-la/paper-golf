@@ -248,7 +248,7 @@ namespace
 				// Capsule expects position at base and not the center like the transform
 
 				Snapshot.AddCapsule(
-					Transform.TransformPosition(SphylElm.Center - FVector::ZAxisVector * (SphylElm.Length * 0.5f + SphylElm.Radius)),
+					Transform.TransformPosition(SphylElm.Center - FVector::ZAxisVector * HalfHeight),
 					HalfHeight,
 					SphylElm.Radius,
 					Transform.GetRotation() * SphylElm.Rotation.Quaternion(),
@@ -268,7 +268,7 @@ namespace
 				const auto HalfHeight = CapsuleElm.Length * 0.5f + Radius;
 
 				Snapshot.AddCapsule(
-					Transform.TransformPosition(CapsuleElm.Center + FVector::ZAxisVector * (CapsuleElm.Length * 0.5f + Radius)),
+					Transform.TransformPosition(CapsuleElm.Center + FVector::ZAxisVector * HalfHeight),
 					HalfHeight,
 					Radius,
 					Transform.GetRotation() * CapsuleElm.Rotation.Quaternion(),
