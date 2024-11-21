@@ -243,11 +243,12 @@ namespace
 		{
 			for (const auto& SphylElm : AggGeom.SphylElems)
 			{
-				const auto HalfHeight = SphylElm.Length * 0.5f;
+				// Half height expects the radius to be added on as well - determined by visually aligning to the primitive rendering in the editor
+				const auto HalfHeight = SphylElm.Length * 0.5f + SphylElm.Radius;
 				// Capsule expects position at base and not the center like the transform
 
 				Snapshot.AddCapsule(
-					Transform.TransformPosition(SphylElm.Center - FVector::ZAxisVector * (HalfHeight + SphylElm.Radius)),
+					Transform.TransformPosition(SphylElm.Center - FVector::ZAxisVector * (SphylElm.Length * 0.5f + SphylElm.Radius)),
 					HalfHeight,
 					SphylElm.Radius,
 					Transform.GetRotation() * SphylElm.Rotation.Quaternion(),
@@ -262,11 +263,12 @@ namespace
 		{
 			for (const auto& CapsuleElm : AggGeom.TaperedCapsuleElems)
 			{
-				const auto Radius = (CapsuleElm.Radius0 + CapsuleElm.Radius1) * 0.5f;
-				const auto HalfHeight = CapsuleElm.Length * 0.5f;
+				const auto RadiiSum = CapsuleElm.Radius0 + CapsuleElm.Radius1;
+				const auto Radius = RadiiSum * 0.5f;
+				const auto HalfHeight = CapsuleElm.Length * 0.5f + Radius;
 
 				Snapshot.AddCapsule(
-					Transform.TransformPosition(CapsuleElm.Center + FVector::ZAxisVector * (HalfHeight + Radius)),
+					Transform.TransformPosition(CapsuleElm.Center + FVector::ZAxisVector * (CapsuleElm.Length * 0.5f + Radius)),
 					HalfHeight,
 					Radius,
 					Transform.GetRotation() * CapsuleElm.Rotation.Quaternion(),

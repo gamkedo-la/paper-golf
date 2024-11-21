@@ -129,7 +129,8 @@ bool AOscillatingFan::ShouldApplyForceTo(const UPrimitiveComponent& Component, c
 FVector AOscillatingFan::CalculateAirflowForce(const UPrimitiveComponent& Component, const FAirflowData& AirFlowData) const
 {
 	// calculate distance to origin
-	const auto Dist = FVector::Dist(Component.GetComponentLocation(), AirFlowData.Origin);
+	const auto& ComponentLocation = Component.GetComponentLocation();
+	const auto Dist = FVector::Dist(ComponentLocation, AirFlowData.Origin);
 
 	float ForceMagnitude;
 	if(Dist <= MaxForceDistance)
@@ -141,18 +142,40 @@ FVector AOscillatingFan::CalculateAirflowForce(const UPrimitiveComponent& Compon
 		// Take excess distance beyond max force distance
 		const auto ForceReduceDist = Dist - MaxForceDistance;
 
-		const auto ForceRadialFalloffDistanceFactor = FMath::Min(1.0,
-			FMath::Square(1 - (Dist - MaxForceDistance) / (ForceRadialFalloffDistance - MaxForceDistance)));
+		const auto ForceRadialFalloffDistanceFactor = FMath::Square(1 -
+			FMath::Clamp(ForceReduceDist / (ForceRadialFalloffDistance - MaxForceDistance), 0.0, 1.0)
+		);
 		// use inverse square law to adjust force
 		ForceMagnitude = ForceRadialFalloffDistanceFactor * MaxForceStrength;
 	}
+
+	// Calculate the upward or downard force contribution
+	const auto ToComponent = ComponentLocation - AirFlowData.Origin;
+	// Calculate distance from ComponentLocation to the line defined by the airflow direction
+	const auto OrthoVector = ToComponent ^ AirFlowData.Direction;
+	const auto OrthoDist = OrthoVector.Size();
+
+	FVector PerpendicularContribution, ForceDirection;
+
+	if (OrthoDist <= DirectionAlignmentDeltaOrthoDistance)
+	{
+		PerpendicularContribution = FVector::ZeroVector;
+		ForceDirection = AirFlowData.Direction;
+	}
+	else
+	{
+		const auto PerpendicularScale = FMath::Min(DirectionContributionMaxScale,
+			FMath::Square(OrthoDist - DirectionAlignmentDeltaOrthoDistance) / (DirectionAlignmentOrthoMaxDistance - DirectionAlignmentDeltaOrthoDistance));
+		PerpendicularContribution = ToComponent.GetSafeNormal() * PerpendicularScale;
+		ForceDirection = (AirFlowData.Direction + PerpendicularContribution).GetSafeNormal();
+	}
 	
 	UE_VLOG_UELOG(this, LogPGGameplay, VeryVerbose,
-		TEXT("%s: CalculateAirflowForce - ForceMagnitude=%f; Origin=%s; Direction=%s; Dist=%fm; ThresholdDist=%fm;"), 
-		*GetName(), ForceMagnitude, *AirFlowData.Origin.ToCompactString(), *AirFlowData.Direction.ToCompactString(),
-		Dist / 100, MaxForceDistance / 100);
+		TEXT("%s: CalculateAirflowForce - ForceMagnitude=%f; Origin=%s; AirFlowDir=%s; ForceDir=%s; Dist=%fm; ThresholdDist=%fm; OrthoDist=%fm; PerpendicularContribution=%f"), 
+		*GetName(), ForceMagnitude, *AirFlowData.Origin.ToCompactString(), *AirFlowData.Direction.ToCompactString(), *ForceDirection.ToCompactString(),
+		Dist / 100, MaxForceDistance / 100, OrthoDist / 100, PerpendicularContribution.Size());
 		
-	return AirFlowData.Direction * ForceMagnitude;
+	return ForceDirection * ForceMagnitude;
 }
 
 void AOscillatingFan::ApplyAirflowForce(UPrimitiveComponent& Component, const FVector& Force) const

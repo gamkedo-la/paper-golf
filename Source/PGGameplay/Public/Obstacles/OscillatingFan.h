@@ -77,6 +77,15 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Fan")
 	float ForceRadialFalloffDistance{ 5000.0f };
 
+	UPROPERTY(EditAnywhere, Category = "Fan")
+	float DirectionAlignmentDeltaOrthoDistance{ 300.0f };
+
+	UPROPERTY(EditAnywhere, Category = "Fan")
+	float DirectionAlignmentOrthoMaxDistance{ 600.0f };
+
+	UPROPERTY(EditAnywhere, Category = "Fan")
+	float DirectionContributionMaxScale{ 0.5f };
+
 #if ENABLE_VISUAL_LOG
 	FTimerHandle VisualLoggerTimer{};
 #endif
