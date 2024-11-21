@@ -748,7 +748,7 @@ void AGolfPlayerController::BeginPlay()
 
 	DoBeginPlay([this](auto& GolfSubsystem)
 	{
-		GolfSubsystem.OnPaperGolfPawnClippedThroughWorld.AddDynamic(this, &ThisClass::OnFellThroughFloor);
+		GolfSubsystem.OnPaperGolfPawnClippedThroughWorld.AddUniqueDynamic(this, &ThisClass::OnFellThroughFloor);
 	});
 
 	Init();
@@ -867,7 +867,7 @@ void AGolfPlayerController::SetPawn(APawn* InPawn)
 
 	const auto PaperGolfPawn = Cast<APaperGolfPawn>(InPawn);
 
-	// The player pawn will be first paper golf pawn possessed so set if not already set
+	// The PaperGolfPawn be first paper golf pawn possessed so set if not already set
 	if (!IsValid(PlayerPawn) && IsValid(PaperGolfPawn))
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Display, TEXT("%s: SetPawn - PlayerPawn=%s"), *GetName(), *LoggingUtils::GetName(InPawn));
@@ -886,7 +886,9 @@ void AGolfPlayerController::SetPawn(APawn* InPawn)
 			PaperGolfPawn->SetActorHiddenInGameNoRep(true);
 		}
 
-		// Need to do this on clients as pawn will come in potentially aftert he client RPC for activate turn
+		// Activate the turn if switching from spectator to player
+		// Doing this here as SetPawn is called when replication of the pawn possession completes
+		// Need to do this on clients as pawn will come in potentially after the client RPC for activate turn
 		if (!HasAuthority() && bTurnActivationRequested)
 		{
 			DoActivateTurn();
@@ -1050,7 +1052,6 @@ void AGolfPlayerController::TriggerHoleFlyby(const AGolfHole& GolfHole)
 	});
 }
 
-
 void AGolfPlayerController::OnHoleFlybySequenceComplete()
 {
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: OnHoleFlybySequenceComplete"), *GetName());
@@ -1061,12 +1062,14 @@ void AGolfPlayerController::OnHoleFlybySequenceComplete()
 		PlayerPawn->SetActorHiddenInGameNoRep(false);
 	}
 
-	MarkHoleFlybySeen();
 
 	// This will transition PreTurnState out of HoleFlybyPlaying
 	// This can get called multiple times if the sequence is skipped
+	// And we only want to show the camera introduction if the sequence completed normally
+	// and player didn't skip it
 	if (PreTurnState == EPlayerPreTurnState::HoleFlybyPlaying)
 	{
+		MarkHoleFlybySeen();
 		TriggerPlayerCameraIntroduction();
 	}
 }
@@ -1163,13 +1166,19 @@ void AGolfPlayerController::MarkFirstPlayerTurnReady()
 	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: MarkFirstPlayerTurnReady"), *GetName());
 
 	PreTurnState = EPlayerPreTurnState::None;
+	
+	// TEMP: Could this be where the bug was triggered in school? Look for above log message but no turn activation
+	// Look at value of bTurnActivated in the visual logger
 	if (bTurnActivated)
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: MarkFirstPlayerTurnReady - Setting input enabled"), *GetName());
 
 		SetInputEnabled(true);
-
 		ShowActivateTurnHUD();
+	}
+	else
+	{
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: MarkFirstPlayerTurnReady - Turn not activated"), *GetName());
 	}
 }
 
@@ -1192,7 +1201,6 @@ void AGolfPlayerController::ResetCoursePreviewTrackingState()
 
 void AGolfPlayerController::ActivateTurn()
 {
-	// TODO: Unhide the player and possess the player paper golf pawn
 	// This can only be called on server
 	if (!ensureAlwaysMsgf(HasAuthority(), TEXT("%s: ActivateTurn - Called on client!"), *GetName()))
 	{
@@ -1226,7 +1234,7 @@ void AGolfPlayerController::ActivateTurn()
 		DoActivateTurn();
 	}
 
-	// TotalRotation includes clamping if the idea pitch angle gets clamped so just pass that in
+	// TotalRotation includes clamping if the ideal pitch angle gets clamped so just pass that in
 
 	ClientActivateTurn(FTurnActivationClientParams
 	{
@@ -1277,9 +1285,7 @@ void AGolfPlayerController::DoActivateTurn()
 	bFirstAction = false;
 
 	const auto PaperGolfPawn = Cast<APaperGolfPawn>(GetPawn());
-
-	// Activate the turn if switching from spectator to player
-	// Doing this here as this function is called when replication of the pawn possession completes
+	
 	if (!PaperGolfPawn)
 	{
 		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: DoActivateTurn - Skipping turn activation as Pawn=%s is not APaperGolfPawn"),
@@ -1644,9 +1650,9 @@ void AGolfPlayerController::SpectatePawn(APawn* PawnToSpectate, AGolfPlayerState
 
 void AGolfPlayerController::SkipHoleFlybyAndCameraIntroduction()
 {
-	if (!CameraIntroductionInProgress())
+	if (!IsInCinematicSequence())
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SkipHoleFlybyAndCameraIntroduction - CameraIntroduction not in progress - skipping"), *GetName());
+		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SkipHoleFlybyAndCameraIntroduction - IsInCinematicSequence is FALSE - skipping"), *GetName());
 		return;
 	}
 
@@ -1679,6 +1685,7 @@ void AGolfPlayerController::RegisterHoleFlybyComplete()
 		return;
 	}
 
+	// This is also called from BP_Golf_HUD implementation of APGHUD::PlayHoleFlybySequence when the sequence is skipped
 	TutorialTrackingSubsystem->OnHoleFlybyComplete.AddUniqueDynamic(this, &ThisClass::OnHoleFlybySequenceComplete);
 }
 
