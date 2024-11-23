@@ -23,3 +23,7 @@ Karen McMullan: Sandbox experimentation (internal use only)
 Chris DeLeon: Fan cage model/texture
 
 Playtesting: Neil Urwin, Jason Timms
+
+nvisia LAN multiplayer playtest: Henry Palmer, Sebin Suresh, Francesco Fanizza, Matt Mariutto, and other attendees.
+
+Devcon Midwest conference LAN multiplayer playtest: Special thanks to nvisia, nvisionaries, and the Brookfield Conference Center for hosting the event and to all attendees who participated.
