@@ -1,0 +1,25 @@
+Justin Montgomery: Project lead, core gameplay, multiplayer programming (Steam and LAN support), level design, paper football physics, computer AI player (functionality, behavior, tuning), environment intro cinematics, round mechanics, camera, spectator mode, controls, fan functionality, lighting, UI, menus, configuration options, visual effects, optimization, visual debug features, assorted fixes and asset integration
+
+Chris "BOLT" Bolte: Audio lead, cozy main music, school song, bedroom theme, additional chill song, lobby music, football sounds (flick, bounce and landing surface variations), appliance loops (dishwasher, fridge, washing machine, TV sound, radio, oscillating fan), science lab bubbling, win claps sound, RC car audio, score sound, window birds, bathroom sound, water drop, button sounds (click, hover, cancel, error)
+
+Gwyn Henry: Kitchen table with chairs, chandelier, lava lamp, couch, fridge, TV for school cart, living room furniture, related collision and materials setup, linux build adjustments
+
+Ian Cherabier: Kitchen cabinets (modules modeling, collision setup, placement), also for sink, bed, dresser, locker, robot toy
+
+Tyler Funk: TV model, TV screen effects/content, mug jazz pattern
+
+Darius "TheOscillatingTortoise" Gourdine: UI shot meter dynamic sounds, metasounds integration
+
+Christer "McFunkypants" Kaitila: Books, cardboard box, wall socket, light swtich, 90s stereo, baseboard trim, environment textures (stucco, wall variants, paper, wood, marble), (integrated) public domain cat paintings, 
+
+Christian Gabbianelli: Spline obstacle movement (including support for looping and speed changes)
+
+Alex Joiner: Landline and cordless phone
+
+Dan Dela Rosa: Minor Mac support project fix
+
+Karen McMullan: Sandbox experimentation (internal use only)
+
+Chris DeLeon: Fan cage model/texture
+
+Playtesting: Neil Urwin, Jason Timms

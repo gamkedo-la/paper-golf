@@ -39,6 +39,18 @@ public:
 	*/
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "WrapEx (Integer)", Min = "0", Max = "100"), Category = "Math|Integer")
 	static int32 Wrap(int32 Value, int32 Min, int32 Max);
+
+	/*
+	* Loads a text file contents as a string with the given name searching first from Content directory if a relative path is specified.
+	*/
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "File Utils")
+	static bool FileLoadString(const FString& FileName, FString& Contents);
+
+	/*
+* Loads a text file contents as a string with the given name searching first from Content directory if a relative path is specified.
+*/
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "File Utils")
+	static bool FileSaveString(const FString& File, const FString& Contents);
 };
 
 #pragma region Template Definitions
