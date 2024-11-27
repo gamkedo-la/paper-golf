@@ -15,6 +15,9 @@
 
 #include "PGPawnLogging.h"
 
+#include "PGConstants.h"
+#include "Debug/PGConsoleVars.h"
+
 #include <array>
 
 
@@ -23,6 +26,7 @@
 namespace
 {
 	const FVector DefaultPosition{ 1e9, 1e9, 1e9 };
+	constexpr float MinUpdateDeltaTime = 0.1f;
 }
 
 UGolfShotClearanceComponent::UGolfShotClearanceComponent()
@@ -38,9 +42,25 @@ bool UGolfShotClearanceComponent::AdjustPositionForClearance()
 		return false;
 	}
 
+	auto World = GetWorld();
+	if (!ensureAlways(World))
+	{
+		return false;
+	}
+
+	// Return early if called multiple times in same frame
+	if (const auto TimeSeconds = World->GetTimeSeconds(); FMath::IsNearlyEqual(LastPositionUpdateWorldTime, TimeSeconds, MinUpdateDeltaTime))
+	{
+		return false;
+	}
+	else
+	{
+		LastPositionUpdateWorldTime = TimeSeconds;
+	}
+
 	if (!ShouldAdjustPosition())
 	{
-		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: AdjustPositionForClearance - FALSE - ShouldAdjustPosition returned false"),
+		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: AdjustPositionForClearance - FALSE - ShouldAdjustPosition returned FALSE"),
 			*LoggingUtils::GetName(GetOwner()), *GetName());
 
 		bFirstShot = false;
@@ -49,12 +69,6 @@ bool UGolfShotClearanceComponent::AdjustPositionForClearance()
 			LastPosition = MyOwner->GetActorLocation();
 		}
 
-		return false;
-	}
-
-	auto World = GetWorld();
-	if (!ensureAlways(World))
-	{
 		return false;
 	}
 
@@ -85,6 +99,7 @@ void UGolfShotClearanceComponent::BeginPlay()
 	Super::BeginPlay();
 
 	LastPosition = TargetPosition = DefaultPosition;
+	LastPositionUpdateWorldTime = -1.0f;
 	bFirstShot = true;
 
 	HitNormalAlignmentAngleCos = FMath::Cos(FMath::DegreesToRadians(HitNormalAlignmentAngle));
@@ -98,10 +113,9 @@ bool UGolfShotClearanceComponent::ShouldAdjustPosition() const
 		return false;
 	}
 
-	// Don't adjust first shot
-	if (bFirstShot)
+	if (PositionAdjustmentNotAllowed())
 	{
-		UE_VLOG_UELOG(MyOwner, LogPGPawn, Verbose, TEXT("%s-%s: ShouldAdjustPosition - FALSE - First shot"),
+		UE_VLOG_UELOG(MyOwner, LogPGPawn, Verbose, TEXT("%s-%s: ShouldAdjustPosition - FALSE - Not Allowed"),
 			*LoggingUtils::GetName(MyOwner), *GetName());
 		return false;
 	}
@@ -137,6 +151,31 @@ bool UGolfShotClearanceComponent::ShouldAdjustPosition() const
 	}
 
 	return true;
+}
+
+bool UGolfShotClearanceComponent::PositionAdjustmentNotAllowed() const
+{
+#if PG_DEBUG_ENABLED
+
+	if (bFirstShot)
+	{
+		FVector StartPositionOverride;
+		// If in debug mode, check for a start position override and in that case allow adjustment on the first shot
+		if (const auto& OverridePosString = PG::CStartPositionOverride.GetValueOnGameThread(); !OverridePosString.IsEmpty() && StartPositionOverride.InitFromCompactString(OverridePosString))
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s-%s: PositionAdjustmentNotAllowed - FALSE - overriding first shot condition as valid StartPositionOverride=%s provided"),
+				*LoggingUtils::GetName(GetOwner()), *GetName(), *StartPositionOverride.ToCompactString());
+
+			return false;
+		}
+	}
+#endif
+
+	// Don't adjust first shot
+	UE_CVLOG_UELOG(bFirstShot, GetOwner(), LogPGPawn, Verbose, TEXT("%s-%s: PositionAdjustmentNotAllowed - TRUE - first shot"),
+		*LoggingUtils::GetName(GetOwner()), *GetName());
+
+	return bFirstShot;
 }
 
 float UGolfShotClearanceComponent::GetActorHeight() const
@@ -208,7 +247,6 @@ bool UGolfShotClearanceComponent::IsClearanceNeeded(FHitResultData& OutHitResult
 
 		const FTransform LogTransform{ RotationQuat, TracePosition };
 
-
 		UE_VLOG_OBOX(MyOwner, LogPGPawn, Log, LogShape, LogTransform.ToMatrixNoScale(),
 			bResult ? FColor::Red : FColor::Green, TEXT("Clearance"));
 	}
@@ -225,7 +263,7 @@ bool UGolfShotClearanceComponent::IsClearanceNeeded(FHitResultData& OutHitResult
 
 		const auto& RightVector = MyOwner->GetActorRightVector();
 
-		for (const auto& Direction : { ForwardDirection, -ForwardDirection, RightVector, -RightVector })
+		for (int32 Index = 0; const auto& Direction : { ForwardDirection, -ForwardDirection, RightVector, -RightVector })
 		{
 			FHitResult HitResult;
 			const auto TraceEnd = TracePosition + Direction * AdjustmentDistance * 2;
@@ -238,11 +276,16 @@ bool UGolfShotClearanceComponent::IsClearanceNeeded(FHitResultData& OutHitResult
 				UE_VLOG_UELOG(MyOwner, LogPGPawn, Log, TEXT("%s-%s: AdjustPositionForClearance - TRUE - HitLocation=%s; HitNormal=%s"),
 					*LoggingUtils::GetName(MyOwner), *GetName(), *OutHitResultData.Location.ToCompactString(), *OutHitResultData.Normal.ToCompactString());
 
-				UE_VLOG_ARROW(MyOwner, LogPGPawn, Log, TracePosition, HitResult.Location, FColor::Orange, TEXT("Hit Location"));
-				UE_VLOG_ARROW(MyOwner, LogPGPawn, Log, HitResult.Location, HitResult.Location + HitResult.Normal * 100.0f, FColor::Yellow, TEXT("Hit Normal"));
+				UE_VLOG_ARROW(MyOwner, LogPGPawn, Log, HitResult.Location, HitResult.Location + HitResult.Normal * 100.0f, FColor::Yellow, TEXT("Clr: Hit Normal(%d)"), Index);
 
 				return true;
 			}
+			else
+			{
+				UE_VLOG_ARROW(MyOwner, LogPGPawn, VeryVerbose, TracePosition, TraceEnd, FColor::Green, TEXT("Clr: No Hit(%d)"), Index);
+			}
+
+			++Index;
 		}
 	}
 
@@ -282,7 +325,11 @@ bool UGolfShotClearanceComponent::CalculateClearanceLocation(const FHitResultDat
 	}
 
 	// Pushback to last shot location by default
-	*End++ = (LastPosition - MyOwner->GetActorLocation()).GetSafeNormal();
+	// Don't do this if in debug mode and this is the first shot
+	if (!PG_DEBUG_ENABLED || !bFirstShot)
+	{
+		*End++ = (LastPosition - MyOwner->GetActorLocation()).GetSafeNormal();
+	}
 
 	for (auto It = PushbackDirections.begin(); It != End; ++It)
 	{
@@ -305,38 +352,70 @@ bool UGolfShotClearanceComponent::CalculateClearanceLocation(const FVector& HitL
 
 	const auto& CurrentPosition = MyOwner->GetActorLocation();
 	const auto& UpVector = MyOwner->GetActorUpVector();
-	const auto TraceHeight = GetActorHeight();
 
 	// Project along plane with up vector
 	const auto PushbackDirection = FVector::VectorPlaneProject(RawPushbackDirection, UpVector).GetSafeNormal();
 
 	// Push back toward the last position and then retest
-	const auto NewPosition = HitLocation + PushbackDirection * AdjustmentDistance;
+	// Project current distance along the pushback direction
+	const auto ToHitLocationProjection = (CurrentPosition - HitLocation).ProjectOnToNormal(PushbackDirection);
+	const auto ToHitLocationDistance = ToHitLocationProjection.Size();
+	const auto PushbackDistance = AdjustmentDistance - ToHitLocationDistance;
+
+	if (PushbackDistance <= 0)
+	{
+		UE_VLOG_UELOG(MyOwner, LogPGPawn, Log,
+			TEXT("%s-%s: AdjustPositionForClearance - FALSE - Pushback direction: %s from location %s resulted in no pushback distance: ToHitLocationDistance=%fm; PushbackDistance=%fm; ToHitLocationProjection=%s"),
+			*LoggingUtils::GetName(MyOwner), *GetName(), *PushbackDirection.ToCompactString(), *HitLocation.ToCompactString(), ToHitLocationDistance / 100, PushbackDistance / 100, *ToHitLocationProjection.ToCompactString());
+		UE_VLOG_ARROW(MyOwner, LogPGPawn, Log, HitLocation, HitLocation + ToHitLocationProjection, FColor::Red, TEXT("Clr: ToHitLocationProjection"));
+
+		return false;
+	}
+
+	const auto NewPosition = CurrentPosition + PushbackDirection * PushbackDistance;
+
+	const auto TraceHeight = GetActorHeight();
 
 	// Test if moving to the new location results in a collision
 	// TODO: Consider a different trace channel than ECC_VISIBILITY.  StaticObstacle trace is for whether something is considered an obstacle and FlickTrace is whether there is line of sight
 	// so really need a new trace channel for this
 	// Pushback current position so don't overlap immediately with what we checked before
 	// Use trace height since this is the actor height and would be the max distance we could have fallen into a crevice of the object
-	const auto NewPositionTraceStart = CurrentPosition + PushbackDirection * TraceHeight;
-	bool bResult = World->LineTraceTestByChannel(NewPositionTraceStart, NewPosition, ECollisionChannel::ECC_Visibility);
+	const auto TraceOffset = UpVector * TraceHeight;
+	const auto NewPositionTraceStart = CurrentPosition + PushbackDirection * TraceHeight + TraceOffset;
+	const auto NewPositionTraceEnd = NewPosition + TraceOffset;
 
-#if ENABLE_VISUAL_LOG
-	if (bResult && FVisualLogger::IsRecording())
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(MyOwner);
+
+	// Note that this also accounts for pushing player into golf hole as the visibility channel will be a blocking hit for the hole
+	bool bResult = World->LineTraceTestByChannel(NewPositionTraceStart, NewPositionTraceEnd, ECollisionChannel::ECC_Visibility, QueryParams);
+
+	if (bResult)
 	{
-		UE_VLOG_ARROW(MyOwner, LogPGPawn, Log, CurrentPosition, NewPosition, FColor::Red, TEXT("Clearance Dir"));
-		UE_VLOG_UELOG(MyOwner, LogPGPawn, Log, TEXT("%s-%s: AdjustPositionForClearance - FALSE - Pushback direction: %s to location %s resulted in us penetrating another object"),
-			*LoggingUtils::GetName(MyOwner), *GetName(), *PushbackDirection.ToCompactString(), *NewPosition.ToCompactString());
+#if ENABLE_VISUAL_LOG
+		if (FVisualLogger::IsRecording())
+		{
+			UE_VLOG_ARROW(MyOwner, LogPGPawn, Log, NewPositionTraceStart, NewPositionTraceEnd, FColor::Black, TEXT("Clearance Dir"));
 
+			// Determine what we hit and log it
+			FHitResult NewPositionHitResult;
+			const bool bHasPositionHitResult = World->LineTraceSingleByChannel(NewPositionHitResult, NewPositionTraceStart, NewPositionTraceEnd, ECollisionChannel::ECC_Visibility, QueryParams);
+			UE_VLOG_UELOG(MyOwner, LogPGPawn, Log, TEXT("%s-%s: AdjustPositionForClearance - FALSE - Pushback direction: %s to location %s resulted in us penetrating another object: %s -> %s"),
+				*LoggingUtils::GetName(MyOwner), *GetName(), *PushbackDirection.ToCompactString(), *NewPosition.ToCompactString(),
+				bHasPositionHitResult ? *LoggingUtils::GetName(NewPositionHitResult.GetActor()) : TEXT("None"),
+				bHasPositionHitResult ? *LoggingUtils::GetName(NewPositionHitResult.GetComponent()) : TEXT("None")
+			);
+		}
+#endif
 		return false;
 	}
-#endif
 
-	const auto BoundsTraceShape = FCollisionShape::MakeBox(FVector{ TraceHeight * 0.5f });
+	const auto TraceHalfHeight = TraceHeight * 0.5f;
+	const auto BoundsTraceShape = FCollisionShape::MakeBox(FVector{ TraceHalfHeight });
 	const auto NewRotationQuat = PushbackDirection.ToOrientationQuat();
-	const auto TraceOffset = UpVector * TraceHeight;
 
-	bResult = World->OverlapAnyTestByChannel(NewPosition + TraceOffset, NewRotationQuat, ECollisionChannel::ECC_Visibility, BoundsTraceShape);
+	bResult = World->OverlapAnyTestByChannel(NewPositionTraceEnd, NewRotationQuat, ECollisionChannel::ECC_Visibility, BoundsTraceShape, QueryParams);
 
 #if ENABLE_VISUAL_LOG
 	if (FVisualLogger::IsRecording())
@@ -344,7 +423,7 @@ bool UGolfShotClearanceComponent::CalculateClearanceLocation(const FVector& HitL
 		UE_VLOG_ARROW(MyOwner, LogPGPawn, Log, CurrentPosition, NewPosition, FColor::Yellow, TEXT("Clearance Dir"));
 		const auto LogShape = FBox::BuildAABB(FVector::ZeroVector, BoundsTraceShape.GetExtent());
 
-		const FTransform LogTransform{ NewRotationQuat, NewPosition + TraceOffset };
+		const FTransform LogTransform{ NewRotationQuat, NewPositionTraceEnd };
 		UE_VLOG_OBOX(MyOwner, LogPGPawn, Log, LogShape, LogTransform.ToMatrixNoScale(),
 			bResult ? FColor::Red : FColor::Green, TEXT("Clearance New"));
 	}
@@ -358,9 +437,60 @@ bool UGolfShotClearanceComponent::CalculateClearanceLocation(const FVector& HitL
 		return false;
 	}
 
+	// Make sure that our elevation change isn't too great (example - moving off a counter)
+	const auto GroundData = PG::CollisionUtils::GetGroundData(*MyOwner, NewPosition);
+	if (!GroundData)
+	{
+		UE_VLOG_UELOG(MyOwner, LogPGPawn, Log, TEXT("%s-%s: AdjustPositionForClearance - FALSE - Pushback direction: %s to location %s resulted in not being able to determine ground"),
+			*LoggingUtils::GetName(MyOwner), *GetName(), *PushbackDirection.ToCompactString(), *NewPosition.ToCompactString());
+
+		return false;
+	}
+
+	// Make sure elevation change not too great - project onto up vector
+	check(GroundData);
+	const auto ToNewPositionGround = (GroundData->Location - CurrentPosition);
+	const auto NewPositionGroundProjection = ToNewPositionGround.ProjectOnToNormal(UpVector);
+
+	if (const auto DistSq = NewPositionGroundProjection.SizeSquared(); DistSq > FMath::Square(GroundDeltaAllowance))
+	{
+		UE_VLOG_UELOG(MyOwner, LogPGPawn, Log, TEXT("%s-%s: AdjustPositionForClearance - FALSE - Pushback direction: %s to location %s resulted in too great of an elevation change %fm > %fm"),
+			*LoggingUtils::GetName(MyOwner), *GetName(), *PushbackDirection.ToCompactString(), *NewPosition.ToCompactString(), FMath::Sqrt(DistSq) / 100, GroundDeltaAllowance / 100);
+
+		UE_VLOG_ARROW(MyOwner, LogPGPawn, Log, CurrentPosition, GroundData->Location, FColor::Red, TEXT("Clr Elevation"));
+
+		return false;
+	}
+
+	const auto ToNewPositionGroundHalfHeight = FMath::Abs(ToNewPositionGround.Z * 0.5f);
+	const auto HazardBoundsTraceShape = FCollisionShape::MakeBox(FVector{ TraceHalfHeight, TraceHalfHeight, ToNewPositionGroundHalfHeight + TraceHalfHeight });
+
+	// Check if overlap a hazard - use the ground position and offset the height so tyhat the overlap check sweeps to the ground
+	const auto HazardTraceCenter = NewPosition - FVector::ZAxisVector * ToNewPositionGroundHalfHeight;
+	bResult = World->OverlapAnyTestByObjectType(HazardTraceCenter, FQuat::Identity, PG::CollisionObjectType::Hazard, HazardBoundsTraceShape, QueryParams);
+
+	if (bResult)
+	{
+		UE_VLOG_UELOG(MyOwner, LogPGPawn, Log, TEXT("%s-%s: AdjustPositionForClearance - FALSE - Pushback direction: %s to location %s resulted in going in a hazard"),
+			*LoggingUtils::GetName(MyOwner), *GetName(), *PushbackDirection.ToCompactString(), *NewPosition.ToCompactString());
+
+#if ENABLE_VISUAL_LOG
+		if (FVisualLogger::IsRecording())
+		{
+			const auto LogShape = FBox::BuildAABB(HazardTraceCenter, HazardBoundsTraceShape.GetExtent());
+			UE_VLOG_BOX(MyOwner, LogPGPawn, Log, LogShape, FColor::Red, TEXT("Clr New: Hazard"));
+		}
+#endif
+		return false;
+	}
+
 	UE_VLOG_UELOG(MyOwner, LogPGPawn, Log, TEXT("%s-%s: AdjustPositionForClearance - TRUE - Pushback direction: %s to location %s"),
 		*LoggingUtils::GetName(MyOwner), *GetName(), *PushbackDirection.ToCompactString(), *NewPosition.ToCompactString());
 
 	OutNewLocation = NewPosition;
+
+	UE_VLOG_LOCATION(MyOwner, LogPGPawn, Verbose, CurrentPosition, 10.0f, FColor::Orange, TEXT("Clr: Prev Pos"));
+	UE_VLOG_LOCATION(MyOwner, LogPGPawn, Verbose, NewPosition, 10.0f, FColor::Yellow, TEXT("Clr: New Pos"));
+
 	return true;
 }

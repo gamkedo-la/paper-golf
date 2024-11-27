@@ -523,7 +523,7 @@ void AGolfAIController::SetupNextShot(bool bSetCanFlick)
 	
 	if (ensure(PlayerPawn))
 	{
-		PlayerPawn->SnapToGround();
+		PlayerPawn->SnapToGround(true);
 	}
 
 	if (bSetCanFlick)

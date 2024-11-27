@@ -8,6 +8,8 @@
 #include "Subsystems/GolfEventsSubsystem.h"
 
 #include "Utils/PGAudioUtilities.h"
+#include "Utils/CollisionUtils.h"
+#include "Components/BrushComponent.h"
 
 #include "Logging/LoggingUtils.h"
 #include "VisualLogger/VisualLogger.h"
@@ -19,6 +21,9 @@ AHazardBoundsVolume::AHazardBoundsVolume()
 {
 	Type = EPaperGolfVolumeOverlapType::End;
 	Tags.Add(PG::Tags::Hazard);
+
+	auto OverlapComponent = GetBrushComponent();
+	OverlapComponent->SetCollisionProfileName(PG::CollisionProfile::Hazard);
 
 	// So we can send RPCs
 	bAlwaysRelevant = true;

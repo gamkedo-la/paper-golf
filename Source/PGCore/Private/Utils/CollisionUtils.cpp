@@ -77,7 +77,7 @@ TOptional<CollisionUtils::FGroundData> PG::CollisionUtils::GetGroundData(const A
 	const auto& TargetLocation = PositionOverride ? *PositionOverride : Actor.GetActorLocation();
 
 	const auto TraceStart = TargetLocation + FVector(0, 0, GetActorHalfHeight(Actor));
-	const auto TraceEnd = TargetLocation - FVector(0, 0, 1000);
+	const auto TraceEnd = TargetLocation - FVector(0, 0, 2000);
 
 	FHitResult HitResult;
 

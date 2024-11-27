@@ -69,7 +69,7 @@ public:
 	float GetRotationYawToFocusActor(AActor* InFocusActor, const TOptional<FVector>& LocationOverride = {}) const;
 
 	UFUNCTION(BlueprintCallable)
-	void SnapToGround();
+	void SnapToGround(bool bAdjustForClearance = false);
 
 	UFUNCTION(BlueprintCallable)
 	void ResetRotation();

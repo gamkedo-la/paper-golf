@@ -35,6 +35,7 @@ private:
 private:
 
 	bool ShouldAdjustPosition() const;
+	bool PositionAdjustmentNotAllowed() const;
 
 	float GetActorHeight() const;
 
@@ -59,11 +60,15 @@ private:
 	float AdjustmentDistance{ 3 * 100.0f };
 
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	float GroundDeltaAllowance{ 2 * 100.0f };
+
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	float HitNormalAlignmentAngle{ 45.0f };
 
 	float HitNormalAlignmentAngleCos{};
 
 	mutable float ActorHeight{ -1.0f };
+	float LastPositionUpdateWorldTime{ -1.0f };
 	FVector TargetPosition{ EForceInit::ForceInitToZero };
 	FVector LastPosition{ EForceInit::ForceInitToZero };
 	bool bFirstShot{ true };

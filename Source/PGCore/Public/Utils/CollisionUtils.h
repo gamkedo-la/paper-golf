@@ -30,8 +30,15 @@ namespace PG::CollisionChannel
 	inline constexpr ECollisionChannel StaticObstacleTrace = ECollisionChannel::ECC_GameTraceChannel2;
 }
 
+
+namespace PG::CollisionObjectType
+{
+	inline constexpr ECollisionChannel Hazard = ECollisionChannel::ECC_GameTraceChannel3;
+}
+
 namespace PG::CollisionProfile
 {
 	inline constexpr const TCHAR* NoCollision = TEXT("NoCollision");
-	inline constexpr const TCHAR* OverlapOnlyPawn = TEXT("OverlapOnlyPawn");
+	inline constexpr const TCHAR* OverlapOnlyPawn = TEXT("OverlapPawnIgnoreElse");
+	inline constexpr const TCHAR* Hazard = TEXT("Hazard");
 }

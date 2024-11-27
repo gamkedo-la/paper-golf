@@ -230,7 +230,7 @@ void APaperGolfPawn::SetFocusActor(AActor* Focus, const TOptional<FVector>& Posi
 
 	FocusActor = Focus;
 
-	// TODO: This should happen before it adjusts for clearance
+	// Target position happens before it adjusts for clearance
 	if (FocusActor)
 	{
 		GolfShotClearanceComponent->SetTargetPosition(FocusActor->GetActorLocation());
@@ -247,7 +247,7 @@ void APaperGolfPawn::OnRep_FocusActor()
 	ResetCameraForShotSetup();
 }
 
-void APaperGolfPawn::SnapToGround()
+void APaperGolfPawn::SnapToGround(bool bAdjustForClearance)
 {
 	// Can only do this on server
 	if (!ensure(HasAuthority()))
@@ -259,7 +259,10 @@ void APaperGolfPawn::SnapToGround()
 
 	ResetRotation();
 
-	GolfShotClearanceComponent->AdjustPositionForClearance();
+	if (bAdjustForClearance)
+	{
+		GolfShotClearanceComponent->AdjustPositionForClearance();
+	}
 
 	auto World = GetWorld();
 	

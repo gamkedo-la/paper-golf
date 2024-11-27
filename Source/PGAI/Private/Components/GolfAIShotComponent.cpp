@@ -207,6 +207,7 @@ bool UGolfAIShotComponent::ShotWillEndUpInHazard(const FAIShotSetupResult& ShotS
 	const FVector& HitLocation = PathResult.HitResult.ImpactPoint;
 
 	// TODO: Replace with trace or EQS
+	// We now have a Hazard object type so could use that to filter rather than a loop
 	for (auto HazardActor : HazardActors)
 	{
 		if (!HazardActor)

@@ -110,7 +110,7 @@ void AGolfPlayerController::ResetForCamera()
 
 	if (HasAuthority())
 	{
-		PaperGolfPawn->SnapToGround();
+		PaperGolfPawn->SnapToGround(true);
 	}
 
 	SetViewTargetWithBlend(PaperGolfPawn);
