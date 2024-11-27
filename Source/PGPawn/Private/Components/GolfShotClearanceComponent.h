@@ -32,6 +32,21 @@ private:
 		FVector Normal;
 	};
 
+	struct FClearanceLocationResult
+	{
+		FVector CurrentPosition;
+		FVector UpVector;
+		FVector PushbackDirection;
+		FVector NewPosition;
+	};
+
+	struct FClearanceTraceParams
+	{
+		float TraceHalfHeight;
+		FVector NewPositionTraceStart;
+		FVector NewPositionTraceEnd;
+	};
+
 private:
 
 	bool ShouldAdjustPosition() const;
@@ -45,6 +60,9 @@ private:
 	bool CalculateClearanceLocation(const FHitResultData& OutHitResultData, FVector& OutNewLocation) const;
 	bool CalculateClearanceLocation(const FVector& HitLocation, const FVector& PushbackDirection, FVector& OutNewLocation) const;
 
+	TOptional<FClearanceLocationResult> CalculateClearanceLocationResult(const FVector& HitLocation, const FVector& RawPushbackDirection) const;
+	bool CheckForNewLocationCollisions(const FClearanceLocationResult& ClearanceLocationResult, FClearanceTraceParams& OutClearanceTraceParams) const;
+	bool CheckNewLocationPlayable(const FClearanceLocationResult& ClearanceLocationResult, const FClearanceTraceParams& ClearanceTraceParams) const;
 private:
 
 	UPROPERTY(Category = "Config", EditDefaultsOnly)

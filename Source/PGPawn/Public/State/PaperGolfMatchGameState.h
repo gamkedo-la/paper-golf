@@ -32,7 +32,7 @@ class PGPAWN_API APaperGolfMatchGameState : public APaperGolfGameStateBase
 	GENERATED_BODY()
 	
 public:
-	virtual bool IsHoleComplete() const;
+	virtual bool IsHoleComplete() const override;
 
 	/** Add PlayerState to the PlayerArray - called on both clients and server */
 	virtual void AddPlayerState(APlayerState* PlayerState) override;
@@ -46,7 +46,7 @@ public:
 
 protected:
 
-	virtual bool AllScoresSynced() const;
+	virtual bool AllScoresSynced() const override;
 	virtual void ResetScoreSyncState();
 	virtual void DoAdditionalHoleComplete();
 
