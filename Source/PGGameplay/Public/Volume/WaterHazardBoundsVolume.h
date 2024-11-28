@@ -6,6 +6,8 @@
 #include "Volume/HazardBoundsVolume.h"
 #include "WaterHazardBoundsVolume.generated.h"
 
+class UMaterialInterface;
+
 /**
  * 
  */
@@ -17,10 +19,30 @@ class PGGAMEPLAY_API AWaterHazardBoundsVolume : public AHazardBoundsVolume
 public:
 	AWaterHazardBoundsVolume();
 
+protected:
+	virtual void BeginPlay() override;
+
+private:
+	void SetWaterMaterial(bool bForceUpdate = false);
+	void PollWaterMaterial() { SetWaterMaterial(false); }
+
+	bool ShouldUseHighQualityWater() const;
+
 private:
 	UPROPERTY(EditAnywhere, Category = "Mesh")
 	TObjectPtr<UStaticMeshComponent> Mesh{};
 
 	UPROPERTY(EditAnywhere, Category = "Mesh")
 	TObjectPtr<UStaticMeshComponent> WaterTableMesh{};
+
+	UPROPERTY(EditAnywhere, Category = "Material")
+	TObjectPtr<UMaterialInterface> HighQualityWaterMaterial{};
+
+	UPROPERTY(EditAnywhere, Category = "Material")
+	TObjectPtr<UMaterialInterface> LowQualityWaterMaterial{};
+
+	UPROPERTY(EditAnywhere, Category = "Material", meta = (ClampMin = "0", ClampMax="3"))
+	int32 WaterQualityThreshold{ 2 };
+
+	bool bUsingHighQualityWater{};
 };
