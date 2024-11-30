@@ -746,8 +746,11 @@ bool UGolfControllerCommonComponent::HasLOSToFocus(const FVector& Position, cons
 	const auto TraceStartOffsetVector = FVector::ZAxisVector * FocusTraceStartOffset;
 
 	// Want to go between FocusTraceEndOffset offset by ElevationDiff but be constrained by FocusTraceMaxEndOffset as don't want to go through ceiling
+	const auto FocusTraceOffsetOverride = IFocusableActor::Execute_GetFocusTraceEndOffset(FocusActor);
+	const auto FocusTraceOffsetToUse = FocusTraceOffsetOverride >= 1 ? FocusTraceOffsetOverride : FocusTraceEndOffset;
+
 	const auto ElevationDiff = Position.Z - FocusActorLocation.Z;
-	const auto FocusTraceSelectedEndOffset = FMath::Clamp(FocusTraceEndOffset + ElevationDiff, FocusTraceStartOffset, FocusTraceMaxEndOffset);
+	const auto FocusTraceSelectedEndOffset = FMath::Clamp(FocusTraceOffsetToUse + ElevationDiff, FocusTraceStartOffset, FocusTraceMaxEndOffset);
 	const auto TraceEndOffsetVector = FVector::ZAxisVector * FocusTraceSelectedEndOffset;
 	
 	bool bLOS = LOSTest(Position, FocusActorLocation);
@@ -774,8 +777,8 @@ bool UGolfControllerCommonComponent::HasLOSToFocus(const FVector& Position, cons
 	{
 		if (bLOS)
 		{
-			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s-%s: HasLOSToFocus(%s,%s) = TRUE"),
-				*GetName(), *LoggingUtils::GetName(GetOwner()), *Position.ToCompactString(), *LoggingUtils::GetName(FocusActor));
+			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s-%s: HasLOSToFocus(%s,%s) = TRUE : FocusTraceSelectedEndOffset=%f"),
+				*GetName(), *LoggingUtils::GetName(GetOwner()), *Position.ToCompactString(), *LoggingUtils::GetName(FocusActor), FocusTraceSelectedEndOffset);
 		}
 		else
 		{
@@ -788,10 +791,10 @@ bool UGolfControllerCommonComponent::HasLOSToFocus(const FVector& Position, cons
 				QueryParams
 			);
 
-			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s-%s: HasLOSToFocus(%s,%s) = FALSE : Hit %s-%s at %s"),
+			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s-%s: HasLOSToFocus(%s,%s) = FALSE : Hit %s-%s at %s; FocusTraceSelectedEndOffset=%f"),
 				*GetName(), *LoggingUtils::GetName(GetOwner()), *Position.ToCompactString(), *LoggingUtils::GetName(FocusActor),
 				*LoggingUtils::GetName(HitResult.GetActor()), *LoggingUtils::GetName(HitResult.GetComponent()),
-				*HitResult.ImpactPoint.ToCompactString());
+				*HitResult.ImpactPoint.ToCompactString(), FocusTraceSelectedEndOffset);
 			UE_VLOG_LOCATION(GetOwner(), LogPGPawn, Verbose, HitResult.ImpactPoint, 10.f, FColor::Red, TEXT("LOS: %s - Hit"), *LoggingUtils::GetName(FocusActor));
 		}
 	}

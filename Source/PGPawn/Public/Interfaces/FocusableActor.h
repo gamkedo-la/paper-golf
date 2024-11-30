@@ -34,4 +34,10 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Focus")
 	float GetMinCosAngle() const;
+
+	/*
+	* Overrides the default focus trace end offset.
+	*/
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Focus")
+	float GetFocusTraceEndOffset() const;
 };
