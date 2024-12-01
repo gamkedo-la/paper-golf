@@ -261,7 +261,11 @@ void APaperGolfPawn::SnapToGround(bool bAdjustForClearance)
 
 	if (bAdjustForClearance)
 	{
-		GolfShotClearanceComponent->AdjustPositionForClearance();
+		if (GolfShotClearanceComponent->AdjustPositionForClearance())
+		{
+			// If made an adjustment then need to reposition the focus rotation
+			ResetCameraForShotSetup();
+		}
 	}
 
 	auto World = GetWorld();
