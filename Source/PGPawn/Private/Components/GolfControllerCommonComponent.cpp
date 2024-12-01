@@ -858,12 +858,12 @@ void UGolfControllerCommonComponent::BeginTurn()
 	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: BeginTurn"),
 		*GetName(), *LoggingUtils::GetName(GetOwner()));
 
-	// Always reset the state when activating turn - this fixes and physics offset issues
+	// Always reset the state when activating turn - this fixes any physics offset issues
 	if(ensure(GolfController))
 	{
 		if (auto PaperGolfPawn = GolfController->GetPaperGolfPawn(); PaperGolfPawn /* && !PaperGolfPawn->IsAtRest()*/)
 		{
-			// Always reset the state when activating turn - this fixes and physics offset issues
+			// Always reset the state when activating turn - this fixes some physics offset issues
 			PaperGolfPawn->SetUpForNextShot();
 
 			if (GetOwner()->HasAuthority())

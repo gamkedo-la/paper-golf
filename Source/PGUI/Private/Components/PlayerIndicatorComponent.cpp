@@ -72,7 +72,8 @@ FString UPlayerIndicatorComponent::GetPlayerIndicatorString(const AGolfPlayerSta
 
 	if (bShowStrokeCounts && CurrentHoleShots >= MinStrokesToShow)
 	{
-		return FString::Printf(TEXT("%s - Stroke %d"), *Player.GetPlayerName(), CurrentHoleShots);
+		return FString::Printf(TEXT("%s-%s - %s - Stroke %d"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), *Player.GetPlayerName(), CurrentHoleShots);
 	}
 
 	return Player.GetPlayerName();
@@ -80,14 +81,15 @@ FString UPlayerIndicatorComponent::GetPlayerIndicatorString(const AGolfPlayerSta
 
 void UPlayerIndicatorComponent::OnHoleShotsUpdated(AGolfPlayerState& Player, int32 PreviousShots)
 {
-	UE_VLOG_UELOG(GetOwner(), LogPGUI, Log, TEXT("%s-%s: OnHoleShotsUpdated - Player=%s; PreviousShots=%d"), *LoggingUtils::GetName(GetOwner()), *GetName(), *Player.GetPlayerName(), PreviousShots);
+	UE_VLOG_UELOG(GetOwner(), LogPGUI, Log, TEXT("%s-%s: OnHoleShotsUpdated - Player=%s; PreviousShots=%d"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), *Player.GetPlayerName(), PreviousShots);
 
 	UpdatePlayerIndicatorText(Player);
 }
 
 void UPlayerIndicatorComponent::Hide()
 {
-	UE_VLOG_UELOG(GetOwner(), LogPGUI, Log, TEXT("%s: Hide"), *GetName());
+	UE_VLOG_UELOG(GetOwner(), LogPGUI, Log, TEXT("%s-%s: Hide"), *LoggingUtils::GetName(GetOwner()), *GetName());
 
 	if (auto TextWidget = GetUserWidgetObject(); TextWidget)
 	{
