@@ -46,6 +46,7 @@ void UPlayerIndicatorComponent::SetVisibleForPlayer(AGolfPlayerState* Player)
 	}
 
 	UE_VLOG_UELOG(GetOwner(), LogPGUI, Log, TEXT("%s-%s: SetVisibleForPlayer - Player=%s"), *LoggingUtils::GetName(GetOwner()), *GetName(), *Player->GetPlayerName());
+	UE_VLOG_LOCATION(GetOwner(), LogPGUI, Log, GetComponentLocation(), 20.0f, FColor::White, TEXT("%s"), *GetPlayerIndicatorString(*Player));
 
 	UpdatePlayerIndicatorText(*Player);
 
