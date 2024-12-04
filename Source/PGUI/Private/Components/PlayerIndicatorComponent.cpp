@@ -45,7 +45,11 @@ void UPlayerIndicatorComponent::SetVisibleForPlayer(AGolfPlayerState* Player)
 		Player->OnHoleShotsUpdated.AddUObject(this, &UPlayerIndicatorComponent::OnHoleShotsUpdated);
 	}
 
-	UE_VLOG_UELOG(GetOwner(), LogPGUI, Log, TEXT("%s-%s: SetVisibleForPlayer - Player=%s"), *LoggingUtils::GetName(GetOwner()), *GetName(), *Player->GetPlayerName());
+	UE_VLOG_UELOG(GetOwner(), LogPGUI, Log, TEXT("%s-%s: SetVisibleForPlayer - Player=%s; AttachedToComponent=%s; Position=%s; RelativeLocation=%s; ParentPosition=%s"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), *Player->GetPlayerName(),
+		*LoggingUtils::GetName(GetAttachParent()), *GetComponentLocation().ToCompactString(), *GetRelativeLocation().ToCompactString(),
+		GetAttachParent() ? *GetAttachParent()->GetComponentLocation().ToCompactString() : TEXT("N/A"));
+
 	UE_VLOG_LOCATION(GetOwner(), LogPGUI, Log, GetComponentLocation(), 20.0f, FColor::White, TEXT("%s"), *GetPlayerIndicatorString(*Player));
 
 	UpdatePlayerIndicatorText(*Player);
