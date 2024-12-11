@@ -50,8 +50,8 @@ private:
 	FVector GetPowerFractionTextLocation(const APaperGolfPawn& Pawn, const FPredictProjectilePathResult& PredictResult) const;
 
 	void UpdatePowerText(const APaperGolfPawn& Pawn, const FPredictProjectilePathResult& PredictResult);
-	void HidePowerText();
-	void ShowPowerText();
+	void HidePowerText() const;
+	void ShowPowerText() const;
 
 	void RegisterPowerText(const APaperGolfPawn& Pawn);
 	void UnregisterPowerText();

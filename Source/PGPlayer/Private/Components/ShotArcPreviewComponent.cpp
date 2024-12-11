@@ -107,7 +107,7 @@ bool UShotArcPreviewComponent::NeedsToRecalculateArc(const APaperGolfPawn& Pawn,
 		   !Pawn.GetActorTransform().EqualsNoScale(LastCalculatedTransform);
 }
 
-void UShotArcPreviewComponent::HidePowerText()
+void UShotArcPreviewComponent::HidePowerText() const
 {
 	if (!PowerText)
 	{
@@ -119,7 +119,7 @@ void UShotArcPreviewComponent::HidePowerText()
 	PowerText->SetVisibility(false);
 }
 
-void UShotArcPreviewComponent::ShowPowerText()
+void UShotArcPreviewComponent::ShowPowerText() const
 {
 	if (!ensure(PowerText))
 	{
@@ -251,12 +251,13 @@ AShotArc* UShotArcPreviewComponent::SpawnShotArcActor(const APaperGolfPawn& Pawn
 		return nullptr;
 	}
 
-	FTransform SpawnTransform = Pawn.GetActorTransform();
-	SpawnTransform.SetScale3D(FVector::OneVector);
+	// Don't set a spawn transform and instead rely on the implementation to place the points at the
+	// correct orientation
 
-	const auto SpawnedArc = World->SpawnActorDeferred<AShotArc>(ShotArcSpawnActorClass, SpawnTransform, GetOwner(), const_cast<APaperGolfPawn*>(&Pawn), ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	const auto SpawnedArc = World->SpawnActorDeferred<AShotArc>(ShotArcSpawnActorClass, FTransform::Identity,
+		GetOwner(), const_cast<APaperGolfPawn*>(&Pawn), ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 
-	ShotArc = Cast<AShotArc>(UGameplayStatics::FinishSpawningActor(SpawnedArc, SpawnTransform));
+	ShotArc = Cast<AShotArc>(UGameplayStatics::FinishSpawningActor(SpawnedArc, FTransform::Identity));
 
 	UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: SpawnShotArcActor: %s -> %s"), *GetName(), *ShotArcSpawnActorClass->GetName(), *ShotArc->GetName());
 	return ShotArc;

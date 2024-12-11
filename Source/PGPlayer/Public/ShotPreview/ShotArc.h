@@ -15,6 +15,16 @@ class UStaticMesh;
 class UStaticMeshComponent;
 class USplineMeshComponent;
 
+
+USTRUCT()
+struct FShotArcData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(Transient)
+	TObjectPtr<USplineMeshComponent> SplineMesh{};
+};
+
 UCLASS()
 class PGPLAYER_API AShotArc : public AActor
 {
@@ -24,8 +34,6 @@ public:
 	AShotArc();
 
 	void SetData(const FPredictProjectilePathResult& Path, bool bDrawHit);
-
-	// Show and Hide with actor visibility
 
 protected:
 	virtual void BeginPlay() override;
@@ -37,11 +45,22 @@ private:
 	void BuildMeshAlongSpline();
 	void UpdateLandingMesh();
 
-	void SetStaticMeshProperties(UStaticMeshComponent& MeshComponent);
+	static void SetStaticMeshProperties(UStaticMeshComponent& MeshComponent);
 
 	void ClearSplineMeshes();
 
 	void ClearPreviousState();
+
+	float CalculateMeshSize() const;
+
+	USplineMeshComponent* GetOrCreateSplineComponent(int32 Index);
+
+private:
+	struct FLandingInfo
+	{
+		FVector Location;
+		FVector Normal;
+	};
 
 private:
 
@@ -57,12 +76,21 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Mesh")
 	TEnumAsByte<ESplineMeshAxis::Type> MeshForwardAxis{ ESplineMeshAxis::Type::X };
 
+	UPROPERTY(EditDefaultsOnly, Category = "Mesh")
+	FVector LandingMeshUpVector { FVector::ZAxisVector };
+	
+	UPROPERTY(EditDefaultsOnly, Category = "Shot Arc")
+	int32 MaxSplineMeshes { 20 };
+	
 	UPROPERTY(Transient)
-	TArray<USplineMeshComponent*> SplineMeshes{};
+	TArray<FShotArcData> ArcElements{};
 
 	UPROPERTY(Category = "Shot Arc", EditDefaultsOnly)
 	float HitRadiusSize{ 100.0f };
 
+	float SplineMeshSize{ -1.0f };
+	float LandingMeshSize { -1.0f };
+
 	TArray<FVector> ArcPoints;
-	TOptional<FVector> HitLocation{};
+	TOptional<FLandingInfo> LandingData{};
 };
