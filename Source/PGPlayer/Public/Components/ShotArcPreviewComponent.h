@@ -39,6 +39,10 @@ protected:
 
 private:
 	void CalculateShotArc(const APaperGolfPawn& Pawn, const FFlickParams& FlickParams);
+
+	AShotArc* SpawnShotArcActor(const APaperGolfPawn& Pawn);
+	void DestroyShotArcActor();
+
 	void DoShowShotArc();
 
 	bool NeedsToRecalculateArc(const APaperGolfPawn& Pawn, const FFlickParams& FlickParams) const;
@@ -85,7 +89,13 @@ private:
 	TObjectPtr<UMaterialInterface> TextMaterial{};
 
 	UPROPERTY(Category = "Shot Arc | Render", EditDefaultsOnly)
-	TSubclassOf<AShotArc> ShotArcSpawnActor{};
+	TSubclassOf<AShotArc> ShotArcSpawnActorClass{};
+
+	UPROPERTY(Category = "Shot Arc | Render", EditDefaultsOnly)
+	bool bUseNewShotArc{ false };
+
+	UPROPERTY(Category = "Shot Arc | Render", EditDefaultsOnly)
+	bool bAlwaysRenderLegacyArc{ true };
 
 	UPROPERTY(Transient)
 	TObjectPtr<AShotArc> ShotArc{};

@@ -5,6 +5,8 @@
 
 #include "Pawn/PaperGolfPawn.h"
 
+#include "ShotPreview/ShotArc.h"
+
 #include "Library/PaperGolfPawnUtilities.h"
 
 #include "PGPlayerLogging.h"
@@ -51,15 +53,25 @@ void UShotArcPreviewComponent::BeginPlay()
 {
 	UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: BeginPlay"), *GetName());
 	Super::BeginPlay();
+
+	if (bUseNewShotArc)
+	{
+		if (!ensureMsgf(ShotArcSpawnActorClass, TEXT("ShotArcSpawnActorClass not set")))
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Error, TEXT("%s: ShotArcSpawnActorClass not set"), *GetName());
+			bUseNewShotArc = false;
+		}
+	}
 }
 
 void UShotArcPreviewComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: EndPlay"), *GetName());
 
-	Super::EndPlay(EndPlayReason);
-
 	UnregisterPowerText();
+	DestroyShotArcActor();
+
+	Super::EndPlay(EndPlayReason);
 }
 
 void UShotArcPreviewComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -174,9 +186,6 @@ TOptional<FVector> UShotArcPreviewComponent::GetCameraLocation(const APaperGolfP
 
 void UShotArcPreviewComponent::CalculateShotArc(const APaperGolfPawn& Pawn, const FFlickParams& FlickParams)
 {
-	ArcPoints.Reset();
-	bLastPointIsHit = false;
-
 	const FFlickPredictParams PredictParams
 	{
 		.MaxSimTime = MaxSimTime,
@@ -189,16 +198,31 @@ void UShotArcPreviewComponent::CalculateShotArc(const APaperGolfPawn& Pawn, cons
 	bLastPointIsHit = Pawn.PredictFlick(FlickParams, PredictParams, Result);
 	LastCalculatedTransform = Pawn.GetActorTransform();
 
-	ArcPoints.Reserve(Result.PathData.Num() + (bLastPointIsHit ? 1 : 0));
-
-	for (const auto& PathDatum : Result.PathData)
+	if (bUseNewShotArc)
 	{
-		ArcPoints.Add(PathDatum.Location);
+		ShotArc = SpawnShotArcActor(Pawn);
+		if (!ShotArc)
+		{
+			return;
+		}
+
+		ShotArc->SetData(Result, bLastPointIsHit);
 	}
-
-	if (bLastPointIsHit)
+	
+	if(!bUseNewShotArc || bAlwaysRenderLegacyArc)
 	{
-		ArcPoints.Add(Result.HitResult.ImpactPoint);
+		ArcPoints.Reset();
+		ArcPoints.Reserve(Result.PathData.Num() + (bLastPointIsHit ? 1 : 0));
+
+		for (const auto& PathDatum : Result.PathData)
+		{
+			ArcPoints.Add(PathDatum.Location);
+		}
+
+		if (bLastPointIsHit)
+		{
+			ArcPoints.Add(Result.HitResult.ImpactPoint);
+		}
 	}
 
 	ShotType = FlickParams.ShotType;
@@ -206,6 +230,46 @@ void UShotArcPreviewComponent::CalculateShotArc(const APaperGolfPawn& Pawn, cons
 	PowerFraction = FlickParams.PowerFraction;
 
 	UpdatePowerText(Pawn, Result);
+}
+
+AShotArc* UShotArcPreviewComponent::SpawnShotArcActor(const APaperGolfPawn& Pawn)
+{
+	if (!ShotArcSpawnActorClass)
+	{
+		return nullptr;
+	}
+
+	if (ShotArc)
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: SpawnShotArcActor: Shot arc actor already exists, returning existing"), *GetName());
+		return ShotArc;
+	}
+
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return nullptr;
+	}
+
+	FTransform SpawnTransform = Pawn.GetActorTransform();
+	SpawnTransform.SetScale3D(FVector::OneVector);
+
+	const auto SpawnedArc = World->SpawnActorDeferred<AShotArc>(ShotArcSpawnActorClass, SpawnTransform, GetOwner(), const_cast<APaperGolfPawn*>(&Pawn), ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+
+	ShotArc = Cast<AShotArc>(UGameplayStatics::FinishSpawningActor(SpawnedArc, SpawnTransform));
+
+	UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: SpawnShotArcActor: %s -> %s"), *GetName(), *ShotArcSpawnActorClass->GetName(), *ShotArc->GetName());
+	return ShotArc;
+}
+
+void UShotArcPreviewComponent::DestroyShotArcActor()
+{
+	if (ShotArc)
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: DestroyShotArcActor: %s"), *GetName(), *ShotArc->GetName());
+		ShotArc->Destroy();
+		ShotArc = nullptr;
+	}
 }
 
 FVector UShotArcPreviewComponent::GetPowerFractionTextLocation(const APaperGolfPawn& Pawn, const FPredictProjectilePathResult& PredictResult) const
@@ -260,7 +324,16 @@ void UShotArcPreviewComponent::DoShowShotArc()
 	UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: DoShowShotArc"), *GetName());
 
 	bVisible = true;
-	SetComponentTickEnabled(true);
+
+	if (ShotArc)
+	{
+		ShotArc->SetActorHiddenInGame(false);
+	}
+
+	if (!bUseNewShotArc || bAlwaysRenderLegacyArc)
+	{
+		SetComponentTickEnabled(true);
+	}
 
 	ShowPowerText();
 }
@@ -270,7 +343,16 @@ void UShotArcPreviewComponent::HideShotArc()
 	UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: HideShotArc"), *GetName());
 
 	bVisible = false;
-	SetComponentTickEnabled(false);
+
+	if (ShotArc)
+	{
+		ShotArc->SetActorHiddenInGame(true);
+	}
+
+	if (!bUseNewShotArc || bAlwaysRenderLegacyArc)
+	{
+		SetComponentTickEnabled(false);
+	}
 
 	HidePowerText();
 }

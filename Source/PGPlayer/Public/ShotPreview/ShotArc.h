@@ -48,7 +48,7 @@ private:
 	UPROPERTY(VisibleDefaultsOnly, Category = "Components")
 	TObjectPtr<USplineComponent> SplineComponent{};
 
-	UPROPERTY(VisibleDefaultsOnly, Category = "Mesh")
+	UPROPERTY(EditDefaultsOnly, Category = "Mesh")
 	TObjectPtr<UStaticMesh> SplineMesh{};
 
 	UPROPERTY(VisibleDefaultsOnly, Category = "Components")

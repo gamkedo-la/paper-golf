@@ -18,9 +18,10 @@
 AShotArc::AShotArc()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	bReplicates = false;
 
 	SplineComponent = CreateDefaultSubobject<USplineComponent>(TEXT("Spline"));
-	SplineComponent->SetupAttachment(RootComponent);
+	SetRootComponent(SplineComponent);
 
 	LandingMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("LandingMesh"));
 	LandingMeshComponent->SetupAttachment(RootComponent);
@@ -31,6 +32,7 @@ AShotArc::AShotArc()
 void AShotArc::SetStaticMeshProperties(UStaticMeshComponent& MeshComponent)
 {
 	MeshComponent.SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	MeshComponent.SetMobility(EComponentMobility::Movable);
 }
 
 void AShotArc::ClearPreviousState()
@@ -41,6 +43,7 @@ void AShotArc::ClearPreviousState()
 	SplineComponent->ClearSplinePoints();
 
 	// delete all existing static mesh component instances
+	// FIXME: Reuse old meshes instead of destroying since this can be called nearly every frame when showing the preview component
 	ClearSplineMeshes();
 
 	LandingMeshComponent->SetVisibility(false);
@@ -148,6 +151,7 @@ void AShotArc::BuildMeshAlongSpline()
 	}
 
 	// Create instances for each section
+	SplineMeshes.Reserve(NumSections);
 
 	for (int32 Index = 0; Index < NumSections; ++Index)
 	{
@@ -170,6 +174,8 @@ void AShotArc::BuildMeshAlongSpline()
 			StartLocation, StartTangent, 
 			EndLocation, EndTangent
 		);
+
+		SplineMeshes.Add(SplineMeshComponent);
 	}
 }
 
@@ -180,6 +186,8 @@ void AShotArc::UpdateLandingMesh()
 		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: UpdateLandingMesh: HitLocation not available - landing mesh will not be drawn"), *GetName());
 		return;
 	}
+
+	// TODO: Need to set the landing mesh size - this is on UShotArcPreviewComponent::HitRadiusSize
 
 	LandingMeshComponent->SetRelativeLocation(*HitLocation);
 	LandingMeshComponent->SetVisibility(true);
