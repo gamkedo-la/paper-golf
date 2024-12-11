@@ -12,6 +12,7 @@ struct FFlickParams;
 class UTextRenderComponent;
 struct FPredictProjectilePathResult;
 class UMaterialInterface;
+class AShotArc;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class PGPLAYER_API UShotArcPreviewComponent : public UActorComponent
@@ -82,6 +83,12 @@ private:
 
 	UPROPERTY(Category = "Text", EditDefaultsOnly)
 	TObjectPtr<UMaterialInterface> TextMaterial{};
+
+	UPROPERTY(Category = "Shot Arc | Render", EditDefaultsOnly)
+	TSubclassOf<AShotArc> ShotArcSpawnActor{};
+
+	UPROPERTY(Transient)
+	TObjectPtr<AShotArc> ShotArc{};
 
 	/*
 	* Minimum Z distance above player to display the shot power text.
