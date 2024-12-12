@@ -174,11 +174,31 @@ void UShotArcPreviewComponent::UnregisterPowerText()
 	PowerText = nullptr;
 }
 
-TOptional<FVector> UShotArcPreviewComponent::GetCameraLocation(const APaperGolfPawn& Pawn) const
+const APlayerCameraManager* UShotArcPreviewComponent::GetCameraManager(const APaperGolfPawn& Pawn) const
 {
 	if (auto PlayerController = Cast<APlayerController>(Pawn.GetController()); PlayerController && PlayerController->PlayerCameraManager)
 	{
-		return PlayerController->PlayerCameraManager->GetCameraLocation();
+		return PlayerController->PlayerCameraManager;
+	}
+
+	return nullptr;
+}
+
+TOptional<FVector> UShotArcPreviewComponent::GetCameraLocation(const APaperGolfPawn& Pawn) const
+{
+	if (auto CameraManager = GetCameraManager(Pawn); CameraManager)
+	{
+		return CameraManager->GetCameraLocation();
+	}
+
+	return {};
+}
+
+TOptional<FRotator> UShotArcPreviewComponent::GetCameraRotation(const APaperGolfPawn& Pawn) const
+{
+	if (auto CameraManager = GetCameraManager(Pawn); CameraManager)
+	{
+		return CameraManager->GetCameraRotation();
 	}
 
 	return {};
@@ -290,7 +310,7 @@ FVector UShotArcPreviewComponent::GetPowerFractionTextLocation(const APaperGolfP
 
 	if (PathData.IsEmpty())
 	{
-		// Set Z height to be PawnLocation + fixed value
+		// Set to fixed value
 		return FVector{ PawnLocation.X, PawnLocation.Y, CameraZ };
 	}
 
@@ -298,6 +318,13 @@ FVector UShotArcPreviewComponent::GetPowerFractionTextLocation(const APaperGolfP
 	const auto Index = FMath::Min(ShotPowerDesiredTextPointIndex, PathData.Num() - 1);
 	FVector Location = PathData[Index].Location;
 	Location.Z = CameraZ;
+
+	if (const auto CameraRotationOptional = GetCameraRotation(Pawn); !FMath::IsNearlyZero(TextHorizontalOffset) && CameraRotationOptional)
+	{
+		// offset by camera right vector - rotation and up vector cross product
+		const auto CameraRight = CameraRotationOptional->RotateVector(FVector::RightVector).GetSafeNormal2D();
+		Location += CameraRight * TextHorizontalOffset;
+	}
 
 	return Location;
 }

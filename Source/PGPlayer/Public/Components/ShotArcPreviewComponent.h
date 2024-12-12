@@ -13,6 +13,7 @@ class UTextRenderComponent;
 struct FPredictProjectilePathResult;
 class UMaterialInterface;
 class AShotArc;
+class APlayerCameraManager;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class PGPLAYER_API UShotArcPreviewComponent : public UActorComponent
@@ -56,7 +57,9 @@ private:
 	void RegisterPowerText(const APaperGolfPawn& Pawn);
 	void UnregisterPowerText();
 
+	const APlayerCameraManager* GetCameraManager(const APaperGolfPawn& Pawn) const;
 	TOptional<FVector> GetCameraLocation(const APaperGolfPawn& Pawn) const;
+	TOptional<FRotator> GetCameraRotation(const APaperGolfPawn& Pawn) const;
 
 private:
 
@@ -84,6 +87,9 @@ private:
 
 	UPROPERTY(Category = "Shot Arc", EditDefaultsOnly)
 	float HitRadiusSize{ 100.0f };
+
+	UPROPERTY(Category = "Shot Arc", EditDefaultsOnly)
+	float TextHorizontalOffset{ 100.0f };
 
 	UPROPERTY(Category = "Text", EditDefaultsOnly)
 	TObjectPtr<UMaterialInterface> TextMaterial{};
