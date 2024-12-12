@@ -36,8 +36,6 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-
 private:
 	void CalculateShotArc(const APaperGolfPawn& Pawn, const FFlickParams& FlickParams);
 
@@ -63,15 +61,12 @@ private:
 
 private:
 
-	TArray<FVector> ArcPoints;
-
 	FTransform LastCalculatedTransform{};
 	EShotType ShotType{};
 	float LocalZOffset{};
 	float PowerFraction{};
 
 	bool bVisible{};
-	bool bLastPointIsHit{};
 
 	UPROPERTY(Transient)
 	TObjectPtr<UTextRenderComponent> PowerText{};
@@ -86,9 +81,6 @@ private:
 	float CollisionRadius{ 3.0f };
 
 	UPROPERTY(Category = "Shot Arc", EditDefaultsOnly)
-	float HitRadiusSize{ 100.0f };
-
-	UPROPERTY(Category = "Shot Arc", EditDefaultsOnly)
 	float TextHorizontalOffset{ 100.0f };
 
 	UPROPERTY(Category = "Text", EditDefaultsOnly)
@@ -96,12 +88,6 @@ private:
 
 	UPROPERTY(Category = "Shot Arc | Render", EditDefaultsOnly)
 	TSubclassOf<AShotArc> ShotArcSpawnActorClass{};
-
-	UPROPERTY(Category = "Shot Arc | Render", EditDefaultsOnly)
-	bool bUseNewShotArc{ false };
-
-	UPROPERTY(Category = "Shot Arc | Render", EditDefaultsOnly)
-	bool bAlwaysRenderLegacyArc{ true };
 
 	UPROPERTY(Transient)
 	TObjectPtr<AShotArc> ShotArc{};

@@ -25,7 +25,7 @@
 
 UShotArcPreviewComponent::UShotArcPreviewComponent()
 {
-	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 	PrimaryComponentTick.bStartWithTickEnabled = false;
 }
 
@@ -54,13 +54,9 @@ void UShotArcPreviewComponent::BeginPlay()
 	UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Log, TEXT("%s: BeginPlay"), *GetName());
 	Super::BeginPlay();
 
-	if (bUseNewShotArc)
+	if (!ensureMsgf(ShotArcSpawnActorClass, TEXT("ShotArcSpawnActorClass not set")))
 	{
-		if (!ensureMsgf(ShotArcSpawnActorClass, TEXT("ShotArcSpawnActorClass not set")))
-		{
-			UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Error, TEXT("%s: ShotArcSpawnActorClass not set"), *GetName());
-			bUseNewShotArc = false;
-		}
+		UE_VLOG_UELOG(GetOwner(), LogPGPlayer, Error, TEXT("%s: ShotArcSpawnActorClass not set"), *GetName());
 	}
 }
 
@@ -72,31 +68,6 @@ void UShotArcPreviewComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	DestroyShotArcActor();
 
 	Super::EndPlay(EndPlayReason);
-}
-
-void UShotArcPreviewComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
-{
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	// we shouldn't be ticking if not visible
-	if (!ensure(bVisible))
-	{
-		return;
-	}
-
-	for(int32 i = 0, Len = ArcPoints.Num(); const auto& Point : ArcPoints)
-	{
-		if (i == Len - 1 && bLastPointIsHit)
-		{
-			UPaperGolfPawnUtilities::DrawBox(this, Point, FColor::Red, FVector { HitRadiusSize, HitRadiusSize, 20.0f });
-		}
-		else
-		{
-			UPaperGolfPawnUtilities::DrawSphere(this, Point, FColor::Green, CollisionRadius, 6);
-		}
-
-		++i;
-	}
 }
 
 bool UShotArcPreviewComponent::NeedsToRecalculateArc(const APaperGolfPawn& Pawn, const FFlickParams& FlickParams) const
@@ -215,35 +186,16 @@ void UShotArcPreviewComponent::CalculateShotArc(const APaperGolfPawn& Pawn, cons
 
 	FPredictProjectilePathResult Result;
 
-	bLastPointIsHit = Pawn.PredictFlick(FlickParams, PredictParams, Result);
+	const bool bLastPointIsHit = Pawn.PredictFlick(FlickParams, PredictParams, Result);
 	LastCalculatedTransform = Pawn.GetActorTransform();
 
-	if (bUseNewShotArc)
+	ShotArc = SpawnShotArcActor(Pawn);
+	if (!ShotArc)
 	{
-		ShotArc = SpawnShotArcActor(Pawn);
-		if (!ShotArc)
-		{
-			return;
-		}
-
-		ShotArc->SetData(Result, bLastPointIsHit);
+		return;
 	}
-	
-	if(!bUseNewShotArc || bAlwaysRenderLegacyArc)
-	{
-		ArcPoints.Reset();
-		ArcPoints.Reserve(Result.PathData.Num() + (bLastPointIsHit ? 1 : 0));
 
-		for (const auto& PathDatum : Result.PathData)
-		{
-			ArcPoints.Add(PathDatum.Location);
-		}
-
-		if (bLastPointIsHit)
-		{
-			ArcPoints.Add(Result.HitResult.ImpactPoint);
-		}
-	}
+	ShotArc->SetData(Result, bLastPointIsHit);
 
 	ShotType = FlickParams.ShotType;
 	LocalZOffset = FlickParams.LocalZOffset;
@@ -358,11 +310,6 @@ void UShotArcPreviewComponent::DoShowShotArc()
 		ShotArc->SetActorHiddenInGame(false);
 	}
 
-	if (!bUseNewShotArc || bAlwaysRenderLegacyArc)
-	{
-		SetComponentTickEnabled(true);
-	}
-
 	ShowPowerText();
 }
 
@@ -375,11 +322,6 @@ void UShotArcPreviewComponent::HideShotArc()
 	if (ShotArc)
 	{
 		ShotArc->SetActorHiddenInGame(true);
-	}
-
-	if (!bUseNewShotArc || bAlwaysRenderLegacyArc)
-	{
-		SetComponentTickEnabled(false);
 	}
 
 	HidePowerText();
