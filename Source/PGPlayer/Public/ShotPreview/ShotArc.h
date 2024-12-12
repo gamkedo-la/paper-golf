@@ -55,6 +55,8 @@ private:
 
 	USplineMeshComponent* GetOrCreateSplineComponent(int32 Index);
 
+	const UObject* GetVisualLoggerContextObject() const;
+
 private:
 	struct FLandingInfo
 	{
@@ -81,6 +83,9 @@ private:
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Shot Arc")
 	int32 MaxSplineMeshes { 20 };
+
+	UPROPERTY(EditDefaultsOnly, Category = "Shot Arc")
+	int32 MinRenderDistance { 100 };
 	
 	UPROPERTY(Transient)
 	TArray<FShotArcData> ArcElements{};
@@ -94,3 +99,12 @@ private:
 	TArray<FVector> ArcPoints;
 	TOptional<FLandingInfo> LandingData{};
 };
+
+#pragma region Inline Definitions
+
+FORCEINLINE const UObject* AShotArc::GetVisualLoggerContextObject() const
+{
+	return GetOwner() ? GetOwner() : this;
+}
+
+#pragma endregion Inline Definitions

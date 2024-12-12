@@ -66,9 +66,9 @@ float AShotArc::CalculateMeshSize() const
 		default: checkNoEntry();
 	}
 
-	UE_CVLOG_UELOG(CalculatedSize <= 0, this, LogPGPlayer, Warning, TEXT("%s: CalculateMeshSize: Unable to calculate mesh size of %s"),
+	UE_CVLOG_UELOG(CalculatedSize <= 0, GetVisualLoggerContextObject(), LogPGPlayer, Warning, TEXT("%s: CalculateMeshSize: Unable to calculate mesh size of %s"),
 		*GetName(), *SplineMesh->GetName());
-	UE_CVLOG_UELOG(CalculatedSize > 0, this, LogPGPlayer, Log, TEXT("%s: CalculateMeshSize: Calculated mesh size of %f for %s"),
+	UE_CVLOG_UELOG(CalculatedSize > 0, GetVisualLoggerContextObject(), LogPGPlayer, Log, TEXT("%s: CalculateMeshSize: Calculated mesh size of %f for %s"),
 		*GetName(), CalculatedSize, *SplineMesh->GetName());
 
 	return CalculatedSize;
@@ -88,12 +88,12 @@ void AShotArc::ClearSplineMeshes()
 
 void AShotArc::SetData(const FPredictProjectilePathResult& Path, bool bDrawHit)
 {
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: SetData: NumPoints=%d; bDrawHit=%s"),
+	UE_VLOG_UELOG(GetVisualLoggerContextObject(), LogPGPlayer, Log, TEXT("%s: SetData: NumPoints=%d; bDrawHit=%s"),
 		*GetName(), Path.PathData.Num(), LoggingUtils::GetBoolString(bDrawHit));
 
 	if (!ensureMsgf(SplineMesh, TEXT("Spline Mesh is not set")))
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s: SetData: SplineMesh is not set"), *GetName());
+		UE_VLOG_UELOG(GetVisualLoggerContextObject(), LogPGPlayer, Error, TEXT("%s: SetData: SplineMesh is not set"), *GetName());
 		return;
 	}
 
@@ -104,7 +104,7 @@ void AShotArc::SetData(const FPredictProjectilePathResult& Path, bool bDrawHit)
 	const auto& PathData = Path.PathData;
 	if (PathData.IsEmpty())
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: SetData: PathData is empty"), *GetName());
+		UE_VLOG_UELOG(GetVisualLoggerContextObject(), LogPGPlayer, Warning, TEXT("%s: SetData: PathData is empty"), *GetName());
 		return;
 	}
 
@@ -122,13 +122,13 @@ void AShotArc::SetData(const FPredictProjectilePathResult& Path, bool bDrawHit)
 	}
 	else
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: SetData: LandingMeshComponent is not set and landing indicator will not be drawn"), *GetName());
+		UE_VLOG_UELOG(GetVisualLoggerContextObject(), LogPGPlayer, Warning, TEXT("%s: SetData: LandingMeshComponent is not set and landing indicator will not be drawn"), *GetName());
 	}
 }
 
 void AShotArc::BeginPlay()
 {
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: BeginPlay"), *GetName());
+	UE_VLOG_UELOG(GetVisualLoggerContextObject(), LogPGPlayer, Log, TEXT("%s: BeginPlay"), *GetName());
 
 	Super::BeginPlay();
 }
@@ -171,11 +171,11 @@ void AShotArc::BuildMeshAlongSpline()
 {
 	if (!ensureMsgf(SplineMesh, TEXT("Spline Mesh is not set")))
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Error, TEXT("%s: BuildMeshAlongSpline: SplineMesh is not set"), *GetName());
+		UE_VLOG_UELOG(GetVisualLoggerContextObject(), LogPGPlayer, Error, TEXT("%s: BuildMeshAlongSpline: SplineMesh is not set"), *GetName());
 		return;
 	}
 
-	const auto SplineLength = SplineComponent->GetSplineLength();
+	const auto RenderedSplineLength = SplineComponent->GetSplineLength() - MinRenderDistance;
 
 	const auto ActualMaxSplineMeshes = [&]()
 	{
@@ -184,7 +184,7 @@ void AShotArc::BuildMeshAlongSpline()
 			return MaxSplineMeshes;
 		}
 
-		const auto CalculatedMax = FMath::CeilToInt(SplineLength / SplineMeshSize);
+		const auto CalculatedMax = FMath::CeilToInt(RenderedSplineLength / SplineMeshSize);
 		return FMath::Min(CalculatedMax, MaxSplineMeshes);
 	}();
 	
@@ -193,21 +193,21 @@ void AShotArc::BuildMeshAlongSpline()
 	
 	if (NumSections <= 0)
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: BuildMeshAlongSpline: %d is not enough points to build mesh"), *GetName(), NumPoints);
+		UE_VLOG_UELOG(GetVisualLoggerContextObject(), LogPGPlayer, Log, TEXT("%s: BuildMeshAlongSpline: %d is not enough points to build mesh"), *GetName(), NumPoints);
 		return;
 	}
 
-	const auto DistancePerSection = SplineLength / NumSections;
+	const auto DistancePerSection = RenderedSplineLength / NumSections;
 	
-	UE_VLOG_UELOG(this, LogPGPlayer, Log,
-	TEXT("%s: BuildMeshAlongSpline: NumPoints=%d; NumSections=%d; ActualMaxSplineMeshes=%d; MaxSplineMeshes=%d; MeshSize=%f; DistancePerSection=%f; SplineLength=%f"),
-	*GetName(), NumPoints, NumSections, ActualMaxSplineMeshes, MaxSplineMeshes, SplineMeshSize, DistancePerSection, SplineLength);
+	UE_VLOG_UELOG(GetVisualLoggerContextObject(), LogPGPlayer, Log,
+		TEXT("%s: BuildMeshAlongSpline: NumPoints=%d; NumSections=%d; ActualMaxSplineMeshes=%d; MaxSplineMeshes=%d; MeshSize=%f; DistancePerSection=%f; SplineLength=%f"),
+		*GetName(), NumPoints, NumSections, ActualMaxSplineMeshes, MaxSplineMeshes, SplineMeshSize, DistancePerSection, RenderedSplineLength);
 	
 
 	// Create instances for each section
 	ArcElements.Reserve(NumSections);
 	
-	float TotalDistance{};
+	float TotalDistance = MinRenderDistance;
 	
 	for (int32 Index = 0; Index < NumSections; ++Index)
 	{
@@ -219,7 +219,7 @@ void AShotArc::BuildMeshAlongSpline()
 		const auto& StartLocation = SplineComponent->GetLocationAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::Local);
 		const auto& StartTangent = SplineComponent->GetTangentAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::Local);
 
-		// Not that if go beyond the last point, then the spline will use the last point
+		// Note that if go beyond the last point, then the spline will use the last point
 		
 		const auto& EndLocation = SplineComponent->GetLocationAtDistanceAlongSpline(NextDistance, ESplineCoordinateSpace::Local);
 		const auto& EndTangent = SplineComponent->GetTangentAtDistanceAlongSpline(NextDistance, ESplineCoordinateSpace::Local);
@@ -242,6 +242,10 @@ USplineMeshComponent* AShotArc::GetOrCreateSplineComponent(int32 Index)
 			SplineMeshComponent->SetVisibility(true);
 			return SplineMeshComponent;
 		}
+		UE_VLOG_UELOG(GetVisualLoggerContextObject(), LogPGPlayer, Log,
+			TEXT("%s: GetOrCreateSplineComponent: SplineMeshComponent at index %d is not valid - removing"),
+			*GetName(), Index);
+		ArcElements.RemoveAtSwap(Index, 1, false);
 	}
 
 	const auto SplineMeshComponent = NewObject<USplineMeshComponent>(this);
@@ -263,7 +267,7 @@ void AShotArc::UpdateLandingMesh()
 {
 	if (!LandingData)
 	{
-		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: UpdateLandingMesh: LandingData not available - landing mesh will not be drawn"), *GetName());
+		UE_VLOG_UELOG(GetVisualLoggerContextObject(), LogPGPlayer, Log, TEXT("%s: UpdateLandingMesh: LandingData not available - landing mesh will not be drawn"), *GetName());
 		return;
 	}
 
@@ -286,12 +290,12 @@ void AShotArc::UpdateLandingMesh()
 
 			LandingMeshComponent->SetWorldScale3D(Scale);
 
-			UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: UpdateLandingMesh: Calculated landing mesh size of %f for %s; DesiredScalingFactor=%f; HitRadiusSize=%f; Scale=%s"),
+			UE_VLOG_UELOG(GetVisualLoggerContextObject(), LogPGPlayer, Log, TEXT("%s: UpdateLandingMesh: Calculated landing mesh size of %f for %s; DesiredScalingFactor=%f; HitRadiusSize=%f; Scale=%s"),
 				*GetName(), BoundingRadius, *Mesh->GetName(), DesiredScalingFactor, HitRadiusSize, *Scale.ToCompactString());
 		}
 		else
 		{
-			UE_VLOG_UELOG(this, LogPGPlayer, Warning, TEXT("%s: UpdateLandingMesh: Could not calculate landing mesh size for %s"),
+			UE_VLOG_UELOG(GetVisualLoggerContextObject(), LogPGPlayer, Warning, TEXT("%s: UpdateLandingMesh: Could not calculate landing mesh size for %s"),
 				*GetName(), *Mesh->GetName());
 		}
 	}
@@ -302,7 +306,7 @@ void AShotArc::UpdateLandingMesh()
 
 	const auto DesiredWorldRotation = (DesiredOrientation - CurrentOrientation).GetNormalized();
 
-	UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: UpdateLandingMesh: RelativeLocation=%s; Normal=%s; DesiredOrientation=%s; CurrentOrientation=%s; DesiredWorldRotation=%s"),
+	UE_VLOG_UELOG(GetVisualLoggerContextObject(), LogPGPlayer, Log, TEXT("%s: UpdateLandingMesh: RelativeLocation=%s; Normal=%s; DesiredOrientation=%s; CurrentOrientation=%s; DesiredWorldRotation=%s"),
 		*GetName(), *LandingData->Location.ToCompactString(), *LandingData->Normal.ToCompactString(),
 		*DesiredOrientation.ToCompactString(), *CurrentOrientation.ToCompactString(), *DesiredWorldRotation.ToCompactString());
 	
