@@ -27,6 +27,12 @@ fi
 cp Tools/Packaging/steam_appid.txt "Build/$directory/$platform/$GAME/Binaries/"*
 echo "cp Tools/Packaging/steam_appid.txt Build/$directory/$platform/$GAME/Binaries/*"
 
+# if platform is Linux, make sure the launcher shell script is executable
+if [ "$platform" == "Linux" ]; then
+    echo "Set launcher shell script \"Build/$directory/$platform/$GAME.sh\" to executable"
+    chmod +x "Build/$directory/$platform/$GAME.sh"
+fi
+
 python Tools/Packaging/zip_staging.py "s" "Build/$directory/$platform" "Build/$GAME-$version-$platform.zip"
 printf "\n\n"
 python Tools/Packaging/zip_staging.py "d" "Build/$directory/$platform" "Build/$GAME-$version-$platform-symbols.zip"
