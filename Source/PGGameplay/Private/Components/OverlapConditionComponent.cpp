@@ -50,6 +50,14 @@ void UOverlapConditionComponent::EndOverlap(APaperGolfPawn& Pawn)
 		return;
 	}
 
+	// Check overlap end condition one more time as resetting the physics state will cause this event to trigger
+	if (CheckOverlapCondition(true))
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGGameplay, Log, TEXT("%s-%s: EndOverlap - overlap condition met"),
+			*LoggingUtils::GetName(GetOwner()), *GetName());
+		return;
+	}
+
 	if (&Pawn == OverlappingPaperGolfPawnPtr)
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPGGameplay, Log, TEXT("%s-%s: EndOverlap - matched begin condition pawn - resetting state"),
@@ -87,11 +95,13 @@ void UOverlapConditionComponent::EndPlay(const EEndPlayReason::Type EndPlayReaso
 	ClearTimer();
 }
 
-void UOverlapConditionComponent::CheckOverlapCondition()
+bool UOverlapConditionComponent::CheckOverlapCondition(bool bDeferTrigger)
 {
-	UE_VLOG_UELOG(GetOwner(), LogPGGameplay, VeryVerbose, TEXT("%s-%s: CheckOverlapCondition - OverlappingPaperGolfPawn=%s"),
+	UE_VLOG_UELOG(GetOwner(), LogPGGameplay, VeryVerbose, TEXT("%s-%s: CheckOverlapCondition - OverlappingPaperGolfPawn=%s; bDeferTrigger=%s"),
 		*LoggingUtils::GetName(GetOwner()), *GetName(),
-		*LoggingUtils::GetName(OverlappingPaperGolfPawn));
+		*LoggingUtils::GetName(OverlappingPaperGolfPawn),
+		LoggingUtils::GetBoolString(bDeferTrigger)
+	);
 
 	const auto PaperGolfPawn = OverlappingPaperGolfPawn.Get();
 	if (!PaperGolfPawn)
@@ -99,17 +109,38 @@ void UOverlapConditionComponent::CheckOverlapCondition()
 		// Ensure timer is turned off if the overlapping pawn has become invalid
 		ClearTimer();
 
-		return;
+		return false;
 	}
 
 	if (OverlapConditionDelegate.IsBound() && OverlapConditionDelegate.Execute(*PaperGolfPawn))
 	{
-		UE_VLOG_UELOG(GetOwner(), LogPGGameplay, Log, TEXT("%s-%s: CheckOverlapCondition - Overlap condition met - triggering delegate"),
-			*LoggingUtils::GetName(GetOwner()), *GetName());
+		UE_VLOG_UELOG(GetOwner(), LogPGGameplay, Log, TEXT("%s-%s: CheckOverlapCondition - Overlap condition met - triggering delegate - bDeferTrigger=%s"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), LoggingUtils::GetBoolString(bDeferTrigger));
 
 		ClearTimer();
-		OverlapTriggerDelegate.ExecuteIfBound(*PaperGolfPawn);
+
+		if (bDeferTrigger)
+		{
+			if (auto World = GetWorld(); ensure(World))
+			{
+				World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this, [this, TriggerPawnWeak = MakeWeakObjectPtr(PaperGolfPawn)]
+				{
+					if (auto TriggerPawn = TriggerPawnWeak.Get(); TriggerPawn)
+					{
+						OverlapTriggerDelegate.ExecuteIfBound(*TriggerPawn);
+					}
+				}));
+			}
+		}
+		else
+		{
+			OverlapTriggerDelegate.ExecuteIfBound(*PaperGolfPawn);
+		}
+
+		return true;
 	}
+
+	return false;
 }
 
 void UOverlapConditionComponent::ClearTimer()
@@ -135,7 +166,8 @@ void UOverlapConditionComponent::StartTimer()
 	// start timer to listen for end condition
 	if (auto World = GetWorld(); !OverlapTimerHandle.IsValid() && ensure(World))
 	{
-		World->GetTimerManager().SetTimer(OverlapTimerHandle, this, &ThisClass::CheckOverlapCondition, TimerInterval, true);
+		auto TimerDelegate = FTimerDelegate::CreateWeakLambda(this, [this]() { CheckOverlapCondition(); });
+		World->GetTimerManager().SetTimer(OverlapTimerHandle, TimerDelegate, TimerInterval, true);
 	}
 }
 

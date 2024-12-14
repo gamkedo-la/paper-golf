@@ -42,7 +42,7 @@ protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
-	void CheckOverlapCondition();
+	bool CheckOverlapCondition(bool bDeferTrigger = false);
 
 	void ClearTimer();
 	void StartTimer();

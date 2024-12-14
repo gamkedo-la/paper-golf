@@ -81,7 +81,7 @@ private:
 
 	void OnScored(APaperGolfPawn& Pawn);
 
-	bool CheckedScored(const APaperGolfPawn& PaperGolfPawn) const;
+	bool CheckScored(const APaperGolfPawn& PaperGolfPawn) const;
 
 	void UpdateColliderRegistration();
 

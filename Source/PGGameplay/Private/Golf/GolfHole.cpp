@@ -144,7 +144,7 @@ void AGolfHole::PostInitializeComponents()
 	Super::PostInitializeComponents();
 
 	OverlapConditionComponent->Initialize(
-		UOverlapConditionComponent::FOverlapConditionDelegate::CreateUObject(this, &AGolfHole::CheckedScored),
+		UOverlapConditionComponent::FOverlapConditionDelegate::CreateUObject(this, &AGolfHole::CheckScored),
 		UOverlapConditionComponent::FOverlapTriggerDelegate::CreateUObject(this, &AGolfHole::OnScored));
 }
 
@@ -263,7 +263,7 @@ void AGolfHole::OnScored(APaperGolfPawn& PaperGolfPawn)
 	}
 }
 
-bool AGolfHole::CheckedScored(const APaperGolfPawn& Pawn) const
+bool AGolfHole::CheckScored(const APaperGolfPawn& Pawn) const
 {
 	return Pawn.IsAtRest();
 }
