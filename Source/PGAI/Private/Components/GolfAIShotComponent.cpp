@@ -79,6 +79,7 @@ FAIShotSetupResult UGolfAIShotComponent::SetupShot(FAIShotContext&& InShotContex
 	InitialFocusYaw = ShotContext.PlayerPawn->GetActorRotation().Yaw;
 
 	auto ShotParams = CalculateShotParams();
+
 	if (!ShotParams)
 	{
 		ShotParams = CalculateDefaultShotParams();
@@ -93,7 +94,7 @@ FAIShotSetupResult UGolfAIShotComponent::SetupShot(FAIShotContext&& InShotContex
 
 	ShotContext = {};
 
-	return *ShotParams;
+	return ShotParams->ShotSetupResult;
 }
 
 void UGolfAIShotComponent::StartHole()
@@ -171,7 +172,7 @@ void UGolfAIShotComponent::LoadWorldData()
 		*LoggingUtils::GetName(GetOwner()), *GetName(), HazardActors.Num(), *PG::ToStringObjectElements(HazardActors));
 }
 
-TOptional<FAIShotSetupResult> UGolfAIShotComponent::CalculateShotParams()
+TOptional<UGolfAIShotComponent::FShotSetupParams> UGolfAIShotComponent::CalculateShotParams()
 {
 	const auto FirstResult = CalculateShotParamsForCurrentFocusActor();
 
@@ -186,7 +187,7 @@ TOptional<FAIShotSetupResult> UGolfAIShotComponent::CalculateShotParams()
 
 	const auto FirstFocusActor = FocusActor;
 
-	if (FirstResult && !ShotWillEndUpInHazard(*FirstResult))
+	if (FirstResult && !ShotWillEndUpInHazard(FirstResult->ShotSetupResult))
 	{
 		return FirstResult;
 	}
@@ -201,7 +202,7 @@ TOptional<FAIShotSetupResult> UGolfAIShotComponent::CalculateShotParams()
 		FocusActor = FocusActorScore.FocusActor;
 		const auto Result = CalculateShotParamsForCurrentFocusActor();
 
-		if (Result && !ShotWillEndUpInHazard(*Result))
+		if (Result && !ShotWillEndUpInHazard(Result->ShotSetupResult))
 		{
 			UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotParams - Using FocusActor=%s; Result=%s"),
 				*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(FocusActor), *PG::StringUtils::ToString(Result));
@@ -336,7 +337,7 @@ float UGolfAIShotComponent::GetHitRestitution(const FHitResult& HitResult) const
 	return 0.0f;
 }
 
-TOptional<FAIShotSetupResult> UGolfAIShotComponent::CalculateShotParamsForCurrentFocusActor()
+TOptional<UGolfAIShotComponent::FShotSetupParams> UGolfAIShotComponent::CalculateShotParamsForCurrentFocusActor()
 {
 	const auto InitialShotParamsOptional = CalculateInitialShotParams();
 	if (!InitialShotParamsOptional)
@@ -358,7 +359,7 @@ TOptional<FAIShotSetupResult> UGolfAIShotComponent::CalculateShotParamsForCurren
 		InitialShotParams.FlickLocation, ShotCalibrationResult.Pitch, InitialShotParams.FlickMaxSpeed, FlickParams.PowerFraction);
 
 	// Increase the power fraction based on avoidance results but make sure it doesn't go below the minimum power reduction factor
-	FlickParams.PowerFraction *= FMath::Max(ShotCalculationResult.PowerMultiplier, MinRetryShotPowerReductionFactor);
+	const auto InitialPowerFraction = FlickParams.PowerFraction *= FMath::Max(ShotCalculationResult.PowerMultiplier, MinRetryShotPowerReductionFactor);
 
 	// Add error to power calculation and accuracy
 	if (AIPerformanceStrategy)
@@ -368,16 +369,24 @@ TOptional<FAIShotSetupResult> UGolfAIShotComponent::CalculateShotParamsForCurren
 		FlickParams.Accuracy = FlickError.Accuracy;
 	}
 
-	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotParamsForCurrentFocusActor - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f; ShotPitch=%.1f; ShotYaw=%.1f"),
+	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotParamsForCurrentFocusActor - ShotType=%s; InitialPower=%.2f; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f; ShotPitch=%.1f; ShotYaw=%.1f"),
 		*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(FlickParams.ShotType),
-		FlickParams.PowerFraction, FlickParams.Accuracy, FlickParams.LocalZOffset, ShotCalculationResult.Pitch, ShotCalculationResult.Yaw);
+		InitialPowerFraction,
+		FlickParams.PowerFraction, FlickParams.Accuracy, FlickParams.LocalZOffset,
+		ShotCalculationResult.Pitch, ShotCalculationResult.Yaw
+	);
 
-	return FAIShotSetupResult
+	return FShotSetupParams
 	{
-		.FlickParams = FlickParams,
-		.FocusActor = FocusActor,
-		.ShotPitch = ShotCalculationResult.Pitch,
-		.ShotYaw = ShotCalculationResult.Yaw
+		.FlickLocation = InitialShotParams.FlickLocation,
+		.InitialPowerFraction = InitialPowerFraction,
+		.ShotSetupResult = FAIShotSetupResult
+		{
+			.FlickParams = FlickParams,
+			.FocusActor = FocusActor,
+			.ShotPitch = ShotCalculationResult.Pitch,
+			.ShotYaw = ShotCalculationResult.Yaw
+		}
 	};
 }
 
@@ -733,7 +742,7 @@ TTuple<bool, float> UGolfAIShotComponent::CalculateShotPitch(const FVector& Flic
 	}
 }
 
-FAIShotSetupResult UGolfAIShotComponent::CalculateDefaultShotParams() const
+UGolfAIShotComponent::FShotSetupParams UGolfAIShotComponent::CalculateDefaultShotParams() const
 {
 	const auto Box = PG::CollisionUtils::GetAABB(*ShotContext.PlayerPawn);
 	const auto ZExtent = Box.GetExtent().Z;
@@ -750,11 +759,16 @@ FAIShotSetupResult UGolfAIShotComponent::CalculateDefaultShotParams() const
 	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotParams - ShotType=%s; Power=%.2f; Accuracy=%.2f; ZOffset=%.1f"),
 		*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(FlickParams.ShotType), FlickParams.PowerFraction, FlickParams.Accuracy, FlickParams.LocalZOffset);
 
-	return FAIShotSetupResult
+	return
 	{
-		.FlickParams = FlickParams,
-		.FocusActor = FocusActor,
-		.ShotPitch = DefaultPitchAngle
+		.FlickLocation = ShotContext.PlayerPawn->GetFlickLocation(FlickParams.LocalZOffset),
+		.InitialPowerFraction = FlickParams.PowerFraction,
+		.ShotSetupResult = FAIShotSetupResult
+		{
+			.FlickParams = FlickParams,
+			.FocusActor = FocusActor,
+			.ShotPitch = DefaultPitchAngle
+		}
 	};
 }
 
@@ -882,4 +896,10 @@ namespace
 
 		return Velocity;
 	}
+}
+
+FString UGolfAIShotComponent::FShotSetupParams::ToString() const
+{
+	return FString::Printf(TEXT("FlickLocation=%s; InitialPowerFraction=%f; FinalFlickParams=[%s]; FocusActor=%s; ShotPitch=%.1f; ShotYaw=%.1f"),
+		*FlickLocation.ToCompactString(), InitialPowerFraction, *ShotSetupResult.FlickParams.ToString(), *LoggingUtils::GetName(ShotSetupResult.FocusActor), ShotSetupResult.ShotPitch, ShotSetupResult.ShotYaw);
 }

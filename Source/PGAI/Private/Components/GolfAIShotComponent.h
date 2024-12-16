@@ -66,17 +66,28 @@ private:
 		float LocalZOffset{};
 	};
 
+	struct FShotSetupParams
+	{
+		FVector FlickLocation{};
+		float InitialPowerFraction{};
+		FAIShotSetupResult ShotSetupResult;
+
+		FString ToString() const;
+
+		float GetPowerDeviation() const;
+	};
+
 	struct FShotResult
 	{
-		FAIShotSetupResult ShotSetupResult{};
+		FShotSetupParams ShotSetupResult{};
 		FVector EndPosition{ EForceInit::ForceInitToZero };
 		TOptional<EHazardType> HitHazard{};
 	};
 
-	TOptional<FAIShotSetupResult> CalculateShotParams();
-	TOptional<FAIShotSetupResult> CalculateShotParamsForCurrentFocusActor();
+	TOptional<FShotSetupParams> CalculateShotParams();
+	TOptional<FShotSetupParams> CalculateShotParamsForCurrentFocusActor();
 
-	FAIShotSetupResult CalculateDefaultShotParams() const;
+	FShotSetupParams CalculateDefaultShotParams() const;
 
 	TOptional<FShotPowerCalculationResult> CalculateInitialShotParams() const;
 	FShotCalibrationResult CalibrateShot(const FVector& FlickLocation, float PowerFraction) const;
@@ -150,6 +161,15 @@ private:
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	TSubclassOf<UAIPerformanceStrategy> AIPerformanceStrategyClass{};
 
+	UPROPERTY(Category = "Config | Retry", EditDefaultsOnly)
+	int32 ConsecutiveHazardCurrentFocusLimit{ 2 };
+
+	UPROPERTY(Category = "Config | Retry", EditDefaultsOnly)
+	float MaxPowerDeviationRetry{ 0.2f };
+
+	UPROPERTY(Category = "Config | Retry", EditDefaultsOnly)
+	float MaxAccuracyDeviationRetry{ 0.3f };
+
 	UPROPERTY(Transient)
 	TObjectPtr<UAIPerformanceStrategy> AIPerformanceStrategy{};
 
@@ -176,6 +196,11 @@ FORCEINLINE FFlickParams UGolfAIShotComponent::FShotPowerCalculationResult::ToFl
 		.ShotType = ShotType,
 		.PowerFraction = PowerFraction
 	};
+}
+
+FORCEINLINE float UGolfAIShotComponent::FShotSetupParams::GetPowerDeviation() const
+{
+	return ShotSetupResult.FlickParams.PowerFraction - InitialPowerFraction;
 }
 
 #pragma endregion Inline Definitions
