@@ -236,6 +236,8 @@ bool AGolfAIController::HandleHazard(EHazardType HazardType)
 	// Make sure we don't process this is as a normal shot 
 	GolfControllerCommonComponent->EndTurn();
 
+	GolfAIShotComponent->OnHazard(HazardType);
+
 	if (auto World = GetWorld(); ensure(World))
 	{
 		FTimerHandle Handle;
@@ -487,6 +489,11 @@ void AGolfAIController::InterpolatePitchAnimation()
 void AGolfAIController::DoAdditionalOnShotFinished()
 {
 	bTurnActivated = false;
+
+	if (auto PaperGolfPawn = GetPaperGolfPawn(); PaperGolfPawn)
+	{
+		GolfAIShotComponent->OnShotFinished(*PaperGolfPawn);
+	}
 }
 
 void AGolfAIController::DoAdditionalFallThroughFloor()

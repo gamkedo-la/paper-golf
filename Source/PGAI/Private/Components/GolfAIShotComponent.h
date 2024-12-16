@@ -7,6 +7,8 @@
 
 #include "PGAITypes.h"
 
+#include "Subsystems/GolfEvents.h"
+
 #include "GolfAIShotComponent.generated.h"
 
 class APaperGolfPawn;
@@ -31,6 +33,9 @@ public:
 	void StartHole();
 
 	void Reset();
+
+	void OnHazard(EHazardType HazardType);
+	void OnShotFinished(const APaperGolfPawn& Pawn);
 
 protected:
 	virtual void BeginPlay() override;
@@ -59,6 +64,13 @@ private:
 		float PowerFraction{};
 		float Pitch{};
 		float LocalZOffset{};
+	};
+
+	struct FShotResult
+	{
+		FAIShotSetupResult ShotSetupResult{};
+		FVector EndPosition{ EForceInit::ForceInitToZero };
+		TOptional<EHazardType> HitHazard{};
 	};
 
 	TOptional<FAIShotSetupResult> CalculateShotParams();
@@ -151,6 +163,8 @@ private:
 
 	UPROPERTY(Transient)
 	AActor* FocusActor{};
+
+	TArray<FShotResult> HoleShotResults{};
 };
 
 #pragma region Inline Definitions

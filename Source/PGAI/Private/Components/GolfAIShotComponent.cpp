@@ -86,6 +86,11 @@ FAIShotSetupResult UGolfAIShotComponent::SetupShot(FAIShotContext&& InShotContex
 
 	check(ShotParams);
 
+	HoleShotResults.Add(FShotResult
+	{
+		.ShotSetupResult = *ShotParams
+	});
+
 	ShotContext = {};
 
 	return *ShotParams;
@@ -97,6 +102,8 @@ void UGolfAIShotComponent::StartHole()
 
 	// TODO: This is where we can reset the strategy for the hole based on the AI's score relative to players in the game
 	// A good spot to reshuffle the shot configs, mixing in perfect and error shots
+
+	HoleShotResults.Reset();
 }
 
 void UGolfAIShotComponent::Reset()
@@ -105,6 +112,34 @@ void UGolfAIShotComponent::Reset()
 
 	FocusActor = nullptr;
 	InitialFocusYaw = 0;
+}
+
+void UGolfAIShotComponent::OnHazard(EHazardType HazardType)
+{
+	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: HandleHazard - HazardType=%s"), *LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(HazardType));
+
+	if (ensure(!HoleShotResults.IsEmpty()))
+	{
+		HoleShotResults.Last().HitHazard = HazardType;
+	}
+	else
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Error, TEXT("%s-%s: HandleHazard -- HazardType=%s - HoleShotResults is empty"), *LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(HazardType));
+	}
+}
+
+void UGolfAIShotComponent::OnShotFinished(const APaperGolfPawn& Pawn)
+{
+	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: OnShotFinished: Pawn=%s"), *LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(Pawn));
+
+	if (ensure(!HoleShotResults.IsEmpty()))
+	{
+		HoleShotResults.Last().EndPosition = Pawn.GetPaperGolfPosition();
+	}
+	else
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Error, TEXT("%s-%s: OnShotFinished - HoleShotResults is empty"), *LoggingUtils::GetName(GetOwner()), *GetName());
+	}
 }
 
 void UGolfAIShotComponent::BeginPlay()

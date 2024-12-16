@@ -26,10 +26,8 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
-#pragma region Collisions
 	virtual void RegisterCollisions() override;
 	virtual void OnNotifyRelevantCollision(UPrimitiveComponent* HitComponent, const FHitResult& Hit, const FVector& NormalImpulse) override;
-
 
 private:
 	void ResetState();
