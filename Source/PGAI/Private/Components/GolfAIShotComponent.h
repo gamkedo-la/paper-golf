@@ -14,6 +14,8 @@
 class APaperGolfPawn;
 class UCurveTable;
 class UAIPerformanceStrategy;
+class IPenaltyHazard;
+struct FPredictProjectilePathResult;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class UGolfAIShotComponent : public UActorComponent
@@ -104,10 +106,9 @@ private:
 	bool ValidateCurveTable(UCurveTable* CurveTable) const;
 	bool ValidateAndLoadAIPerformanceStrategy();
 
-	void LoadWorldData();
-
 	bool ShotWillEndUpInHazard(const FAIShotSetupResult& ShotSetupResult) const;
-
+	TOptional<const IPenaltyHazard*> TraceToHazard(const FVector& Location) const;
+	FVector GetBounceLocation(const FPredictProjectilePathResult& PathResult) const;
 	float GetHitRestitution(const FHitResult& HitResult) const;
 
 	double CalculateDistanceSum(double HorizontalDistance, double VerticalDistance) const;
@@ -152,6 +153,12 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float HeightToDistanceRatioStartExp{ 1.0 };
 
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	float DefaultHitRestitution{ 0.25f };
+
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	float HazardTraceDistance{ 100.0f };
+
 	UPROPERTY(Category = "Shot Arc Prediction", EditDefaultsOnly)
 	float MinTraceDistance{ 1000.0f };
 
@@ -172,9 +179,6 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAIPerformanceStrategy> AIPerformanceStrategy{};
-
-	UPROPERTY(Transient)
-	TArray<AActor*> HazardActors{};
 
 	UPROPERTY(Transient)
 	FAIShotContext ShotContext{};

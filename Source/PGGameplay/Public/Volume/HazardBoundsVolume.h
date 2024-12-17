@@ -6,6 +6,8 @@
 #include "BasePaperGolfVolume.h"
 #include "Subsystems/GolfEvents.h"
 
+#include "Obstacles/PenaltyHazard.h"
+
 #include "HazardBoundsVolume.generated.h"
 
 
@@ -13,7 +15,7 @@
  * Volume for out of bounds which when triggered will result in player re-hitting with a one stroke penalty.
  */
 UCLASS()
-class PGGAMEPLAY_API AHazardBoundsVolume : public ABasePaperGolfVolume
+class PGGAMEPLAY_API AHazardBoundsVolume : public ABasePaperGolfVolume, public IPenaltyHazard
 {
 	GENERATED_BODY()
 
@@ -21,7 +23,9 @@ public:
 	AHazardBoundsVolume();
 
 	UFUNCTION(BlueprintPure)
-	EHazardType GetHazardType() const { return HazardType; }
+	virtual EHazardType GetHazardType() const override { return HazardType; }
+
+	virtual bool IsPenaltyOnImpact() const override { return Type == EPaperGolfVolumeOverlapType::Any; }
 
 protected:
 	virtual void OnConditionTriggered(APaperGolfPawn& PaperGolfPawn, UGolfEventsSubsystem& GolfEvents) override;

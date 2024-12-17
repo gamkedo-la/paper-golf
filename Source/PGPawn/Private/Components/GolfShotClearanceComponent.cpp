@@ -508,7 +508,7 @@ bool UGolfShotClearanceComponent::CheckNewLocationPlayable(const FClearanceLocat
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(MyOwner);
 
-	// Check if overlap a hazard - use the ground position and offset the height so tyhat the overlap check sweeps to the ground
+	// Check if overlap a hazard - use the ground position and offset the height so that the overlap check sweeps to the ground
 	const auto HazardTraceCenter = ClearanceLocationResult.NewPosition - FVector::ZAxisVector * ToNewPositionGroundHalfHeight;
 	bool bTestPasses = !World->OverlapAnyTestByObjectType(HazardTraceCenter, FQuat::Identity, PG::CollisionObjectType::Hazard, HazardBoundsTraceShape, QueryParams);
 

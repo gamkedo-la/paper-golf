@@ -31,6 +31,8 @@
 
 #include "AIStrategy/AIPerformanceStrategy.h"
 
+#include "Obstacles/PenaltyHazard.h"
+
 #include "PGTags.h"
 
 #include <array>
@@ -150,26 +152,6 @@ void UGolfAIShotComponent::BeginPlay()
 	Super::BeginPlay();
 
 	ValidateAndLoadConfig();
-	LoadWorldData();
-}
-
-void UGolfAIShotComponent::LoadWorldData()
-{
-	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: LoadWorldData"), *LoggingUtils::GetName(GetOwner()), *GetName());
-
-	HazardActors.Reset();
-
-	auto World = GetWorld();
-	if (!ensure(World))
-	{
-		return;
-	}
-
-	// Get all actors with the hazard tag in world
-	UGameplayStatics::GetAllActorsWithTag(World, PG::Tags::Hazard, HazardActors);
-
-	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: LoadWorldData - HazardActors=%d -> %s"), 
-		*LoggingUtils::GetName(GetOwner()), *GetName(), HazardActors.Num(), *PG::ToStringObjectElements(HazardActors));
 }
 
 TOptional<UGolfAIShotComponent::FShotSetupParams> UGolfAIShotComponent::CalculateShotParams()
@@ -178,10 +160,10 @@ TOptional<UGolfAIShotComponent::FShotSetupParams> UGolfAIShotComponent::Calculat
 
 	const auto& FocusActorScores = ShotContext.FocusActorScores;
 
-	if (HazardActors.IsEmpty() || FocusActorScores.Num() <= 1)
+	if (FocusActorScores.Num() <= 1)
 	{
-		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotParams - No hazards found or insufficient alternative focii - HazardCount=%d; FocusActorCount=%d, using first result=%s"),
-			*LoggingUtils::GetName(GetOwner()), *GetName(), HazardActors.Num(), FocusActorScores.Num(), *PG::StringUtils::ToString(FirstResult));
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotParams - Insufficient alternative focii to check for hazards - FocusActorCount=%d, using first result=%s"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), FocusActorScores.Num(), *PG::StringUtils::ToString(FirstResult));
 		return FirstResult;
 	}
 
@@ -242,59 +224,95 @@ bool UGolfAIShotComponent::ShotWillEndUpInHazard(const FAIShotSetupResult& ShotS
 
 	const FVector& HitLocation = PathResult.HitResult.ImpactPoint;
 
-	// TODO: Replace with trace or EQS
-	// We now have a Hazard object type so could use that to filter rather than a loop
-	for (auto HazardActor : HazardActors)
+	// First do a trace to the initial hit result to see if its a hazard in that location and if so what type to see if we need to check for bounce
+	auto PenaltyHazardOptional = TraceToHazard(HitLocation);
+	if (PenaltyHazardOptional && !PenaltyHazardOptional.GetValue()->IsPenaltyOnImpact())
 	{
-		if (!HazardActor)
-		{
-			continue;
-		}
+		// extend the hit location to account for bounce
+		const auto BounceLocation = GetBounceLocation(PathResult);
 
-		const auto& Box = PG::CollisionUtils::GetAABB(*HazardActor);
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: ShotWillEndUpInHazard - Detected impact hit at %s but %s hazard allows for bounce - Re-testing at final location %s"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(),
+			*HitLocation.ToCompactString(), *LoggingUtils::GetName(PenaltyHazardOptional.GetValue()->GetHazardType()), *BounceLocation.ToCompactString());
 
-		if (Box.IsInsideOrOn(HitLocation))
-		{
-			UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: ShotWillEndUpInHazard - Detected impact hit - HazardActor=%s; FocusActor=%s; HitLocation=%s"),
-				*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(HazardActor), *LoggingUtils::GetName(FocusActor), *HitLocation.ToCompactString());
+		UE_VLOG_LOCATION(GetOwner(), LogPGAI, Log, BounceLocation, 10.0f, FColor::Yellow, TEXT("Bounce"));
 
-			UE_VLOG_BOX(GetOwner(), LogPGAI, Log, Box, FColor::Orange, TEXT("Hazard - %s"), *LoggingUtils::GetName(HazardActor));
-			UE_VLOG_LOCATION(GetOwner(), LogPGAI, Log, HitLocation, 10.0f, FColor::Yellow, TEXT("Hazard Hit"));
-
-			// extend the hit location to account for bounce
-			const FVector VelocityAtHitPoint = GetVelocityAtHitPoint(PathResult);
-			const FVector VelocityDirection = VelocityAtHitPoint.GetSafeNormal();
-			const auto Speed = VelocityAtHitPoint.Size();
-			// reduce speed by elasticity -> KE = 1/2mv^2 -> v reduced by factor of sqrt(elasticity)
-			const auto Restitution = GetHitRestitution(PathResult.HitResult);
-			const auto BounceSpeed = Speed * FMath::Sqrt(Restitution);
-
-			const FVector BounceDirection = FMath::GetReflectionVector(VelocityDirection, PathResult.HitResult.ImpactNormal);
-			const FVector FinalLocation = HitLocation + BounceDirection * BounceSpeed * HazardPredictBounceTime;
-
-			if (Box.IsInsideOrOnXY(FinalLocation))
-			{
-				UE_VLOG_LOCATION(GetOwner(), LogPGAI, Log, FinalLocation, 10.0f, FColor::Red, TEXT("Hazard Bounce"));
-
-				UE_VLOG_UELOG(GetOwner(), LogPGAI, Log,
-					TEXT("%s-%s: ShotWillEndUpInHazard - TRUE - HazardActor=%s; FocusActor=%s; Restitution=%f; VelocityAtHitPoint=%s; Speed=%f; BounceDirection=%s; HitLocation=%s; FinalLocation=%s"),
-					*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(HazardActor), *LoggingUtils::GetName(FocusActor),
-					Restitution, *VelocityAtHitPoint.ToCompactString(), Speed, *BounceDirection.ToCompactString(), *HitLocation.ToCompactString(),
-					*FinalLocation.ToCompactString());
-
-				return true;
-			}
-			else
-			{
-				UE_VLOG_LOCATION(GetOwner(), LogPGAI, Log, FinalLocation, 10.0f, FColor::Yellow, TEXT("Hazard Bounce"));
-			}
-		}
+		PenaltyHazardOptional = TraceToHazard(BounceLocation);
 	}
 
-	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: ShotWillEndUpInHazard - FALSE - Did not find a threat in %d hazards: %s"),
-		*LoggingUtils::GetName(GetOwner()), *GetName(), HazardActors.Num(), *PG::ToStringObjectElements(HazardActors));
+	const bool bHazard = PenaltyHazardOptional.IsSet();
 
-	return false;
+	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: ShotWillEndUpInHazard - %s"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), LoggingUtils::GetBoolString(bHazard));
+
+	return bHazard;
+}
+
+FVector UGolfAIShotComponent::GetBounceLocation(const FPredictProjectilePathResult& PathResult) const
+{
+	const FVector VelocityAtHitPoint = GetVelocityAtHitPoint(PathResult);
+	const FVector VelocityDirection = VelocityAtHitPoint.GetSafeNormal();
+	const auto Speed = VelocityAtHitPoint.Size();
+	// reduce speed by elasticity -> KE = 1/2mv^2 -> v reduced by factor of sqrt(elasticity)
+	const auto Restitution = GetHitRestitution(PathResult.HitResult);
+	const auto BounceSpeed = Speed * FMath::Sqrt(Restitution);
+
+	const FVector BounceDirection = FMath::GetReflectionVector(VelocityDirection, PathResult.HitResult.ImpactNormal);
+	const auto& HitLocation = PathResult.HitResult.ImpactPoint;
+
+	const auto BounceLocation = HitLocation + BounceDirection * BounceSpeed * HazardPredictBounceTime;
+
+	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log,
+		TEXT("%s-%s: BounceLocation - Restitution=%f; VelocityAtHitPoint=%s; Speed=%f; BounceDirection=%s; HitLocation=%s; BounceLocation=%s"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(),
+		Restitution, *VelocityAtHitPoint.ToCompactString(), Speed, *BounceDirection.ToCompactString(), *HitLocation.ToCompactString(),
+		*BounceLocation.ToCompactString());
+
+	return BounceLocation;
+}
+
+TOptional<const IPenaltyHazard*> UGolfAIShotComponent::TraceToHazard(const FVector& Location) const
+{
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return {};
+	}
+
+	FHitResult HazardHitResult;
+	const auto TraceOffset = FVector::ZAxisVector * HazardTraceDistance * 0.5f;
+
+	const auto HazardTraceStart = Location + TraceOffset;
+	const auto HazardTraceEnd = Location - TraceOffset;
+
+	const bool bTraceResult = World->LineTraceSingleByObjectType(HazardHitResult, HazardTraceStart, HazardTraceEnd, PG::CollisionObjectType::Hazard);
+	if (bTraceResult)
+	{
+		// Cast the actor to IPenaltyHazard
+		const auto HazardActor = HazardHitResult.GetActor();
+		const auto PenaltyHazard = Cast<const IPenaltyHazard>(HazardActor);
+		if (!ensure(HazardActor && PenaltyHazard))
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPGAI, Error, TEXT("%s-%s: TraceToHazard - TRUE - HazardActor=%s was not a penalty hazard!"),
+				*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(HazardActor));
+			return {};
+		}
+
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: TraceToHazard - TRUE - Found %s Hazard: %s at %s"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(PenaltyHazard->GetHazardType()), *LoggingUtils::GetName(HazardActor), *Location.ToCompactString());
+
+		UE_VLOG_ARROW(GetOwner(), LogPGAI, Log, HazardTraceStart, HazardTraceEnd, FColor::Red, TEXT("%s Hazard: %s"),
+			*LoggingUtils::GetName(GetOwner()), *LoggingUtils::GetName(PenaltyHazard->GetHazardType()), *LoggingUtils::GetName(HazardActor));
+
+		return PenaltyHazard;
+	}
+
+	UE_VLOG_ARROW(GetOwner(), LogPGAI, Verbose, HazardTraceStart, HazardTraceEnd, FColor::Yellow, TEXT("No Hazard"));
+
+	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: TraceToHazard - FALSE - Did not find a hazard at %s"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), *Location.ToCompactString());
+
+	return {};
 }
 
 float UGolfAIShotComponent::GetHitRestitution(const FHitResult& HitResult) const
@@ -327,14 +345,21 @@ float UGolfAIShotComponent::GetHitRestitution(const FHitResult& HitResult) const
 
 	if (auto PhysicalMaterial = TraceHitResult.PhysMaterial.Get(); PhysicalMaterial)
 	{
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Verbose,
+			TEXT("%s-%s: GetHitRestitution - %f - PhysicalMaterial=%s; Actor=%s; Component=%s"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), PhysicalMaterial->Restitution, *PhysicalMaterial->GetName(),
+			*LoggingUtils::GetName(TraceHitResult.GetActor()), *LoggingUtils::GetName(TraceHitResult.GetComponent()));
+
 		return PhysicalMaterial->Restitution;
 	}
 
-	UE_VLOG_UELOG(GetOwner(), LogPGAI, Warning, TEXT("%s-%s: GetHitRestitution - Re-trace hit result did not return physical material! OriginalImpactPoint=%s; OriginalImpactNormal=%s; TraceImpactPoint=%s; TraceImpactNormal=%s"),
-		*LoggingUtils::GetName(GetOwner()), *GetName(), *HitResult.ImpactPoint.ToCompactString(), *HitResult.ImpactNormal.ToCompactString(),
+	UE_VLOG_UELOG(GetOwner(), LogPGAI, Warning,
+		TEXT("%s-%s: GetHitRestitution - %f - Re-trace hit result did not return physical material using default! OriginalImpactPoint=%s; OriginalImpactNormal=%s; TraceImpactPoint=%s; TraceImpactNormal=%s"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), DefaultHitRestitution,
+		*HitResult.ImpactPoint.ToCompactString(), *HitResult.ImpactNormal.ToCompactString(),
 		*TraceHitResult.ImpactPoint.ToCompactString(), *TraceHitResult.ImpactNormal.ToCompactString());
 
-	return 0.0f;
+	return DefaultHitRestitution;
 }
 
 TOptional<UGolfAIShotComponent::FShotSetupParams> UGolfAIShotComponent::CalculateShotParamsForCurrentFocusActor()
