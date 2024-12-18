@@ -96,7 +96,7 @@ private:
 	* Returns true if the actor is viable, false otherwise.
 	* If true is returned OutNumFailures will contain the number of recent failures.
 	**/
-	bool IsFocusActorViableBasedOnShotHistory(const AActor* FocusActor, int32 MaxFailures, int32* OutNumFailures = nullptr) const;
+	bool IsFocusActorViableBasedOnShotHistory(const AActor* FocusActor, int32 MaxFailures, int32* OutNumFailures = nullptr, bool* bOutCurrentFocusActorLandedInHazard = nullptr) const;
 
 	FShotSetupParams CalculateDefaultShotParams() const;
 
@@ -223,6 +223,7 @@ private:
 	TArray<FShotResult> HoleShotResults{};
 	mutable float DistanceToHole{};
 	int32 CurrentFocusActorFailures{};
+	bool bCurrentFocusActorLandedInHazard{};
 };
 
 #pragma region Inline Definitions

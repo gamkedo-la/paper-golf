@@ -76,6 +76,7 @@ FAIShotSetupResult UGolfAIShotComponent::SetupShot(FAIShotContext&& InShotContex
 
 	ShotContext = std::move(InShotContext);
 	CurrentFocusActorFailures = 0;
+	bCurrentFocusActorLandedInHazard = false;
 
 	check(ShotContext.PlayerPawn);
 	FocusActor = ShotContext.PlayerPawn->GetFocusActor();
@@ -123,6 +124,7 @@ void UGolfAIShotComponent::ResetHoleData()
 	InitialFocusYaw = 0;
 	HoleShotResults.Reset();
 	CurrentFocusActorFailures = 0;
+	bCurrentFocusActorLandedInHazard = false;
 	DistanceToHole = -1;
 }
 
@@ -170,7 +172,7 @@ TOptional<UGolfAIShotComponent::FShotSetupParams> UGolfAIShotComponent::Calculat
 
 	// If only a single focus actor available, then compute the number of consecutive failures for pitch angle adjustment
 	const int32 FirstResultFailureTolerance = bOnlySingleFocusAvailable ? ShotPitchAngles.size() : ConsecutiveFailureCurrentFocusLimit;
-	const bool bFirstResultViable = IsFocusActorViableBasedOnShotHistory(FocusActor, FirstResultFailureTolerance, &CurrentFocusActorFailures);
+	const bool bFirstResultViable = IsFocusActorViableBasedOnShotHistory(FocusActor, FirstResultFailureTolerance, &CurrentFocusActorFailures, &bCurrentFocusActorLandedInHazard);
 
 	const auto FirstResult = CalculateShotParamsForCurrentFocusActor();
 
@@ -197,7 +199,7 @@ TOptional<UGolfAIShotComponent::FShotSetupParams> UGolfAIShotComponent::Calculat
 
 		// Need to filter the focus actors to the ones that haven't resulted in multiple failures
 		int32 FocusActorFailures{};
-		if (!IsFocusActorViableBasedOnShotHistory(FocusActorScore.FocusActor, ConsecutiveFailureCurrentFocusLimit, &FocusActorFailures))
+		if (!IsFocusActorViableBasedOnShotHistory(FocusActorScore.FocusActor, ConsecutiveFailureCurrentFocusLimit, &FocusActorFailures, &bCurrentFocusActorLandedInHazard))
 		{
 			continue;
 		}
@@ -441,7 +443,7 @@ TOptional<UGolfAIShotComponent::FShotSetupParams> UGolfAIShotComponent::Calculat
 	};
 }
 
-bool UGolfAIShotComponent::IsFocusActorViableBasedOnShotHistory(const AActor* CurrentFocusActor, int32 MaxFailures, int32* OutNumFailures) const
+bool UGolfAIShotComponent::IsFocusActorViableBasedOnShotHistory(const AActor* CurrentFocusActor, int32 MaxFailures, int32* OutNumFailures, bool* bOutCurrentFocusActorLandedInHazard) const
 {
 	if (!CurrentFocusActor)
 	{
@@ -494,12 +496,18 @@ bool UGolfAIShotComponent::IsFocusActorViableBasedOnShotHistory(const AActor* Cu
 	//const auto CurrentToFocusActor = FocusActorLocation - CurrentFlickLocation;
 
 	int32 ConsecutiveShotCount = 0;
+	bool bHitHazard = false;
 
 	const auto SetOutFailures = [&]
 	{
 		if (OutNumFailures)
 		{
 			*OutNumFailures = ConsecutiveShotCount;
+		}
+
+		if (bCurrentFocusActorLandedInHazard)
+		{
+			*bOutCurrentFocusActorLandedInHazard = bHitHazard;
 		}
 	};
 
@@ -557,6 +565,8 @@ bool UGolfAIShotComponent::IsFocusActorViableBasedOnShotHistory(const AActor* Cu
 		if (ShotResult.HitHazard)
 		{
 			++ConsecutiveShotCount;
+			bHitHazard = true;
+
 			UE_VLOG_UELOG(GetOwner(), LogPGAI, Verbose,
 				TEXT("%s-%s: IsFocusActorViableBasedOnShotHistory(%s) - Shot %d was a hazard, retry %d/%d"),
 				*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(CurrentFocusActor), i + 1, ConsecutiveShotCount, MaxFailures);
@@ -884,7 +894,10 @@ UGolfAIShotComponent::FShotCalculationResult UGolfAIShotComponent::CalculateAvoi
 
 	FShotCalculationResult LastResult{};
 
-	for (int32 i = 0, PreferredDirection = 1, Increments = 2 * FMath::FloorToInt32(180.0f / YawRetryDelta); i < Increments; ++i)
+	// If last shot ended in hazard, adjust yaw to try and get around it
+	const int32 DesiredSkips = bCurrentFocusActorLandedInHazard ? CurrentFocusActorFailures : 0;
+
+	for (int32 PreferredDirection = 1, Increments = 2 * FMath::FloorToInt32(180.0f / YawRetryDelta), i = FMath::Max(0, FMath::Min(DesiredSkips, Increments - 1)); i < Increments; ++i)
 	{
 		if (i == 1)
 		{
@@ -952,6 +965,8 @@ TTuple<bool, float> UGolfAIShotComponent::CalculateShotPitch(const FVector& Flic
 		check(World);
 
 		int32 NumSkips{};
+		// Don't adjust pitch if last shot landed in hazard as we want to maximize displacement to get over it and instead adjust yaw
+		const int32 DesiredSkips = bCurrentFocusActorLandedInHazard ? 0 : CurrentFocusActorFailures;
 
 		for (auto It = ShotPitchAngles.begin(), End = std::next(ShotPitchAngles.begin(), ShotPitchAngles.size() - 1); It != End; ++It)
 		{
@@ -960,7 +975,7 @@ TTuple<bool, float> UGolfAIShotComponent::CalculateShotPitch(const FVector& Flic
 			bool bPass = UPaperGolfPawnUtilities::TraceShotAngle(this, PlayerPawn, FlickLocation, FlickDirection, FlickSpeed, PitchAngle, MinTraceDistance);
 			// If the test suggests it will pass but it failed due to this being a retry then skip to next
 			// Ideally this would also change the yaw to avoid the obstacle but the trace test should catch a majority of the issues
-			if (bPass && NumSkips >= CurrentFocusActorFailures)
+			if (bPass && NumSkips >= DesiredSkips)
 			{
 				return { true, PitchAngle };
 			}
