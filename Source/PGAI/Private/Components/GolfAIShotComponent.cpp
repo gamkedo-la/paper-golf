@@ -55,6 +55,9 @@ namespace
 	// Get the Z Offset to use for a given delta distnace in meters from the hole
 	const FName DeltaDistanceMetersVsZOffset = TEXT("DeltaDistanceM_ZOffset");
 
+	// Gets the power multiplier for a new angle after avoidance calculation by taking the new abs delta diff from 45 degrees
+	const FName AngleDeviationVsPowerMultiplier = TEXT("AngleDelta_Power");
+
 	FRealCurve* FindCurveForKey(UCurveTable* CurveTable, const FName& Key);
 	
 	constexpr float DefaultPitchAngle = 45.0f;
@@ -271,9 +274,29 @@ bool UGolfAIShotComponent::ShotWillEndUpInHazard(const FAIShotSetupResult& ShotS
 	return bHazard;
 }
 
-float UGolfAIShotComponent::GetTraceDistanceToCurrentFocusActor() const
+float UGolfAIShotComponent::GetPowerMultiplierFromAngleDeviation(float YawDelta, float OriginalPitchAngleDegrees, float NewPitchAngleDegrees) const
 {
-	return 0.0f;
+	if (FMath::Abs(YawDelta) > MaxYawPitchAnglePowerMultiplierApplication)
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: GetPowerMultiplierFromAngleDeviation - Abs(YawDelta)=%.1f > %.1f; returning 1.0"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), YawDelta, MaxYawPitchAnglePowerMultiplierApplication);
+		return 1.0f;
+	}
+
+	const auto Curve = FindCurveForKey(AIConfigCurveTable, AngleDeviationVsPowerMultiplier);
+	if (!Curve)
+	{
+		return 1.0f;
+	}
+
+	// The deviation from 45 is what will affect the total distance so must compare the relative deviation difference between the original and new angles
+	const auto AngleDeviation = FMath::Abs(NewPitchAngleDegrees - 45) - FMath::Abs(OriginalPitchAngleDegrees - 45);
+	const auto PowerMultiplier = Curve->Eval(AngleDeviation);
+
+	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: GetPowerMultiplierFromAngleDeviation - YawDelta=%1.f; OriginalPitchAngleDegrees=%.1f; NewPitchAngleDegrees=%.1f; AngleDeviation=%.1f; PowerMultiplier=%.2f"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), YawDelta, OriginalPitchAngleDegrees, NewPitchAngleDegrees, AngleDeviation, PowerMultiplier);
+
+	return PowerMultiplier;
 }
 
 FVector UGolfAIShotComponent::GetBounceLocation(const FPredictProjectilePathResult& PathResult) const
@@ -411,8 +434,10 @@ TOptional<UGolfAIShotComponent::FShotSetupParams> UGolfAIShotComponent::Calculat
 	const auto& ShotCalculationResult = CalculateAvoidanceShotFactors(
 		InitialShotParams.FlickLocation, ShotCalibrationResult.Pitch, InitialShotParams.FlickMaxSpeed, FlickParams.PowerFraction);
 
-	// Increase the power fraction based on avoidance results but make sure it doesn't go below the minimum power reduction factor
-	const auto InitialPowerFraction = FlickParams.PowerFraction *= FMath::Max(ShotCalculationResult.PowerMultiplier, MinRetryShotPowerReductionFactor);
+	const auto AngleDeviationPowerMultiplier = GetPowerMultiplierFromAngleDeviation(ShotCalculationResult.Yaw, ShotCalibrationResult.Pitch, ShotCalculationResult.Pitch);
+	// Decrease the power fraction based on avoidance results but make sure it doesn't go below the minimum power reduction factor
+	// The min result is done through the AIPerformanceStrategy
+	const auto InitialPowerFraction = FlickParams.PowerFraction *= FMath::Max(ShotCalculationResult.PowerMultiplier * AngleDeviationPowerMultiplier, MinRetryShotPowerReductionFactor);
 
 	// Add error to power calculation and accuracy
 	if (AIPerformanceStrategy)
@@ -666,6 +691,10 @@ TOptional<UGolfAIShotComponent::FShotPowerCalculationResult> UGolfAIShotComponen
 	// Using wolfram alpha to solve the equation when theta is 45 for v, we get
 	// v = d * sqrt(g) / sqrt(d + y)
 	// where d is the horizontal distance XY and y is the vertical distance Z and v is vxy
+	// If we wanted to compute the velocity for an arbitrary angle we would use
+	// v = d * sqrt(g) * sqrt(sec(theta)) / sqrt(2 * d * sin(theta) + 2 * y * cos(theta))
+	// When theta = 0 degrees, then v = d * sqrt(g * y) / (sqrt(2) * y)
+	// Angle of reach to get distance d is sin(2 * theta) = g * d / v^2
 	const auto& FocusActorLocation = GetFocusActorLocation(FlickLocation);
 
 	const auto PositionDelta = FocusActorLocation - FlickLocation;
@@ -849,7 +878,8 @@ bool UGolfAIShotComponent::ValidateCurveTable(UCurveTable* CurveTable) const
 	// Make sure can find the required curve tables
 	return FindCurveForKey(CurveTable, DeltaDistanceMetersVsPowerFraction)  &&
 		   FindCurveForKey(CurveTable, PowerFractionVsPitchAngle) &&
-		   FindCurveForKey(CurveTable, DeltaDistanceMetersVsZOffset);
+		   FindCurveForKey(CurveTable, DeltaDistanceMetersVsZOffset) &&
+		   FindCurveForKey(CurveTable, AngleDeviationVsPowerMultiplier);
 }
 
 float UGolfAIShotComponent::CalculateDefaultZOffset() const

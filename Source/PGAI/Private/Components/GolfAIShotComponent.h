@@ -124,7 +124,7 @@ private:
 
 	void ResetHoleData();
 
-	float GetTraceDistanceToCurrentFocusActor() const;
+	float GetPowerMultiplierFromAngleDeviation(float YawDelta, float OriginalPitchAngleDegrees, float NewPitchAngleDegrees) const;
 
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
@@ -153,6 +153,13 @@ private:
 	*/
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float YawRetryDelta{ 45.0f };
+
+	/*
+	* Max yaw at which we will adjust the power multiplier for a pitch angle change due to avoidance.
+	* For example, if we are hitting backwards to avoid an obstacle we may not want to increase the power.
+	*/
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	float MaxYawPitchAnglePowerMultiplierApplication{ 90.0f };
 
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	float MinRetryShotPowerReductionFactor { 0.5f };
