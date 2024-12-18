@@ -230,7 +230,7 @@ void UGolfControllerCommonComponent::SetPaperGolfPawnAimFocus(const TOptional<FV
 	}
 }
 
-AActor* UGolfControllerCommonComponent::GetBestFocusActor(const TOptional<FVector>& PositionOverride, TArray<FShotFocusScores>* OutFocusScores) const
+AActor* UGolfControllerCommonComponent::GetBestFocusActor(const TOptional<FVector>& PositionOverride, TArray<FShotFocusScores>* OutFocusScores, const FFocusActorScoreParams& FocusActorScoreParams) const
 {
 	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: GetBestFocusActor: PositionOverride=%s; OutFocusScores=%s"),
 		*GetName(), *LoggingUtils::GetName(GetOwner()), *PG::StringUtils::ToString(PositionOverride), LoggingUtils::GetBoolString(OutFocusScores != nullptr));
@@ -278,6 +278,8 @@ AActor* UGolfControllerCommonComponent::GetBestFocusActor(const TOptional<FVecto
 
 	float MinDist{ std::numeric_limits<float>::max() };
 
+	const bool bIncludeMisaligned = FocusActorScoreParams.bIncludeMisaligned && OutFocusScores;
+
 	for (auto FocusTarget : FocusableActors)
 	{
 		if (!FocusTarget)
@@ -294,14 +296,18 @@ AActor* UGolfControllerCommonComponent::GetBestFocusActor(const TOptional<FVecto
 		const auto FocusMinAlignment = IFocusableActor::Execute_GetMinCosAngle(FocusTarget);
 
 		// Make sure we are facing the focus target
-		if (FocusAlignment < FocusMinAlignment)
+		const bool bPassesAlignmentCheck = FocusAlignment >= FocusMinAlignment;
+		if (!bPassesAlignmentCheck)
 		{
-			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s: SetPaperGolfPawnAimFocus - Skipping target=%s as DotProduct=%f < FocusMinAlignment=%f"),
-				*GetName(), *FocusTarget->GetName(), FocusAlignment, FocusMinAlignment);
+			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s-%s: SetPaperGolfPawnAimFocus - Skipping target=%s as DotProduct=%f < FocusMinAlignment=%f"),
+				*GetName(), *PaperGolfPawn->GetName(), *FocusTarget->GetName(), FocusAlignment, FocusMinAlignment);
 			UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position, FocusTarget->GetActorLocation(), FColor::Orange, TEXT("Target (ALIGNMENT=%.1fd): %s"),
 				FMath::RadiansToDegrees(FMath::Acos(FocusAlignment)), *FocusTarget->GetName());
 
-			continue;
+			if (!bIncludeMisaligned)
+			{
+				continue;
+			}
 		}
 
 		// Don't consider Z when checking for min distance
@@ -310,8 +316,8 @@ AActor* UGolfControllerCommonComponent::GetBestFocusActor(const TOptional<FVecto
 
 		if (DistSq2D < MinDistSq2D)
 		{
-			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s: SetPaperGolfPawnAimFocus - Skipping target=%s as too close to it - Dist2D=%fm < MinDist=%fm"),
-				*GetName(), *FocusTarget->GetName(), FMath::Sqrt(DistSq2D) / 100, FMath::Sqrt(MinDistSq2D) / 100);
+			UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s-%s: SetPaperGolfPawnAimFocus - Skipping target=%s as too close to it - Dist2D=%fm < MinDist=%fm"),
+				*GetName(), *PaperGolfPawn->GetName(), *FocusTarget->GetName(), FMath::Sqrt(DistSq2D) / 100, FMath::Sqrt(MinDistSq2D) / 100);
 			UE_VLOG_ARROW(GetOwner(), LogPGPawn, Verbose, Position, FocusTarget->GetActorLocation(), FColor::Yellow, TEXT("Target (TOO CLOSE: %.1fm, %.1fd): %s"),
 				FMath::Sqrt(DistSq2D) / 100, FMath::RadiansToDegrees(FMath::Acos(FocusAlignment)), *FocusTarget->GetName());
 
@@ -324,8 +330,31 @@ AActor* UGolfControllerCommonComponent::GetBestFocusActor(const TOptional<FVecto
 		// Consider Z as don't want to aim at targets way above or below us
 		if (OutFocusScores && HasLOSToFocus(Position, FocusTarget))
 		{
-			OutFocusScores->Add({ FocusTarget, static_cast<float>(ToFocusTargetDist) });
-			if (ToFocusTargetDist < MinDist)
+			// if we included misaligned, calculate an alignment penalty if it didn't match
+			float Score;
+			if (bIncludeMisaligned && !bPassesAlignmentCheck)
+			{
+				const auto Misalignment = FMath::Min(FocusMinAlignment - FocusAlignment, 1.0f);
+				// Apply up to FocusMisalignmentPenaltyScoreFactor for misalignment, once the difference is >= 1 then the max penalty is applied as we would be hitting it backwards
+				const auto MisalignmentPenalty = FMath::Lerp(1.0f, FMath::Max(1.0f, FocusMisalignmentPenaltyScoreFactor), Misalignment);
+
+				Score = ToFocusTargetDist * MisalignmentPenalty;
+
+				UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s-%s: SetPaperGolfPawnAimFocus - FocusTarget=%s -> Score=%f (Misalignment); ToFocusTargetDist=%.1fm; MisalignmentPenalty=%.2f; Misalignment=%.2f"),
+					*GetName(), *PaperGolfPawn->GetName(), *FocusTarget->GetName(), Score, FMath::Sqrt(DistSq2D) / 100, MisalignmentPenalty, Misalignment);
+			}
+			else
+			{
+				Score = ToFocusTargetDist;
+
+				UE_VLOG_UELOG(GetOwner(), LogPGPawn, Verbose, TEXT("%s-%s: SetPaperGolfPawnAimFocus - FocusTarget=%s -> Score=%f; ToFocusTargetDist=%.1fm"),
+					*GetName(), *PaperGolfPawn->GetName(), *FocusTarget->GetName(), Score, FMath::Sqrt(DistSq2D) / 100);
+			}
+
+			OutFocusScores->Add({ FocusTarget, Score });
+
+			// Best focus should never include misaligned targets
+			if (bPassesAlignmentCheck && ToFocusTargetDist < MinDist)
 			{
 				MinDist = ToFocusTargetDist;
 				BestFocus = FocusTarget;

@@ -359,7 +359,7 @@ bool AGolfAIController::SetupShot()
 	}
 
 	TArray<FShotFocusScores> FocusActorScores;
-	GolfControllerCommonComponent->GetBestFocusActor({}, &FocusActorScores);
+	GolfControllerCommonComponent->GetBestFocusActor({}, &FocusActorScores, { .bIncludeMisaligned = true });
 
 	const auto ShotSetupResult = GolfAIShotComponent->SetupShot(
 		{

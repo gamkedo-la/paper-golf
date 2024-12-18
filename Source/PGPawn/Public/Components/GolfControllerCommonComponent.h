@@ -23,6 +23,11 @@ struct PGPAWN_API FShotHistory
 
 bool operator== (const FShotHistory& First, const FShotHistory& Second);
 
+struct PGPAWN_API FFocusActorScoreParams
+{
+	bool bIncludeMisaligned{};
+};
+
 /*
 * Holds common logic shared by AI and player golf controllers.
 */
@@ -53,7 +58,7 @@ public:
 	* @param OutFocusScores Optional output parameter to return the focus actors and their scores.
 	* @return The best focus actor based on the current pawn position.
 	*/
-	AActor* GetBestFocusActor(const TOptional<FVector>& PositionOverride = {}, TArray<FShotFocusScores>* OutFocusScores = nullptr) const;
+	AActor* GetBestFocusActor(const TOptional<FVector>& PositionOverride = {}, TArray<FShotFocusScores>* OutFocusScores = nullptr, const FFocusActorScoreParams& FocusActorScoreParams = {}) const;
 
 	TOptional<FShotHistory> GetLastShot() const;
 
@@ -143,6 +148,12 @@ private:
 	 */
 	UPROPERTY(EditDefaultsOnly, Category = "Shot | Focus")
 	float FocusTraceMaxEndOffset{ 3000.0f };
+
+	/**
+	 * When getting focus scores with misalignment included, this factor is multiplied on the misalignment.
+	 */
+	UPROPERTY(EditDefaultsOnly, Category = "Shot | Focus", meta=(ClampMin="1.0"))
+	float FocusMisalignmentPenaltyScoreFactor{ 10.0f };
 
 	int32 LastHoleNumber{};
 	float LastFlickTime{};
