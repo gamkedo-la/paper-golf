@@ -37,7 +37,7 @@
 
 #include <array>
 #include <iterator>
-
+#include <algorithm>
 #include <limits>
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GolfAIShotComponent)
@@ -75,6 +75,7 @@ FAIShotSetupResult UGolfAIShotComponent::SetupShot(FAIShotContext&& InShotContex
 		*LoggingUtils::GetName(GetOwner()), *GetName(), *InShotContext.ToString());
 
 	ShotContext = std::move(InShotContext);
+	CurrentFocusActorFailures = 0;
 
 	check(ShotContext.PlayerPawn);
 	FocusActor = ShotContext.PlayerPawn->GetFocusActor();
@@ -91,7 +92,7 @@ FAIShotSetupResult UGolfAIShotComponent::SetupShot(FAIShotContext&& InShotContex
 
 	HoleShotResults.Add(FShotResult
 	{
-		.ShotSetupResult = *ShotParams
+		.ShotSetupParams = *ShotParams
 	});
 
 	ShotContext = {};
@@ -106,15 +107,23 @@ void UGolfAIShotComponent::StartHole()
 	// TODO: This is where we can reset the strategy for the hole based on the AI's score relative to players in the game
 	// A good spot to reshuffle the shot configs, mixing in perfect and error shots
 
-	HoleShotResults.Reset();
+	ResetHoleData();
 }
 
 void UGolfAIShotComponent::Reset()
 {
 	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: Reset"), *LoggingUtils::GetName(GetOwner()), *GetName());
 
+	ResetHoleData();
+}
+
+void UGolfAIShotComponent::ResetHoleData()
+{
 	FocusActor = nullptr;
 	InitialFocusYaw = 0;
+	HoleShotResults.Reset();
+	CurrentFocusActorFailures = 0;
+	DistanceToHole = -1;
 }
 
 void UGolfAIShotComponent::OnHazard(EHazardType HazardType)
@@ -156,11 +165,16 @@ void UGolfAIShotComponent::BeginPlay()
 
 TOptional<UGolfAIShotComponent::FShotSetupParams> UGolfAIShotComponent::CalculateShotParams()
 {
+	const auto& FocusActorScores = ShotContext.FocusActorScores;
+	const bool bOnlySingleFocusAvailable = FocusActorScores.Num() <= 1;
+
+	// If only a single focus actor available, then compute the number of consecutive failures for pitch angle adjustment
+	const int32 FirstResultFailureTolerance = bOnlySingleFocusAvailable ? ShotPitchAngles.size() : ConsecutiveFailureCurrentFocusLimit;
+	const bool bFirstResultViable = IsFocusActorViableBasedOnShotHistory(FocusActor, FirstResultFailureTolerance, &CurrentFocusActorFailures);
+
 	const auto FirstResult = CalculateShotParamsForCurrentFocusActor();
 
-	const auto& FocusActorScores = ShotContext.FocusActorScores;
-
-	if (FocusActorScores.Num() <= 1)
+	if (bOnlySingleFocusAvailable)
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotParams - Insufficient alternative focii to check for hazards - FocusActorCount=%d, using first result=%s"),
 			*LoggingUtils::GetName(GetOwner()), *GetName(), FocusActorScores.Num(), *PG::StringUtils::ToString(FirstResult));
@@ -169,7 +183,7 @@ TOptional<UGolfAIShotComponent::FShotSetupParams> UGolfAIShotComponent::Calculat
 
 	const auto FirstFocusActor = FocusActor;
 
-	if (FirstResult && !ShotWillEndUpInHazard(FirstResult->ShotSetupResult))
+	if (FirstResult && bFirstResultViable && !ShotWillEndUpInHazard(FirstResult->ShotSetupResult))
 	{
 		return FirstResult;
 	}
@@ -181,6 +195,13 @@ TOptional<UGolfAIShotComponent::FShotSetupParams> UGolfAIShotComponent::Calculat
 			continue;
 		}
 
+		// Need to filter the focus actors to the ones that haven't resulted in multiple failures
+		int32 FocusActorFailures{};
+		if (!IsFocusActorViableBasedOnShotHistory(FocusActorScore.FocusActor, ConsecutiveFailureCurrentFocusLimit, &FocusActorFailures))
+		{
+			continue;
+		}
+
 		FocusActor = FocusActorScore.FocusActor;
 		const auto Result = CalculateShotParamsForCurrentFocusActor();
 
@@ -188,7 +209,7 @@ TOptional<UGolfAIShotComponent::FShotSetupParams> UGolfAIShotComponent::Calculat
 		{
 			UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotParams - Using FocusActor=%s; Result=%s"),
 				*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(FocusActor), *PG::StringUtils::ToString(Result));
-
+			CurrentFocusActorFailures = FocusActorFailures;
 			return Result;
 		}
 	}
@@ -246,6 +267,11 @@ bool UGolfAIShotComponent::ShotWillEndUpInHazard(const FAIShotSetupResult& ShotS
 		*LoggingUtils::GetName(GetOwner()), *GetName(), LoggingUtils::GetBoolString(bHazard));
 
 	return bHazard;
+}
+
+float UGolfAIShotComponent::GetTraceDistanceToCurrentFocusActor() const
+{
+	return 0.0f;
 }
 
 FVector UGolfAIShotComponent::GetBounceLocation(const FPredictProjectilePathResult& PathResult) const
@@ -413,6 +439,180 @@ TOptional<UGolfAIShotComponent::FShotSetupParams> UGolfAIShotComponent::Calculat
 			.ShotYaw = ShotCalculationResult.Yaw
 		}
 	};
+}
+
+bool UGolfAIShotComponent::IsFocusActorViableBasedOnShotHistory(const AActor* CurrentFocusActor, int32 MaxFailures, int32* OutNumFailures) const
+{
+	if (!CurrentFocusActor)
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Warning, TEXT("%s-%s: IsFocusActorViableBasedOnShotHistory - FALSE - FocusActor is null"),
+			*LoggingUtils::GetName(GetOwner()), *GetName());
+		return false;
+	}
+
+	if (HoleShotResults.IsEmpty())
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: IsFocusActorViableBasedOnShotHistory - TRUE - HoleShotResults is empty"),
+			*LoggingUtils::GetName(GetOwner()), *GetName());
+		return true;
+	}
+
+	const auto PlayerPawn = ShotContext.PlayerPawn;
+	check(PlayerPawn);
+
+	if (DistanceToHole < 0)
+	{
+		const auto GolfHole = ShotContext.GolfHole;
+		check(GolfHole);
+
+		DistanceToHole = PlayerPawn->GetDistanceTo(GolfHole);
+	}
+
+	if (DistanceToHole < MinDistanceSuccessTest)
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: IsFocusActorViableBasedOnShotHistory - TRUE - DistanceToHole=%.1fm is less than MinDistanceSuccessTest=%.1fm"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), DistanceToHole / 100, MinDistanceSuccessTest / 100);
+		return true;
+	}
+
+	// Start at the end of the history and break if the focus actor changes once we find a match
+	const AActor* LastShotResultFocus{};
+
+	// memoize the distance to the focus actor
+	auto DistanceToFocusSqFn = [&, Dist = -1.0f]() mutable
+	{
+		if (Dist >= 0)
+		{
+			return Dist;
+		}
+		return Dist = PlayerPawn->GetSquaredDistanceTo(CurrentFocusActor);
+	};
+
+	const auto& CurrentFlickLocation = PlayerPawn->GetActorLocation();
+	const auto& FocusActorLocation = CurrentFocusActor->GetActorLocation();
+
+	//const auto CurrentToFocusActor = FocusActorLocation - CurrentFlickLocation;
+
+	int32 ConsecutiveShotCount = 0;
+
+	const auto SetOutFailures = [&]
+	{
+		if (OutNumFailures)
+		{
+			*OutNumFailures = ConsecutiveShotCount;
+		}
+	};
+
+	for (int32 i = HoleShotResults.Num() - 1; i >= 0; --i)
+	{
+		const auto& ShotResult = HoleShotResults[i];
+		const auto& ShotSetupResult = ShotResult.ShotSetupParams.ShotSetupResult;
+		const auto HistoryFocusActor = ShotSetupResult.FocusActor;
+
+		if (LastShotResultFocus == CurrentFocusActor && HistoryFocusActor != CurrentFocusActor)
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPGAI, Log,
+				TEXT("%s-%s: IsFocusActorViableBasedOnShotHistory(%s) - TRUE - FocusActor was not used recently. Looked at %d shots with that actor; %d/%d shots examined"),
+				*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(CurrentFocusActor),
+				ConsecutiveShotCount, HoleShotResults.Num() - i, HoleShotResults.Num());
+			SetOutFailures();
+			return true;
+		}
+
+		if (HistoryFocusActor != CurrentFocusActor)
+		{
+			continue;
+		}
+
+		const auto& FlickParams = ShotSetupResult.FlickParams;
+
+		// Determine if this shot should be ignored because shot error strategy influenced it too much to be a valid data point
+		if (FMath::Abs(FlickParams.Accuracy) > MaxAccuracyDeviationRetry)
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPGAI, Verbose,
+				TEXT("%s-%s: IsFocusActorViableBasedOnShotHistory(%s) - Ignoring shot %d because Abs Accuracy=%.2f > MaxAccuracyDeviationRetry=%.2f"),
+				*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(CurrentFocusActor), i + 1, FlickParams.Accuracy, MaxAccuracyDeviationRetry);
+			continue;
+		}
+
+		if (FMath::Abs(ShotResult.ShotSetupParams.GetPowerDeviation()) > MaxPowerDeviationRetry)
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPGAI, Verbose,
+				TEXT("%s-%s: IsFocusActorViableBasedOnShotHistory(%s) - Ignoring shot %d because Abs PowerDeviation=%.2f > MaxPowerDeviationRetry=%.2f"),
+				*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(CurrentFocusActor), i + 1, ShotResult.ShotSetupParams.GetPowerDeviation(), MaxPowerDeviationRetry);
+			continue;
+		}
+
+		// Determine if this shot is even relevant based on position
+		const auto& DistanceSqToShotResult = FVector::DistSquared(ShotResult.ShotSetupParams.FlickLocation, CurrentFlickLocation);
+		if (DistanceSqToShotResult > FMath::Square(ShotHistoryRadiusRelevance))
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPGAI, Verbose,
+				TEXT("%s-%s: IsFocusActorViableBasedOnShotHistory(%s) - Ignoring shot %d because DistanceSqToShotResult=%.1fm > ShotHistoryRadiusRelevance=%.1fm"),
+				*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(CurrentFocusActor), i + 1, FMath::Sqrt(DistanceSqToShotResult) / 100, ShotHistoryRadiusRelevance / 100);
+			continue;
+		}
+
+		// If we went into a hazard, automatically count it
+		if (ShotResult.HitHazard)
+		{
+			++ConsecutiveShotCount;
+			UE_VLOG_UELOG(GetOwner(), LogPGAI, Verbose,
+				TEXT("%s-%s: IsFocusActorViableBasedOnShotHistory(%s) - Shot %d was a hazard, retry %d/%d"),
+				*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(CurrentFocusActor), i + 1, ConsecutiveShotCount, MaxFailures);
+
+			if (ConsecutiveShotCount >= MaxFailures)
+			{
+				UE_VLOG_UELOG(GetOwner(), LogPGAI, Log,
+					TEXT("%s-%s: IsFocusActorViableBasedOnShotHistory(%s) - FALSE - FocusActor has had %d consecutive failures"),
+					*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(CurrentFocusActor), ConsecutiveShotCount);
+				SetOutFailures();
+				return false;
+			}
+			continue;
+		}
+
+		// Check based on distance result
+
+		// See if this attempt actually should be considered a success because it made enough progress to the target
+		const auto DistToFocusSq = DistanceToFocusSqFn();
+		const auto ShotDistSq = ShotResult.GetShotDistanceSquared();
+		const auto RatioSq = ShotDistSq / DistToFocusSq;
+
+		if(RatioSq >= FMath::Square(MinDistanceFractionSuccess))
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPGAI, Verbose,
+				TEXT("%s-%s: IsFocusActorViableBasedOnShotHistory(%s) - Shot %d was successful. ShotDist=%.1fm; DistToFocus=%.1fm; Ratio=%.2f; MinDistanceFractionSuccess=%.2f"),
+				*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(CurrentFocusActor),
+				i + 1, FMath::Sqrt(ShotDistSq) / 100, FMath::Sqrt(DistToFocusSq) / 100, FMath::Sqrt(RatioSq), MinDistanceFractionSuccess);
+			continue;
+		}
+
+		++ConsecutiveShotCount;
+
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Verbose,
+			TEXT("%s-%s: IsFocusActorViableBasedOnShotHistory(%s) - Shot %d was a failure; retry %d/%d; DistanceSqToShotResult=%.1fm; ShotDist=%.1fm; DistToFocus=%.1fm; Ratio=%.2f; MinDistanceFractionSuccess=%.2f; Accuracy=%f; PowerFractionDeviation=%f"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(CurrentFocusActor), 
+			i + 1, ConsecutiveShotCount, MaxFailures,
+			FMath::Sqrt(DistanceSqToShotResult) / 100, FMath::Sqrt(ShotDistSq) / 100, FMath::Sqrt(DistToFocusSq) / 100, FMath::Sqrt(RatioSq), MinDistanceFractionSuccess,
+			FlickParams.Accuracy, ShotResult.ShotSetupParams.GetPowerDeviation());
+
+		if (ConsecutiveShotCount >= MaxFailures)
+		{
+			UE_VLOG_UELOG(GetOwner(), LogPGAI, Log,
+				TEXT("%s-%s: IsFocusActorViableBasedOnShotHistory(%s) - FALSE - FocusActor has had %d consecutive failures"),
+				*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(CurrentFocusActor), ConsecutiveShotCount);
+			SetOutFailures();
+			return false;
+		}
+	} // for
+
+	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log,
+		TEXT("%s-%s: IsFocusActorViableBasedOnShotHistory(%s) - TRUE - Exhausted shot history before triggering failure condition"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), *LoggingUtils::GetName(CurrentFocusActor), 0);
+
+	SetOutFailures();
+	return true;
 }
 
 TOptional<UGolfAIShotComponent::FShotPowerCalculationResult> UGolfAIShotComponent::CalculateInitialShotParams() const
@@ -751,19 +951,30 @@ TTuple<bool, float> UGolfAIShotComponent::CalculateShotPitch(const FVector& Flic
 		auto World = GetWorld();
 		check(World);
 
+		int32 NumSkips{};
+
 		for (auto It = ShotPitchAngles.begin(), End = std::next(ShotPitchAngles.begin(), ShotPitchAngles.size() - 1); It != End; ++It)
 		{
 			const auto PitchAngle = *It;
 
 			bool bPass = UPaperGolfPawnUtilities::TraceShotAngle(this, PlayerPawn, FlickLocation, FlickDirection, FlickSpeed, PitchAngle, MinTraceDistance);
-			if (bPass)
+			// If the test suggests it will pass but it failed due to this being a retry then skip to next
+			// Ideally this would also change the yaw to avoid the obstacle but the trace test should catch a majority of the issues
+			if (bPass && NumSkips >= CurrentFocusActorFailures)
 			{
 				return { true, PitchAngle };
 			}
+			else if(bPass)
+			{
+				++NumSkips;
+			}
 		}
 
-		// return default angle, which is last element
-		return { false, ShotPitchAngles.back() };
+		// return default angle, which is one with largest angle
+		const auto MaxAngleElement = std::max_element(ShotPitchAngles.begin(), ShotPitchAngles.end());
+		check(MaxAngleElement != ShotPitchAngles.end());
+
+		return { false, *MaxAngleElement };
 	}
 }
 
@@ -927,4 +1138,9 @@ FString UGolfAIShotComponent::FShotSetupParams::ToString() const
 {
 	return FString::Printf(TEXT("FlickLocation=%s; InitialPowerFraction=%f; FinalFlickParams=[%s]; FocusActor=%s; ShotPitch=%.1f; ShotYaw=%.1f"),
 		*FlickLocation.ToCompactString(), InitialPowerFraction, *ShotSetupResult.FlickParams.ToString(), *LoggingUtils::GetName(ShotSetupResult.FocusActor), ShotSetupResult.ShotPitch, ShotSetupResult.ShotYaw);
+}
+
+float UGolfAIShotComponent::FShotResult::GetShotDistanceSquared() const
+{
+	return FVector::DistSquared(ShotSetupParams.FlickLocation, EndPosition);
 }

@@ -224,17 +224,21 @@ bool UPaperGolfPawnUtilities::TraceShotAngle(const UObject* WorldContextObject, 
 	auto World = WorldContextObject->GetWorld();
 	check(World);
 
-	const auto MaxHeight = FlickAngleDegrees > 0 ? FMath::Max(PG::MathUtils::GetMaxProjectileHeight(WorldContextObject, 45.0f, FlickSpeed), MinTraceDistance) : MinTraceDistance;
+	const auto TraceAngle = FlickAngleDegrees > 0 ? FlickAngleDegrees : 0;
+	const auto MaxHeight = TraceAngle > 0 ? PG::MathUtils::GetMaxProjectileHeight(WorldContextObject, FlickAngleDegrees, FlickSpeed) : 0;
 
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(PlayerPawn);
 
 	// Pitch up or down based on the FlickAngleDegrees
-	const auto PitchedFlickDirection = FlickDirection.RotateAngleAxis(FlickAngleDegrees, -PlayerPawn->GetActorRightVector());
+	const auto PitchedFlickDirection = FlickDirection.RotateAngleAxis(TraceAngle, -PlayerPawn->GetActorRightVector());
 
-	const FVector TraceEnd = TraceStart + PitchedFlickDirection * MaxHeight;
+	// Need the horizontal distance to be MinTraceLength and the Z to be MaxHeigth
+	// Pythagorean theorem: a^2 + b^2 = c^2
+	const auto TraceLength = FMath::Sqrt(FMath::Square(MinTraceDistance) + FMath::Square(MaxHeight));
+	const FVector TraceEnd = TraceStart + PitchedFlickDirection * TraceLength;
 
-	// Try line trace directly to max height as an approximation
+	// Try line trace directly to trace length as an approximation
 	bool bPass = !World->LineTraceTestByChannel(TraceStart, TraceEnd, PG::CollisionChannel::FlickTraceType, QueryParams);
 
 	UE_VLOG_ARROW(GetVisualLoggerOwner(WorldContextObject), LogPGPawn, Log, TraceStart, TraceEnd, bPass ? FColor::Green : FColor::Red, TEXT("Trace %.1f"), FlickAngleDegrees);

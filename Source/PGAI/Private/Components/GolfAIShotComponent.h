@@ -81,13 +81,22 @@ private:
 
 	struct FShotResult
 	{
-		FShotSetupParams ShotSetupResult{};
+		FShotSetupParams ShotSetupParams{};
 		FVector EndPosition{ EForceInit::ForceInitToZero };
 		TOptional<EHazardType> HitHazard{};
+
+		float GetShotDistanceSquared() const;
 	};
 
 	TOptional<FShotSetupParams> CalculateShotParams();
 	TOptional<FShotSetupParams> CalculateShotParamsForCurrentFocusActor();
+
+	/**
+	* Checks if the current focus actor hasn't resulted in many recent failures
+	* Returns true if the actor is viable, false otherwise.
+	* If true is returned OutNumFailures will contain the number of recent failures.
+	**/
+	bool IsFocusActorViableBasedOnShotHistory(const AActor* FocusActor, int32 MaxFailures, int32* OutNumFailures = nullptr) const;
 
 	FShotSetupParams CalculateDefaultShotParams() const;
 
@@ -112,6 +121,10 @@ private:
 	float GetHitRestitution(const FHitResult& HitResult) const;
 
 	double CalculateDistanceSum(double HorizontalDistance, double VerticalDistance) const;
+
+	void ResetHoleData();
+
+	float GetTraceDistanceToCurrentFocusActor() const;
 
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
@@ -169,13 +182,32 @@ private:
 	TSubclassOf<UAIPerformanceStrategy> AIPerformanceStrategyClass{};
 
 	UPROPERTY(Category = "Config | Retry", EditDefaultsOnly)
-	int32 ConsecutiveHazardCurrentFocusLimit{ 2 };
+	int32 ConsecutiveFailureCurrentFocusLimit{ 2 };
 
 	UPROPERTY(Category = "Config | Retry", EditDefaultsOnly)
 	float MaxPowerDeviationRetry{ 0.2f };
 
 	UPROPERTY(Category = "Config | Retry", EditDefaultsOnly)
 	float MaxAccuracyDeviationRetry{ 0.3f };
+
+	/*
+	* Minimum fraction [0,1] of distance to the targeted focus actor to consider the shot a success.
+	*/
+	UPROPERTY(Category = "Config | Retry", EditDefaultsOnly)
+	float MinDistanceFractionSuccess{ 0.5f };
+
+	/*
+	* Minimum distance to the hole to even consider whether the previous shot was a success.
+	* When close to the hole there shouldn't be any blocking obstacles.
+	*/
+	UPROPERTY(Category = "Config | Retry", EditDefaultsOnly)
+	float MinDistanceSuccessTest{ 40 * 1000 };
+
+	/*
+	 * How close to the previous shot to consider it as relevant for the current shot.
+	*/
+	UPROPERTY(Category = "Config | Retry", EditDefaultsOnly)
+	float ShotHistoryRadiusRelevance{ 15 * 1000 };
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAIPerformanceStrategy> AIPerformanceStrategy{};
@@ -189,6 +221,8 @@ private:
 	AActor* FocusActor{};
 
 	TArray<FShotResult> HoleShotResults{};
+	mutable float DistanceToHole{};
+	int32 CurrentFocusActorFailures{};
 };
 
 #pragma region Inline Definitions
