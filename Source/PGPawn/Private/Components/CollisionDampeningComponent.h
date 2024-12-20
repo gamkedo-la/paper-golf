@@ -37,6 +37,7 @@ private:
 	void UpdateDampeningValues();
 
 	float GetDampeningValue(float InitialValue, const UCurveFloat* Curve) const;
+	float GetAngularRatioDampeningValue() const;
 
 	void DisableCollisionDampening();
 	bool IsCollisionDampeningActive() const;
@@ -51,6 +52,9 @@ private:
 	bool bEnableLinearDampening{ true };
 
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	bool bEnableRatioAngularDampening{};
+
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	float FlickTimeDelay{ 0.2f };
 
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
@@ -61,6 +65,9 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Config")
 	TObjectPtr<UCurveFloat> LinearDampeningCurve{};
+
+	UPROPERTY(EditDefaultsOnly, Category = "Config")
+	TObjectPtr<UCurveFloat> AngularDampeningRatioCurve{};
 
 	UPROPERTY(Transient)
 	TObjectPtr<UStaticMeshComponent> OwnerStaticMeshComponent{};

@@ -148,16 +148,24 @@ bool UCollisionDampeningComponent::ValidateConfig() const
 {
 	bool bValid = true;
 
-	if (!ensureMsgf(AngularDampeningCurve, TEXT("AngularDampeningCurve is NULL")))
+	if (bEnableRatioAngularDampening && !ensureMsgf(AngularDampeningRatioCurve, TEXT("AngularDampeningRatioCurve is NULL")))
 	{
 		bValid = false;
-		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Error, TEXT("%s-%s: ValidateConfig - AngularDampeningCurve was NULL"), *LoggingUtils::GetName(GetOwner()), *GetName());
+		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Error, TEXT("%s-%s: ValidateConfig - bEnableRatioAngularDampening is TRUE but AngularDampeningRatioCurve was NULL"),
+			*LoggingUtils::GetName(GetOwner()), *GetName());
+	}
+	else if (!bEnableRatioAngularDampening && !ensureMsgf(AngularDampeningCurve, TEXT("AngularDampeningCurve is NULL")))
+	{
+		bValid = false;
+		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Error, TEXT("%s-%s: ValidateConfig - AngularDampeningCurve was NULL"),
+			*LoggingUtils::GetName(GetOwner()), *GetName());
 	}
 
-	if (!ensureMsgf(LinearDampeningCurve, TEXT("LinearDampeningCurve is NULL")))
+	if (bEnableLinearDampening && !ensureMsgf(LinearDampeningCurve, TEXT("LinearDampeningCurve is NULL")))
 	{
 		bValid = false;
-		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Error, TEXT("%s-%s: ValidateConfig - LinearDampeningCurve was NULL"), *LoggingUtils::GetName(GetOwner()), *GetName());
+		UE_VLOG_UELOG(GetOwner(), LogPGPawn, Error, TEXT("%s-%s: ValidateConfig - bEnableLinearDampening is TRUE but LinearDampeningCurve was NULL"),
+			*LoggingUtils::GetName(GetOwner()), *GetName());
 	}
 
 	return bValid;
@@ -176,14 +184,16 @@ void UCollisionDampeningComponent::InitInitialDampeningValues()
 
 void UCollisionDampeningComponent::UpdateDampeningValues()
 {
-	const auto NewAngularDampening = GetDampeningValue(InitialAngularDampening, AngularDampeningCurve);
+	const auto NewAngularDampening = bEnableRatioAngularDampening ? GetAngularRatioDampeningValue() : GetDampeningValue(InitialAngularDampening, AngularDampeningCurve);
 	const auto NewLinearDampening = bEnableLinearDampening ? GetDampeningValue(InitialLinearDampening, LinearDampeningCurve) : InitialLinearDampening;
 
 	check(OwnerStaticMeshComponent);
 
 	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: UpdateDampeningValues: Angular: %f -> %f; Linear: %f -> %f"),
-		*LoggingUtils::GetName(GetOwner()), *GetName(), OwnerStaticMeshComponent->GetAngularDamping(), NewAngularDampening,
-		OwnerStaticMeshComponent->GetLinearDamping(), NewLinearDampening);
+		*LoggingUtils::GetName(GetOwner()), *GetName(),
+		OwnerStaticMeshComponent->GetAngularDamping(), NewAngularDampening,
+		OwnerStaticMeshComponent->GetLinearDamping(), NewLinearDampening
+	);
 
 	OwnerStaticMeshComponent->SetAngularDamping(NewAngularDampening);
 	OwnerStaticMeshComponent->SetLinearDamping(NewLinearDampening);
@@ -194,6 +204,21 @@ float UCollisionDampeningComponent::GetDampeningValue(float InitialValue, const 
 	check(Curve);
 
 	return InitialValue * Curve->GetFloatValue(HitCount);
+}
+
+float UCollisionDampeningComponent::GetAngularRatioDampeningValue() const
+{
+	check(AngularDampeningRatioCurve);
+	check(OwnerStaticMeshComponent);
+
+	const auto LinearSpeed = OwnerStaticMeshComponent->GetPhysicsLinearVelocity().Size();
+	const auto AngularSpeed = OwnerStaticMeshComponent->GetPhysicsAngularVelocityInDegrees().Size();
+	const auto AngularVsLinearRatio = AngularSpeed / FMath::Max(LinearSpeed, 0.001f);
+
+	UE_VLOG_UELOG(GetOwner(), LogPGPawn, Log, TEXT("%s-%s: GetAngularRatioDampeningValue: AngularSpeed=%fdeg/s; LinearSpeed=%fcm/s; AvsL=%f"),
+		*LoggingUtils::GetName(GetOwner()), *GetName(), AngularSpeed, LinearSpeed, AngularVsLinearRatio);
+
+	return InitialAngularDampening * AngularDampeningRatioCurve->GetFloatValue(AngularVsLinearRatio);
 }
 
 void UCollisionDampeningComponent::DisableCollisionDampening()
