@@ -48,6 +48,9 @@ private:
 	bool bEnableCollisionDampening{};
 
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	bool bEnableLinearDampening{ true };
+
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	float FlickTimeDelay{ 0.2f };
 
 	UPROPERTY(Category = "Config", EditDefaultsOnly)

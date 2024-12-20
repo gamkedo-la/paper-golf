@@ -177,7 +177,7 @@ void UCollisionDampeningComponent::InitInitialDampeningValues()
 void UCollisionDampeningComponent::UpdateDampeningValues()
 {
 	const auto NewAngularDampening = GetDampeningValue(InitialAngularDampening, AngularDampeningCurve);
-	const auto NewLinearDampening = GetDampeningValue(InitialLinearDampening, LinearDampeningCurve);
+	const auto NewLinearDampening = bEnableLinearDampening ? GetDampeningValue(InitialLinearDampening, LinearDampeningCurve) : InitialLinearDampening;
 
 	check(OwnerStaticMeshComponent);
 
