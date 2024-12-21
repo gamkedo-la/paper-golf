@@ -11,6 +11,7 @@ class UHoleTransitionComponent;
 class IGolfController;
 class UPlayerConfig;
 class APaperGolfPawn;
+class UDataTable;
 
 namespace PG
 {
@@ -154,6 +155,8 @@ private:
 	AGolfAIController* CreateBot(int32 BotNumber);
 	AGolfAIController* ReplaceLeavingPlayerWithBot(AController* Player);
 	void InitBot(AGolfAIController& AIController, int32 BotNumber);
+	FString GenerateBotName(int32 BotNumber);
+
 	int32 CreateBotPlayerId() const;
 
 	void ConfigureJoinedPlayerState(AController& Player);
@@ -200,6 +203,8 @@ private:
 	virtual bool CanCourseBeStarted() const;
 
 	UClass* GetControllerPawnClass(AController* InController) const;
+
+	void InitBotNames();
 
 protected:
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
@@ -262,6 +267,9 @@ private:
 	UPROPERTY(Category = "Config", EditDefaultsOnly)
 	TObjectPtr<UPlayerConfig> PlayerConfigData{};
 
+	UPROPERTY(Category = "Config", EditDefaultsOnly)
+	TObjectPtr<UDataTable> BotNameConfig{};
+
 	/*
 	* Customize which pawn classes are used to spawn each controller type.
 	*/
@@ -269,6 +277,8 @@ private:
 	TMap<TSubclassOf<AController>, TSubclassOf<APaperGolfPawn>> ControllerPawnClassMap{};
 
 	TUniquePtr<PG::FPlayerStateConfigurator> PlayerStateConfigurator{};
+	TArray<FString> BotNames;
+	int32 BotNameIndex{};
 };
 
 #pragma region Inline Definitions

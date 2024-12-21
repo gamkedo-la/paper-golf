@@ -36,7 +36,11 @@
 #include "Config/PlayerConfig.h"
 #include "Config/PlayerStateConfigurator.h"
 
+#include "Config/BotNameConfig.h"
+
 #include "GameFramework/GameSession.h"
+
+#include "Algo/RandomShuffle.h"
 
 #if WITH_EDITOR
 	#include "Settings/LevelEditorPlaySettings.h"
@@ -274,6 +278,32 @@ void APaperGolfGameModeBase::InitPlayerStateDefaults()
 	}
 
 	PlayerStateConfigurator = MakeUnique<PG::FPlayerStateConfigurator>(PlayerConfigData);
+
+	InitBotNames();
+}
+
+void APaperGolfGameModeBase::InitBotNames()
+{
+	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: InitBotNames"), *GetName());
+
+	if (!ensureMsgf(BotNameConfig, TEXT("%s: InitBotNames - BotNameConfig is not set"), *GetName()))
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: InitBotNames - BotNameConfig is not set - defaulting to indexed names"), *GetName());
+		return;
+	}
+
+	BotNames = PG::BotNameParser::ReadAll(BotNameConfig);
+
+	if (BotNames.Num() < PG::MaxPlayers - 1)
+	{
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Warning, TEXT("%s: InitBotNames - %d is too few names in BotNameConfig - will need to default to indexed names"),
+			*GetName(), BotNames.Num())
+		BotNames.Empty();
+		return;
+	}
+
+	Algo::RandomShuffle(BotNames);
+	BotNameIndex = 0;
 }
 
 void APaperGolfGameModeBase::InitGameState()
@@ -1184,8 +1214,7 @@ void APaperGolfGameModeBase::InitBot(AGolfAIController& AIController, int32 BotN
 
 	if(auto PlayerState = AIController.GetGolfPlayerState(); ensureMsgf(PlayerState, TEXT("%s: No player state for %s - BotNumber=%d"), *GetName(), *AIController.GetName(), BotNumber))
 	{
-		// TODO: Draw from a random list of 90s names
-		PlayerState->SetPlayerName(FString::Printf(TEXT("Bot %d"), BotNumber));
+		PlayerState->SetPlayerName(GenerateBotName(BotNumber));
 		PlayerState->SetPlayerId(CreateBotPlayerId());
 
 		if (PlayerStateConfigurator)
@@ -1200,6 +1229,19 @@ void APaperGolfGameModeBase::InitBot(AGolfAIController& AIController, int32 BotN
 
 	// NumPlayers is incremented automatically but NumBots is not
 	++NumBots;
+}
+
+FString APaperGolfGameModeBase::GenerateBotName(int32 BotNumber)
+{
+	if (BotNames.IsEmpty())
+	{
+		return FString::Printf(TEXT("Bot %d"), BotNumber);
+	}
+
+	const auto Name = BotNames[BotNameIndex];
+	BotNameIndex = (BotNameIndex + 1) % BotNames.Num();
+
+	return Name;
 }
 
 // Ensure that the bot player id does not conflict with any other player id
