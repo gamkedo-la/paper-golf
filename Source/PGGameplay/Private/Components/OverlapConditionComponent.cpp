@@ -47,6 +47,7 @@ void UOverlapConditionComponent::EndOverlap(APaperGolfPawn& Pawn)
 
 	if (!OverlappingPaperGolfPawnPtr)
 	{
+		UE_VLOG_UELOG(GetOwner(), LogPGGameplay, Log, TEXT("%s-%s: EndOverlap: No active overlapping pawn"), *LoggingUtils::GetName(GetOwner()), *GetName());
 		return;
 	}
 
@@ -57,12 +58,18 @@ void UOverlapConditionComponent::EndOverlap(APaperGolfPawn& Pawn)
 			*LoggingUtils::GetName(GetOwner()), *GetName());
 		return;
 	}
+	else
+	{
+		UE_VLOG_UELOG(GetOwner(), LogPGGameplay, Log, TEXT("%s-%s: EndOverlap - overlap condition not met"),
+			*LoggingUtils::GetName(GetOwner()), *GetName());
+	}
 
 	if (&Pawn == OverlappingPaperGolfPawnPtr)
 	{
 		UE_VLOG_UELOG(GetOwner(), LogPGGameplay, Log, TEXT("%s-%s: EndOverlap - matched begin condition pawn - resetting state"),
 			*LoggingUtils::GetName(GetOwner()), *GetName(), *Pawn.GetName());
 
+		// Do not clear the overlapping pawn as the condition may trigger again later
 		ClearTimer();
 	}
 	else
@@ -76,7 +83,15 @@ void UOverlapConditionComponent::Reset()
 {
 	UE_VLOG_UELOG(GetOwner(), LogPGGameplay, Log, TEXT("%s-%s: Reset"), *LoggingUtils::GetName(GetOwner()), *GetName());
 
+	ClearAll();
+}
+
+void UOverlapConditionComponent::ClearAll()
+{
+	UE_VLOG_UELOG(GetOwner(), LogPGGameplay, Log, TEXT("%s-%s: ClearAll"), *LoggingUtils::GetName(GetOwner()), *GetName());
 	ClearTimer();
+
+	OverlappingPaperGolfPawn.Reset();
 }
 
 void UOverlapConditionComponent::BeginPlay()
@@ -92,7 +107,7 @@ void UOverlapConditionComponent::EndPlay(const EEndPlayReason::Type EndPlayReaso
 
 	Super::EndPlay(EndPlayReason);
 
-	ClearTimer();
+	ClearAll();
 }
 
 bool UOverlapConditionComponent::CheckOverlapCondition(bool bDeferTrigger)
@@ -107,7 +122,7 @@ bool UOverlapConditionComponent::CheckOverlapCondition(bool bDeferTrigger)
 	if (!PaperGolfPawn)
 	{
 		// Ensure timer is turned off if the overlapping pawn has become invalid
-		ClearTimer();
+		ClearAll();
 
 		return false;
 	}
@@ -117,7 +132,7 @@ bool UOverlapConditionComponent::CheckOverlapCondition(bool bDeferTrigger)
 		UE_VLOG_UELOG(GetOwner(), LogPGGameplay, Log, TEXT("%s-%s: CheckOverlapCondition - Overlap condition met - triggering delegate - bDeferTrigger=%s"),
 			*LoggingUtils::GetName(GetOwner()), *GetName(), LoggingUtils::GetBoolString(bDeferTrigger));
 
-		ClearTimer();
+		ClearAll();
 
 		if (bDeferTrigger)
 		{
@@ -149,7 +164,8 @@ void UOverlapConditionComponent::ClearTimer()
 		*LoggingUtils::GetName(GetOwner()), *GetName(),
 		*GetName(), LoggingUtils::GetBoolString(IsComponentTickEnabled()), *LoggingUtils::GetName(OverlappingPaperGolfPawn));
 
-	OverlappingPaperGolfPawn.Reset();
+	// Do not reset the overlapping pawn as sometimes the end overlap triggers prematurely and then it will trigger again and we want to be able to test the overlap condition
+	// Only reset the overlapping pawn if the condition succeeds
 
 	if (auto World = GetWorld(); OverlapTimerHandle.IsValid() && World)
 	{

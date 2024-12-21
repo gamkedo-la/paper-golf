@@ -45,6 +45,8 @@ private:
 	bool CheckOverlapCondition(bool bDeferTrigger = false);
 
 	void ClearTimer();
+	void ClearAll();
+
 	void StartTimer();
 
 private:
