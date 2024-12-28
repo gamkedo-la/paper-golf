@@ -192,6 +192,15 @@ protected:
 
 private:
 
+	struct FGroundTraceParams
+	{
+		FVector Location; 
+		FVector ActorUpVector;
+		FBox Bounds;
+	};
+
+	TOptional<FVector> GetGroundLocation(const FGroundTraceParams& Params) const;
+
 	bool ShouldReplicateComponent(const UActorComponent* ComponentToReplicate) const;
 
 	void InitDebugDraw();

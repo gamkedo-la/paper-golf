@@ -275,30 +275,20 @@ void APaperGolfPawn::SnapToGround(bool bAdjustForClearance)
 		return;
 	}
 
-	FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(this);
-
 	const auto& TraceStart = GetPaperGolfPosition();
-
-	FHitResult HitResult;
 	
 	const auto& Bounds = _PaperGolfMesh ? PG::CollisionUtils::GetAABB(*_PaperGolfMesh) : PG::CollisionUtils::GetAABB(*this);
 	const auto& ActorUpVector = GetActorUpVector();
 
-	const auto& BoundsExtent = Bounds.GetExtent();
-	const auto UpExtent = BoundsExtent * ActorUpVector;
+	const auto GroundLocationOptional = GetGroundLocation(
+		{ 
+			.Location = TraceStart,
+			.ActorUpVector = ActorUpVector,
+			.Bounds = Bounds 
+		}
+	);
 
-	const auto StartLocation = TraceStart + UpExtent;
-	const auto EndLocation = TraceStart - 2000 * ActorUpVector;
-
-	UE_VLOG_SEGMENT_THICK(this, LogPGPawn, Log, StartLocation, EndLocation, FColor::Yellow, 10.0, TEXT("GroundTrace"));
-
-	if (!World->LineTraceSingleByChannel(
-		HitResult,
-		StartLocation,
-		EndLocation,
-		PG::CollisionChannel::FlickTraceType,
-		QueryParams))
+	if (!GroundLocationOptional)
 	{
 		UE_VLOG_UELOG(this,
 			LogPGPawn,
@@ -310,7 +300,7 @@ void APaperGolfPawn::SnapToGround(bool bAdjustForClearance)
 		return;
 	}
 
-	const auto& Location = HitResult.Location;
+	const auto& Location = *GroundLocationOptional;
 
 	SetActorLocation(Location);
 
@@ -322,6 +312,37 @@ void APaperGolfPawn::SnapToGround(bool bAdjustForClearance)
 		FColor::Green,
 		TEXT("SnapToGround")
 	);
+}
+
+TOptional<FVector> APaperGolfPawn::GetGroundLocation(const FGroundTraceParams& Params) const
+{
+	auto World = GetWorld();
+	check(World);
+
+	const auto& BoundsExtent = Params.Bounds.GetExtent();
+	const auto UpExtent = BoundsExtent * Params.ActorUpVector;
+
+	const auto StartLocation = Params.Location + UpExtent;
+	const auto EndLocation = Params.Location - 2000 * Params.ActorUpVector;
+
+	UE_VLOG_SEGMENT_THICK(this, LogPGPawn, Log, StartLocation, EndLocation, FColor::Yellow, 10.0, TEXT("GroundTrace"));
+
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+
+	FHitResult HitResult;
+
+	if (!World->LineTraceSingleByChannel(
+		HitResult,
+		StartLocation,
+		EndLocation,
+		PG::CollisionChannel::FlickTraceType,
+		QueryParams))
+	{
+		return {};
+	}
+
+	return { HitResult.Location };
 }
 
 void APaperGolfPawn::ResetRotation()
