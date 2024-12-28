@@ -192,6 +192,12 @@ protected:
 
 private:
 
+	void InitContactPoints();
+
+	using GroundPositionArray = TArray<FVector, TInlineAllocator<8>>;
+
+	void PopulateGroundPositions(GroundPositionArray& Positions) const;
+
 	struct FGroundTraceParams
 	{
 		FVector Location; 
@@ -315,6 +321,11 @@ private:
 
 	float Mass{};
 	float Width{};
+
+	// Additional relative locations to the paper golf mesh to test for ground collision other than the component location of the mesh
+	// which is the center point
+	TArray<FVector> ContactPoints{};
+
 	bool bReadyForShot{};
 
 	/*

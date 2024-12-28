@@ -34,6 +34,8 @@
 #include "Logging/LoggingUtils.h"
 #include "Utils/StringUtils.h"
 #include "Utils/ObjectUtils.h"
+
+#include "Utils/ArrayUtils.h"
 #include "Utils/CollisionUtils.h"
 
 #include "Utils/VisualLoggerUtils.h"
@@ -61,6 +63,7 @@ namespace
 	// TODO: Move into separate constants namespace exported if needed outside this class
 	const FName BottomSocketName = TEXT("Bottom");
 	const FName FlickSocketName = TEXT("Flick");
+	const FName ComponentContactPointTagName = TEXT("ContactPoint");
 }
 
 APaperGolfPawn::APaperGolfPawn()
@@ -280,13 +283,26 @@ void APaperGolfPawn::SnapToGround(bool bAdjustForClearance)
 	const auto& Bounds = _PaperGolfMesh ? PG::CollisionUtils::GetAABB(*_PaperGolfMesh) : PG::CollisionUtils::GetAABB(*this);
 	const auto& ActorUpVector = GetActorUpVector();
 
-	const auto GroundLocationOptional = GetGroundLocation(
-		{ 
-			.Location = TraceStart,
-			.ActorUpVector = ActorUpVector,
-			.Bounds = Bounds 
+	const auto& BoundsExtent = Bounds.GetExtent();
+	const auto ZAdjustThreshold = FMath::Max3(BoundsExtent.X, BoundsExtent.Y, BoundsExtent.Z);
+
+	TArray<FVector, TInlineAllocator<8>> GroundTestLocations;
+	PopulateGroundPositions(GroundTestLocations);
+
+	TOptional<FVector> GroundLocationOptional;
+	for (const auto& GroundTestStart : GroundTestLocations)
+	{
+		if (const auto GroundTestLocationOptional = GetGroundLocation(
+			{ .Location = GroundTestStart, .ActorUpVector = ActorUpVector, .Bounds = Bounds }
+		); GroundTestLocationOptional)
+		{
+			// If we find a higher position that is above the adjust threshold (half size of the paper football since first point is the center)
+			if (!GroundLocationOptional || GroundTestLocationOptional->Z - GroundLocationOptional->Z > ZAdjustThreshold)
+			{
+				GroundLocationOptional = GroundTestLocationOptional;
+			}
 		}
-	);
+	}
 
 	if (!GroundLocationOptional)
 	{
@@ -312,6 +328,30 @@ void APaperGolfPawn::SnapToGround(bool bAdjustForClearance)
 		FColor::Green,
 		TEXT("SnapToGround")
 	);
+}
+
+void APaperGolfPawn::PopulateGroundPositions(GroundPositionArray& Positions) const
+{
+	const auto& TraceStart = GetPaperGolfPosition();
+
+	Positions.Reserve(ContactPoints.Num() + 1);
+	// Need to convert to world space and rotate the original points
+	// Note they are relative to the paper golf mesh
+	// Trace start is the mesh world location and is at the center of the mesh
+	Positions.Add(TraceStart);
+
+	// Only do the contact points if we have the paper golf mesh
+	if (!_PaperGolfMesh)
+	{
+		return;
+	}
+
+	const auto& MeshTransform = _PaperGolfMesh->GetComponentTransform();
+
+	for (const auto& ContactPoint : ContactPoints)
+	{
+		Positions.Add(MeshTransform.TransformPosition(ContactPoint));
+	}
 }
 
 TOptional<FVector> APaperGolfPawn::GetGroundLocation(const FGroundTraceParams& Params) const
@@ -1142,6 +1182,27 @@ void APaperGolfPawn::PostInitializeComponents()
 
 		Mass = CalculateMass();
 	}
+
+	InitContactPoints();
+}
+
+void APaperGolfPawn::InitContactPoints()
+{
+	// Find all components by tag
+	const auto ContactPointSceneComponents = GetComponentsByTag(USceneComponent::StaticClass(), ComponentContactPointTagName);
+
+	ContactPoints.Reset(ContactPointSceneComponents.Num());
+
+	for (const auto Component : ContactPointSceneComponents)
+	{
+		if (const auto SceneComponent = Cast<USceneComponent>(Component); SceneComponent)
+		{
+			ContactPoints.Add(SceneComponent->GetRelativeLocation());
+		}
+	}
+
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: InitContactPoints: %d -> [%s]"), *GetName(), ContactPoints.Num(),
+		*PG::ToString(ContactPoints, [](const auto& Point) { return Point.ToCompactString();}));
 }
 
 float APaperGolfPawn::GetFlickMaxForce(EShotType ShotType) const
