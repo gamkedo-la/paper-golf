@@ -64,6 +64,7 @@ namespace
 	const FName BottomSocketName = TEXT("Bottom");
 	const FName FlickSocketName = TEXT("Flick");
 	const FName ComponentContactPointTagName = TEXT("ContactPoint");
+	const FName ComponentFlickPointTagName = TEXT("FlickPoint");
 }
 
 APaperGolfPawn::APaperGolfPawn()
@@ -250,7 +251,7 @@ void APaperGolfPawn::OnRep_FocusActor()
 	ResetCameraForShotSetup();
 }
 
-void APaperGolfPawn::SnapToGround(bool bAdjustForClearance)
+void APaperGolfPawn::SnapToGround(bool bAdjustForClearance, bool bOnlyGroundTestFlickLocation)
 {
 	// Can only do this on server
 	if (!ensure(HasAuthority()))
@@ -287,7 +288,7 @@ void APaperGolfPawn::SnapToGround(bool bAdjustForClearance)
 	const auto ZAdjustThreshold = FMath::Max3(BoundsExtent.X, BoundsExtent.Y, BoundsExtent.Z);
 
 	TArray<FVector, TInlineAllocator<8>> GroundTestLocations;
-	PopulateGroundPositions(GroundTestLocations);
+	PopulateGroundPositions(GroundTestLocations, bOnlyGroundTestFlickLocation);
 
 	TOptional<FVector> GroundLocationOptional;
 	for (const auto& GroundTestStart : GroundTestLocations)
@@ -330,27 +331,42 @@ void APaperGolfPawn::SnapToGround(bool bAdjustForClearance)
 	);
 }
 
-void APaperGolfPawn::PopulateGroundPositions(GroundPositionArray& Positions) const
+void APaperGolfPawn::PopulateGroundPositions(GroundPositionArray& Positions, bool bOnlyGroundTestFlickLocation) const
 {
-	const auto& TraceStart = GetPaperGolfPosition();
-
-	Positions.Reserve(ContactPoints.Num() + 1);
-	// Need to convert to world space and rotate the original points
-	// Note they are relative to the paper golf mesh
-	// Trace start is the mesh world location and is at the center of the mesh
-	Positions.Add(TraceStart);
-
-	// Only do the contact points if we have the paper golf mesh
-	if (!_PaperGolfMesh)
+	if (bOnlyGroundTestFlickLocation)
 	{
-		return;
+		if (_PaperGolfMesh && FlickContactPoint)
+		{
+			const auto& MeshTransform = _PaperGolfMesh->GetComponentTransform();
+			Positions.Add(MeshTransform.TransformPosition(*FlickContactPoint));
+		}
+		else
+		{
+			Positions.Add(GetPaperGolfPosition());
+		}
 	}
-
-	const auto& MeshTransform = _PaperGolfMesh->GetComponentTransform();
-
-	for (const auto& ContactPoint : ContactPoints)
+	else
 	{
-		Positions.Add(MeshTransform.TransformPosition(ContactPoint));
+		const auto& TraceStart = GetPaperGolfPosition();
+
+		Positions.Reserve(ContactPoints.Num() + 1);
+		// Need to convert to world space and rotate the original points
+		// Note they are relative to the paper golf mesh
+		// Trace start is the mesh world location and is at the center of the mesh
+		Positions.Add(TraceStart);
+
+		// Only do the contact points if we have the paper golf mesh
+		if (!_PaperGolfMesh)
+		{
+			return;
+		}
+
+		const auto& MeshTransform = _PaperGolfMesh->GetComponentTransform();
+
+		for (const auto& ContactPoint : ContactPoints)
+		{
+			Positions.Add(MeshTransform.TransformPosition(ContactPoint));
+		}
 	}
 }
 
@@ -1201,8 +1217,15 @@ void APaperGolfPawn::InitContactPoints()
 		}
 	}
 
-	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: InitContactPoints: %d -> [%s]"), *GetName(), ContactPoints.Num(),
-		*PG::ToString(ContactPoints, [](const auto& Point) { return Point.ToCompactString();}));
+	if (const auto FlickContactPointComponent =
+		FindComponentByTag<USceneComponent>(ComponentFlickPointTagName); FlickContactPointComponent)
+	{
+		FlickContactPoint = FlickContactPointComponent->GetRelativeLocation();
+	}
+
+	UE_VLOG_UELOG(this, LogPGPawn, Log, TEXT("%s: InitContactPoints: %d -> [%s]; FlickContactPoint=%s"), *GetName(), ContactPoints.Num(),
+		*PG::ToString(ContactPoints, [](const auto& Point) { return Point.ToCompactString();}),
+		*PG::StringUtils::ToString(FlickContactPoint));
 }
 
 float APaperGolfPawn::GetFlickMaxForce(EShotType ShotType) const

@@ -69,7 +69,7 @@ public:
 	float GetRotationYawToFocusActor(AActor* InFocusActor, const TOptional<FVector>& LocationOverride = {}) const;
 
 	UFUNCTION(BlueprintCallable)
-	void SnapToGround(bool bAdjustForClearance = false);
+	void SnapToGround(bool bAdjustForClearance = false, bool bOnlyGroundTestFlickLocation = true);
 
 	UFUNCTION(BlueprintCallable)
 	void ResetRotation();
@@ -196,7 +196,7 @@ private:
 
 	using GroundPositionArray = TArray<FVector, TInlineAllocator<8>>;
 
-	void PopulateGroundPositions(GroundPositionArray& Positions) const;
+	void PopulateGroundPositions(GroundPositionArray& Positions, bool bOnlyGroundTestFlickLocation) const;
 
 	struct FGroundTraceParams
 	{
@@ -325,6 +325,7 @@ private:
 	// Additional relative locations to the paper golf mesh to test for ground collision other than the component location of the mesh
 	// which is the center point
 	TArray<FVector> ContactPoints{};
+	TOptional<FVector> FlickContactPoint{};
 
 	bool bReadyForShot{};
 

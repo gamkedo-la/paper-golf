@@ -487,6 +487,9 @@ void UGolfControllerCommonComponent::ResetShot()
 
 	if (GetOwner()->HasAuthority())
 	{
+		// Do not want to do clearance testing prior to the aim focus being set and rotation being set but want to test
+		// snap to ground with respect to resting location
+		PaperGolfPawn->SnapToGround(false, false);
 		PaperGolfPawn->ResetRotation();
 	}
 }
