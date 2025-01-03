@@ -906,7 +906,57 @@ UGolfAIShotComponent::FShotCalculationResult UGolfAIShotComponent::CalculateAvoi
 	const auto& ActorUpVector = PlayerPawn->GetActorUpVector();
 
 	const FRotator AdditionalActorRotation = { 0, PG::MathUtils::ClampDeltaYaw(PlayerPawn->GetRotationYawToFocusActor(FocusActor) - InitialFocusYaw), 0 };
-	const auto& DefaultFlickDirection = PlayerPawn->GetFlickDirection().RotateAngleAxis(AdditionalRotationYaw, ActorUpVector);
+	const auto& OriginalFlickDirection = PlayerPawn->GetFlickDirection();
+	const auto& DefaultFlickDirection = OriginalFlickDirection.RotateAngleAxis(AdditionalRotationYaw, ActorUpVector);
+
+	auto GetPreferredYawDirection = [&, PreferredDirectionOptional = TOptional<FVector>{}]() mutable
+	{
+		if (PreferredDirectionOptional.IsSet())
+		{
+			return PreferredDirectionOptional.GetValue();
+		}
+		// Calculate the average direction to all the focus actors in front of us
+		FVector Direction{ EForceInit::ForceInitToZero };
+		const auto HoleDirection = (GolfHole->GetActorLocation() - FlickLocation).GetSafeNormal();
+
+#if ENABLE_VISUAL_LOG || !NO_LOGGING
+		TArray<AActor*, TInlineAllocator<8>> RelevantFocusActors;
+#endif
+
+		bool bAddedDirection{};
+		for (const auto& FocusActorScore : ShotContext.FocusActorScores)
+		{
+			const auto FocusActor = FocusActorScore.FocusActor;
+			if (!FocusActor || FocusActor == GolfHole)
+			{
+				continue;
+			}
+
+			auto ToFocusActor = FocusActor->GetActorLocation() - FlickLocation;
+			if ((ToFocusActor | HoleDirection) > 0)
+			{
+#if ENABLE_VISUAL_LOG || !NO_LOGGING
+				RelevantFocusActors.Add(FocusActor);
+#endif
+				Direction += ToFocusActor.GetSafeNormal();
+				bAddedDirection = true;
+			}
+		}
+
+		// Add the hole direction if there are no other options
+		if (!bAddedDirection)
+		{
+			Direction += HoleDirection;
+		}
+
+		PreferredDirectionOptional = Direction.GetSafeNormal();
+
+		UE_VLOG_ARROW(GetOwner(), LogPGAI, Log, FlickLocation, FlickLocation + Direction * 100.0f, FColor::Emerald, TEXT("PreferredYawDirection"));
+		UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: CalculateShotFactors - PreferredYawDirection=%s; Relevant focus actors=[%s]"),
+			*LoggingUtils::GetName(GetOwner()), *GetName(), *PreferredDirectionOptional->ToCompactString(), *PG::ToStringObjectElements(RelevantFocusActors));
+
+		return *PreferredDirectionOptional;
+	};
 
 	const auto& HoleDirection = (GolfHole->GetActorLocation() - FlickLocation).GetSafeNormal();
 
@@ -946,9 +996,9 @@ UGolfAIShotComponent::FShotCalculationResult UGolfAIShotComponent::CalculateAvoi
 			const auto NegativeRotation = DefaultFlickDirection.RotateAngleAxis(-YawRetryDelta, ActorUpVector);
 			CalculatedDirections.Add(NegativeRotation);
 
-			// TODO: May want to align best with focus actors that are in front of us
-			const auto PositiveDot = PositiveRotation | HoleDirection;
-			const auto NegativeDot = NegativeRotation | HoleDirection;
+			const auto& PreferredYawDirection = GetPreferredYawDirection();
+			const auto PositiveDot = PositiveRotation | PreferredYawDirection;
+			const auto NegativeDot = NegativeRotation | PreferredYawDirection;
 
 			PreferredDirection = PositiveDot >= NegativeDot ? 1 : -1;
 
