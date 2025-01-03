@@ -946,6 +946,7 @@ UGolfAIShotComponent::FShotCalculationResult UGolfAIShotComponent::CalculateAvoi
 			const auto NegativeRotation = DefaultFlickDirection.RotateAngleAxis(-YawRetryDelta, ActorUpVector);
 			CalculatedDirections.Add(NegativeRotation);
 
+			// TODO: May want to align best with focus actors that are in front of us
 			const auto PositiveDot = PositiveRotation | HoleDirection;
 			const auto NegativeDot = NegativeRotation | HoleDirection;
 
