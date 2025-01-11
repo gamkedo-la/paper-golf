@@ -79,6 +79,9 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category = "Cinematics")
 	void PlayHoleFlybySequence(ULevelSequence* LevelSequence, bool bFadeCamera = false);
 
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category = "Cinematics")
+	void SkipHoleFlybySequence();
+
 	void SpectatePlayer(int32 PlayerStateId);
 	void BeginSpectatorShot(int32 PlayerStateId);
 

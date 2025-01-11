@@ -472,7 +472,7 @@ bool AGolfPlayerController::IsSpectatingShotSetup() const
 
 bool AGolfPlayerController::IsInCinematicSequence() const
 {
-	return CameraIntroductionInProgress() || HoleflyInProgress();
+	return CameraIntroductionInProgress() || HoleflybyInProgress();
 }
 
 void AGolfPlayerController::ResetCameraRotation()
@@ -1022,7 +1022,6 @@ void AGolfPlayerController::TriggerHoleFlyby(const AGolfHole& GolfHole)
 	const auto& HoleFlybySoftReference = GolfHole.GetHoleFlybySequence();
 	if (HoleFlybySoftReference.IsNull())
 	{
-		// TODO: Upgrade to warning once we have this fully implemented
 		UE_VLOG_UELOG(this, LogPGPlayer, Log, TEXT("%s: TriggerHoleFlyby - HoleFlybySequence isn't set for GolfHole=%s - skipping"), *GetName(), *GolfHole.GetName());
 		OnHoleFlybySequenceComplete();
 		return;
@@ -1072,7 +1071,6 @@ void AGolfPlayerController::OnHoleFlybySequenceComplete()
 	{
 		PlayerPawn->SetActorHiddenInGameNoRep(false);
 	}
-
 
 	// This will transition PreTurnState out of HoleFlybyPlaying
 	// This can get called multiple times if the sequence is skipped
@@ -1673,6 +1671,11 @@ void AGolfPlayerController::SkipHoleFlybyAndCameraIntroduction()
 	MarkFirstPlayerTurnReady();
 
 	SnapCameraBackToPlayer();
+
+	if (auto HUD = GetHUD<APGHUD>(); HUD)
+	{
+		HUD->SkipHoleFlybySequence();
+	}
 }
 
 void AGolfPlayerController::SnapCameraBackToPlayer()

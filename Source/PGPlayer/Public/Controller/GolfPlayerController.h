@@ -294,7 +294,9 @@ private:
 	void ResetCoursePreviewTrackingState();
 
 	bool CameraIntroductionInProgress() const;
-	bool HoleflyInProgress() const;
+
+	UFUNCTION(BlueprintPure)
+	bool HoleflybyInProgress() const;
 
 	void OnHandleSpectatorShot(AGolfPlayerState* InPlayerState, APaperGolfPawn* InPawn);
 
@@ -463,7 +465,7 @@ FORCEINLINE bool AGolfPlayerController::CameraIntroductionInProgress() const
 	return PreTurnState == EPlayerPreTurnState::CameraIntroductionRequested || PreTurnState == EPlayerPreTurnState::CameraIntroductionPlaying;
 }
 
-FORCEINLINE bool AGolfPlayerController::HoleflyInProgress() const
+FORCEINLINE bool AGolfPlayerController::HoleflybyInProgress() const
 {
 	return PreTurnState == EPlayerPreTurnState::HoleFlybyPlaying;
 }
