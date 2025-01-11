@@ -55,6 +55,16 @@ void UTutorialAction::Execute()
 void UTutorialAction::Abort()
 {
 	UE_VLOG_UELOG(GetOuter(), LogPGUI, Log, TEXT("%s: Aborted"), *GetName());
+
+	// Check that world is valid and we are not shutting down as the cleanup activities will be
+	// unnecessary in that case
+	auto World = GetWorld();
+
+	if (!IsValid(World) || World->bIsTearingDown)
+	{
+		UE_VLOG_UELOG(GetOuter(), LogPGUI, Log, TEXT("%s: Abort - Skipped as world is shutting down"), *GetName());
+		return;
+	}
 	
 	UnregisterInputBindings();
 
@@ -62,13 +72,11 @@ void UTutorialAction::Abort()
 	{
 		return;
 	}
-
-	if (auto World = GetWorld(); MessageTimerHandle.IsValid() && World)
-	{
-		World->GetTimerManager().ClearTimer(MessageTimerHandle);
-	}
+	
+	World->GetTimerManager().ClearTimer(MessageTimerHandle);
 
 	// TODO: This may dismiss the wrong message if another message replaced this one
+	// This could be fixed with message handles and pass in the handle to remove and only remove it if active one
 	if (auto HUD = GetHUD(); HUD)
 	{
 		HUD->RemoveActiveMessageWidget();
@@ -209,7 +217,7 @@ void UTutorialAction::UnregisterInputBindings()
 {
 	UE_VLOG_UELOG(GetOuter(), LogPGUI, Log, TEXT("%s: UnregisterInputBindings"), *GetName());
 
-	if (auto InputComponent = GetInputComponent(); SkipTutorialBindingHandle > 0 && InputComponent)
+	if (auto InputComponent = GetInputComponent(); SkipTutorialBindingHandle > 0 && IsValid(InputComponent))
 	{
 		InputComponent->RemoveBindingByHandle(SkipTutorialBindingHandle);
 		SkipTutorialBindingHandle = 0;
