@@ -95,6 +95,29 @@ void PG::VisualLoggerUtils::StartAutomaticRecording(const UObject* Context)
 #endif
 }
 
+void PG::VisualLoggerUtils::RecheckAutomaticRecording(const UObject* Context)
+{
+#if PG_DEBUG_ENABLED
+
+	check(Context);
+	check(IsInGameThread());
+
+	const bool bShouldBeRecording = CAutomaticVisualLoggerRecording.GetValueOnGameThread();
+	if (!bShouldBeRecording && bStartedAutomaticVisualLoggerRecording)
+	{
+		const auto ExistingContext = RecordingContext.Get();
+
+		if (Context == ExistingContext)
+		{
+			UE_VLOG_UELOG(Context, LogPGCore, Log, TEXT("RecheckAutomaticRecording - autorecord changed to false - Context=%s"),
+				*LoggingUtils::GetName(Context));
+
+			StopAutomaticRecording(Context);
+		}
+	}
+#endif
+}
+
 void PG::VisualLoggerUtils::StopAutomaticRecording(const UObject* Context)
 {
 #if PG_DEBUG_ENABLED

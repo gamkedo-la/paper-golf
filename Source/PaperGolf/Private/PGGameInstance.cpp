@@ -3,6 +3,8 @@
 
 #include "PGGameInstance.h"
 
+#include "PGConstants.h"
+
 #include "PaperGolfLogging.h"
 #include "Logging/LoggingUtils.h"
 #include "Utils/VisualLoggerUtils.h"
@@ -28,7 +30,6 @@
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PGGameInstance)
 
-
 namespace
 {
 	constexpr int32 BuildUniqueId = -1443884023;
@@ -38,8 +39,20 @@ void UPGGameInstance::Init()
 {
 
 // start single session recording when not in editor mode - in shipping builds this will be a no-op so only applies to development builds
-#if !WITH_EDITOR
-	PG::VisualLoggerUtils::StartAutomaticRecording(this);
+#if PG_DEBUG_ENABLED
+	if (!GIsEditor)
+	{
+		PG::VisualLoggerUtils::StartAutomaticRecording(this);
+
+		// There is a race condition with starting the game instance
+		// and reading the console variables passed on the command line via "-ExecCmds=" so we need to recheck here
+		// if automatic visual logging was really intended
+		FTimerHandle TimerHandle;
+		GetTimerManager().SetTimer(TimerHandle,FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			PG::VisualLoggerUtils::RecheckAutomaticRecording(this);
+		}), 0.05f, false);
+	}
 #endif
 
 	UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: Init"), *GetName());
@@ -57,8 +70,8 @@ void UPGGameInstance::Shutdown()
 	Super::Shutdown();
 
 	// start single session recording when not in editor mode - in shipping builds this will be a no-op so only applies to development builds
-#if !WITH_EDITOR
-	PG::VisualLoggerUtils::StopAutomaticRecording(this);
+#if PG_DEBUG_ENABLED
+	if (!GIsEditor) PG::VisualLoggerUtils::StopAutomaticRecording(this);
 #endif
 }
 
