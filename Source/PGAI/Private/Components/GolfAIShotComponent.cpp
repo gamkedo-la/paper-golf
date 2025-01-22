@@ -74,6 +74,8 @@ UGolfAIShotComponent::UGolfAIShotComponent()
 
 FAIShotSetupResult UGolfAIShotComponent::SetupShot(FAIShotContext&& InShotContext)
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("UGolfAIShotComponent::SetupShot");
+
 	UE_VLOG_UELOG(GetOwner(), LogPGAI, Log, TEXT("%s-%s: SetupShot - ShotContext=%s"),
 		*LoggingUtils::GetName(GetOwner()), *GetName(), *InShotContext.ToString());
 
@@ -896,6 +898,8 @@ float UGolfAIShotComponent::CalculateDefaultZOffset() const
 }
 UGolfAIShotComponent::FShotCalculationResult UGolfAIShotComponent::CalculateAvoidanceShotFactors(const FVector& FlickLocation, float PreferredPitchAngle, float FlickMaxSpeed, float PowerFraction) const
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("UGolfAIShotComponent::CalculateAvoidanceShotFactors");
+
 	const auto PlayerPawn = ShotContext.PlayerPawn;
 	check(PlayerPawn);
 
@@ -1031,6 +1035,8 @@ UGolfAIShotComponent::FShotCalculationResult UGolfAIShotComponent::CalculateAvoi
 
 TTuple<bool, float> UGolfAIShotComponent::CalculateShotPitch(const FVector& FlickLocation, const FVector& FlickDirection, float FlickSpeed) const
 {
+	TRACE_CPUPROFILER_EVENT_SCOPE_STR("UGolfAIShotComponent::CalculateShotPitch");
+
 	static_assert(ShotPitchAngles.size() > 0, "ShotPitchAngles must have at least one element");
 
 	if constexpr(ShotPitchAngles.size() == 1)
