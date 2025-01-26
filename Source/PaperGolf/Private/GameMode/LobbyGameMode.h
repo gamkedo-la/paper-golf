@@ -9,6 +9,8 @@
 
 #include "LobbyGameMode.generated.h"
 
+class APaperGolfLobbyGameState;
+
 /**
  * 
  */
@@ -42,16 +44,13 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Game Session Config")
 	TObjectPtr<UGameSessionConfig> GameSessionConfig{};
 
-	bool bCanStartMatch{};
+	UPROPERTY(Transient)
+	TObjectPtr<APaperGolfLobbyGameState> LobbyGameState{};
+
 	bool bMatchStarted{};
 };
 
 #pragma region Inline Definitions
 
-
-FORCEINLINE bool ALobbyGameMode::CanStartMatch() const
-{
-	return !bMatchStarted && bCanStartMatch;
-}
 
 #pragma endregion Inline Definitions

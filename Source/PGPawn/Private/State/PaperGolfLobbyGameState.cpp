@@ -20,16 +20,19 @@ void APaperGolfLobbyGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 	DOREPLIFETIME(APaperGolfLobbyGameState, MapName);
 	DOREPLIFETIME(APaperGolfLobbyGameState, MinPlayers);
 	DOREPLIFETIME(APaperGolfLobbyGameState, MaxPlayers);
+	DOREPLIFETIME(APaperGolfLobbyGameState, bAllowBots);
 }
 
-void APaperGolfLobbyGameState::Initialize(const FString& InGameModeName, const FString& InMapName, int32 InMinPlayers, int32 InMaxPlayers)
+void APaperGolfLobbyGameState::Initialize(const FString& InGameModeName, const FString& InMapName, int32 InMinPlayers, int32 InMaxPlayers, bool bInAllowBots)
 {
-	UE_VLOG_UELOG(this, LogPGPawn, Display, TEXT("%s: Initialize - GameModeName=%s; InMapName=%s; MinPlayers=%d; MaxPlayers=%d"), *GetName(), *InGameModeName, *InMapName, InMinPlayers, InMaxPlayers);
+	UE_VLOG_UELOG(this, LogPGPawn, Display, TEXT("%s: Initialize - GameModeName=%s; InMapName=%s; MinPlayers=%d; MaxPlayers=%d; bAllowBots=%s"),
+		*GetName(), *InGameModeName, *InMapName, InMinPlayers, InMaxPlayers, LoggingUtils::GetBoolString(bInAllowBots));
 
 	GameModeName = InGameModeName;
 	MapName = InMapName;
 	MinPlayers = InMinPlayers;
 	MaxPlayers = InMaxPlayers;
+	bAllowBots = bInAllowBots;
 
 	bInitialized = true;
 }
@@ -54,5 +57,32 @@ void APaperGolfLobbyGameState::RemovePlayerState(APlayerState* PlayerState)
 
 bool APaperGolfLobbyGameState::IsGameEligibleToStart() const
 {
-	return PlayerArray.Num() >= MinPlayers;
+	const auto NumPlayers = PlayerArray.Num();
+
+	if (NumPlayers == 0)
+	{
+		return false;
+	}
+
+	// Human player condition reached - return true
+	if (NumPlayers >= MinPlayers)
+	{
+		return true;
+	}
+
+	// If there are fewer than the minimum number of players but at least 1
+	// and bots are allowed then the game is also eligble to start after configured elasped time
+
+	if (!bAllowBots)
+	{
+		return false;
+	}
+
+	auto World = GetWorld();
+	if (!ensure(World))
+	{
+		return false;
+	}
+
+	return World->GetTimeSeconds() >= MinElapsedTimeStartWithBots;
 }

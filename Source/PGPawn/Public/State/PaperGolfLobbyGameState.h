@@ -20,7 +20,7 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	void Initialize(const FString& InGameModeName, const FString& InMapName, int32 InMinPlayers, int32 InMaxPlayers);
+	void Initialize(const FString& InGameModeName, const FString& InMapName, int32 InMinPlayers, int32 InMaxPlayers, bool bAllowBots);
 
 	virtual void AddPlayerState(APlayerState* PlayerState) override;
 	virtual void RemovePlayerState(APlayerState* PlayerState) override;
@@ -43,12 +43,21 @@ public:
 	UFUNCTION(BlueprintPure)
 	bool IsGameEligibleToStart() const;
 
+	UFUNCTION(BlueprintPure)
+	bool DoesAllowBots() const { return bAllowBots; }
+
+	UFUNCTION(BlueprintPure)
+	float GetMinElapsedTimeStartWithBots() const { return MinElapsedTimeStartWithBots; }
+
 	UPROPERTY(Category = "Notification", Transient, BlueprintAssignable)
 	FOnPlayerStatesUpdated OnPlayerStatesUpdated{};
 
 private:
 	UPROPERTY(Transient, Replicated)
 	FString GameModeName{};
+
+	UPROPERTY(EditDefaultsOnly, Category = "Start Conditions")
+	float MinElapsedTimeStartWithBots{ 30.0f };
 
 	UPROPERTY(Transient, Replicated)
 	FString MapName{};
@@ -60,4 +69,7 @@ private:
 	int32 MaxPlayers{};
 
 	bool bInitialized{};
+
+	UPROPERTY(Transient, Replicated)
+	bool bAllowBots{};
 };

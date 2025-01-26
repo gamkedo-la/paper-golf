@@ -73,7 +73,7 @@ void ALobbyGameMode::InitGameState()
 		return;
 	}
 
-	auto LobbyGameState = GetGameState<APaperGolfLobbyGameState>();
+	LobbyGameState = GetGameState<APaperGolfLobbyGameState>();
 	if (!ensureMsgf(LobbyGameState, TEXT("%s: GameState=%s is not APaperGolfLobbyGameState"), *GetName(), *LoggingUtils::GetName(GameState)))
 	{
 		return;
@@ -99,8 +99,14 @@ void ALobbyGameMode::InitGameState()
 		FoundMatchTypeInfo.Name,
 		Subsystem->GetDesiredMap(),
 		FoundMatchTypeInfo.MinPlayers,
-		Subsystem->GetDesiredNumPublicConnections()
+		Subsystem->GetDesiredNumPublicConnections(),
+		Subsystem->AllowBots()
 	);
+}
+
+bool ALobbyGameMode::CanStartMatch() const
+{
+	return !bMatchStarted && LobbyGameState && LobbyGameState->IsGameEligibleToStart();
 }
 
 bool ALobbyGameMode::HostStartMatch()
@@ -170,7 +176,7 @@ int32 ALobbyGameMode::GetNumBots() const
 	auto Subsystem = GetMultiplayerSessionsSubsystem();
 	if (!Subsystem)
 	{
-		UE_VLOG_UELOG(this, LogPaperGolfGame, Log, TEXT("%s: GetNumBots - 0 - Subsystem is null"), *GetName());
+		UE_VLOG_UELOG(this, LogPaperGolfGame, Warning, TEXT("%s: GetNumBots - 0 - Subsystem is null"), *GetName());
 		return 0;
 	}
 
@@ -181,10 +187,9 @@ int32 ALobbyGameMode::GetNumBots() const
 	}
 
 	// Number of bots is max players - current players
-	// GetNumPlayers() does not follow const-correctness
+	// GetNumPlayers() from AGameModeBase does not follow const-correctness
 	const auto CurrentNumberOfPlayers = const_cast<ALobbyGameMode*>(this)->GetNumPlayers();
 
-	const auto LobbyGameState = GetGameState<APaperGolfLobbyGameState>();
 	if (!LobbyGameState)
 	{
 		// Already logged this as error elsewhere
@@ -208,19 +213,12 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 
 	const auto NumberOfPlayers = GetNumPlayers();
 
-	auto LobbyGameState = GetGameState<APaperGolfLobbyGameState>();
 	if (!LobbyGameState)
 	{
 		UE_VLOG_UELOG(this, LogPaperGolfGame, Error, TEXT("%s: GameState=%s is not APaperGolfLobbyGameState"), *GetName(), *LoggingUtils::GetName(GameState));
 		return;
 	}
 
-	// TODO: When adding bot options to the multiplayer menu, this could be updated to take that into account
-	// May want to allow the game to start with only bots and then maybe players join later or maybe criteria is the same with MinPlayers configured from the game mode properties
-	// but when starting the game with HostStartGame with fewer than max players then ?numBots is passed to the server travel url
-	// The easiest option is to add a checkbox to the Multiplayer menu on whether allow bots or nots. If bots are allowed then the number of bots to use is just 
-	// MaxPlayers - NumberOfPlayers.  The bot option can be read on the "Options" parameter on InitGame
-	bCanStartMatch = LobbyGameState->IsGameEligibleToStart();
 
 #if !UE_BUILD_SHIPPING
 	if (GEngine)
