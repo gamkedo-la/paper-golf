@@ -56,8 +56,12 @@ void UMultiplayerSessionsSubsystem::Configure(const FSessionsConfiguration& InCo
 
 	const bool bDestroyPreviousSubsystem = InConfiguration.bClearAllState || DesiredSubsystem != LastSubsystemName;
 
+
+	// Be sure we first close any previous sessions that may still be open
+	ForceDestroyExistingSession();
+
 	// If we are switching subsystems based on LAN flag or need to completely clear out any previous partial state then we need to deinitialize the current subsystem
-	if (bDestroyPreviousSubsystem && OnlineSessionInterface.IsValid())
+	if (bDestroyPreviousSubsystem)
 	{
 		DestroyOnlineSubsystem();
 	}
@@ -96,13 +100,13 @@ void UMultiplayerSessionsSubsystem::Deinitialize()
 
 void UMultiplayerSessionsSubsystem::DestroyOnlineSubsystem()
 {
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: DestroyOnlineSubsystem=%s; OnlineSessionInterface valid = %s"),
+		*GetName(), *LastSubsystemName.ToString(), OnlineSessionInterface.IsValid() ? TEXT("TRUE") : TEXT("FALSE"));
+
 	if (!OnlineSessionInterface.IsValid() && LastSubsystemName.IsNone())
 	{
 		return;
 	}
-
-	UE_VLOG_UELOG(this, LogMultiplayerSessions, Display, TEXT("%s: DestroyOnlineSubsystem=%s; OnlineSessionInterface valid = %s"),
-		*GetName(), *LastSubsystemName.ToString(), OnlineSessionInterface.IsValid() ? TEXT("TRUE") : TEXT("FALSE"));
 
 	if (OnlineSessionInterface.IsValid())
 	{
@@ -536,6 +540,22 @@ bool UMultiplayerSessionsSubsystem::IsSessionActive() const
 	}
 
 	return OnlineSessionInterface->GetNamedSession(NAME_GameSession) != nullptr;
+}
+
+void UMultiplayerSessionsSubsystem::ForceDestroyExistingSession()
+{
+	if (!IsSessionActive())
+	{
+		return;
+	}
+
+	UE_VLOG_UELOG(this, LogMultiplayerSessions, Log, TEXT("%s: ForceDestroyExistingSession - Destroying session NAME_GameSession for Subsystem=%s"),
+		*GetName(), *LastSubsystemName.ToString());
+
+	check(OnlineSessionInterface.IsValid());
+
+	// Destroy without invoking any callbacks
+	OnlineSessionInterface->DestroySession(NAME_GameSession);
 }
 
 void UMultiplayerSessionsSubsystem::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)

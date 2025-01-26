@@ -88,6 +88,7 @@ protected:
 	void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
 
 private:
+	void ForceDestroyExistingSession();
 	void DestroyOnlineSubsystem();
 	void SetSubsystemEnabled(const FName& SubsystemName, bool bIsEnabled);
 
